@@ -12,7 +12,7 @@ let package = Package(
             targets: ["SwiftGDTF"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/drmohundro/SWXMLHash.git", from: "7.0.0"),
+        .package(url: "https://github.com/CoreOffice/XMLCoder.git", from: "0.15.0"),
         .package(url: "https://github.com/weichsel/ZIPFoundation", .upToNextMajor(from: "0.9.19")),
     ],
     targets: [
@@ -21,7 +21,7 @@ let package = Package(
         .target(
             name: "SwiftGDTF",
             dependencies: [
-                .product(name: "SWXMLHash", package: "SWXMLHash"),
+                .product(name: "XMLCoder", package: "XMLCoder"),
                 .product(name: "ZIPFoundation", package: "ZIPFoundation")
             ]),
         .testTarget(

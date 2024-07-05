@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import ZIPFoundation
 
 public enum PhysicalUnit: String {
     case none = "None"
@@ -30,20 +31,26 @@ public enum PhysicalUnit: String {
     case angularAcc = "AngularAcc"
     case waveLength = "WaveLength"
     case colorComponent = "ColorComponent"
-    
-    static func fromString(_ rawValue: String) -> PhysicalUnit {
-        return PhysicalUnit(rawValue: rawValue) ?? .none
-    }
+}
+
+public enum SubPhysicalType: String {
+    case placementOffset = "PlacementOffset"
+    case amplitude = "Amplitude"
+    case amplitudeMin = "AmplitudeMin"
+    case amplitudeMax = "AmplitudeMax"
+    case duration = "Duration"
+    case dutyCycle = "DutyCycle"
+    case timeOffset = "TimeOffset"
+    case minimumOpening = "MinimumOpening"
+    case value = "Value"
+    case ratioHorizontal = "RatioHorizontal"
+    case ratioVertical = "RatioVertical"
 }
 
 public enum InterpolationTo: String {
     case linear = "Linear"
     case step = "Step"
     case log = "Log"
-    
-    static func fromString(_ rawValue: String) -> InterpolationTo {
-        return InterpolationTo(rawValue: rawValue) ?? .linear
-    }
 }
 
 public enum ColorSpaceMode: String {
@@ -51,22 +58,6 @@ public enum ColorSpaceMode: String {
     case srgb = "sRGB"
     case proPhoto = "ProPhoto"
     case ansi = "ANSI"
-    
-    static func fromString(_ rawValue: String) -> ColorSpaceMode {
-        return ColorSpaceMode(rawValue: rawValue) ?? .srgb
-    }
-}
-
-public enum CES: String {
-    case ces01 = "CES01"
-    case ces02 = "CES02"
-    case ces03 = "CES03"
-    // Continue for all values up to CES99
-    case ces99 = "CES99"
-    
-    static func fromString(_ rawValue: String) -> CES {
-        return CES(rawValue: rawValue) ?? .ces01
-    }
 }
 
 public enum PrimitiveType: String {
@@ -83,10 +74,6 @@ public enum PrimitiveType: String {
     case base1_1 = "Base1_1"
     case scanner1_1 = "Scanner1_1"
     case conventional1_1 = "Conventional1_1"
-    
-    static func fromString(_ rawValue: String) -> PrimitiveType {
-        return PrimitiveType(rawValue: rawValue) ?? .undefined
-    }
 }
 
 public enum LampType: String {
@@ -94,19 +81,11 @@ public enum LampType: String {
     case tungsten = "Tungsten"
     case halogen = "Halogen"
     case led = "LED"
-    
-    static func fromString(_ rawValue: String) -> LampType {
-        return LampType(rawValue: rawValue) ?? .discharge
-    }
 }
 
 public enum ColorType: String {
     case rgb = "RGB"
     case singleWaveLength = "SingleWaveLength"
-    
-    static func fromString(_ rawValue: String) -> ColorType {
-        return ColorType(rawValue: rawValue) ?? .rgb
-    }
 }
 
 public enum FuseRating: String {
@@ -115,10 +94,6 @@ public enum FuseRating: String {
     case d = "D"
     case k = "K"
     case z = "Z"
-    
-    static func fromString(_ rawValue: String) -> FuseRating {
-        return FuseRating(rawValue: rawValue) ?? .b
-    }
 }
 
 public enum Orientation: String {
@@ -126,10 +101,6 @@ public enum Orientation: String {
     case right = "Right"
     case top = "Top"
     case bottom = "Bottom"
-    
-    static func fromString(_ rawValue: String) -> Orientation {
-        return Orientation(rawValue: rawValue) ?? .left
-    }
 }
 
 public enum ComponentType: String {
@@ -142,10 +113,6 @@ public enum ComponentType: String {
     case networkInput = "NetworkInput"
     case networkOutput = "NetworkOutput"
     case networkInOut = "NetworkInOut"
-    
-    static func fromString(_ rawValue: String) -> ComponentType {
-        return ComponentType(rawValue: rawValue) ?? .input
-    }
 }
 
 public enum BeamType: String {
@@ -156,10 +123,6 @@ public enum BeamType: String {
     case pc = "PC"
     case fresnel = "Fresnel"
     case glow = "Glow"
-    
-    static func fromString(_ rawValue: String) -> BeamType {
-        return BeamType(rawValue: rawValue) ?? .wash
-    }
 }
 
 public enum Snap: String {
@@ -167,29 +130,17 @@ public enum Snap: String {
     case no = "No"
     case on = "On"
     case off = "Off"
-    
-    static func fromString(_ rawValue: String) -> Snap {
-        return Snap(rawValue: rawValue) ?? .no
-    }
 }
 
 public enum Master: String {
     case none = "None"
     case grand = "Grand"
     case group = "Group"
-    
-    static func fromString(_ rawValue: String) -> Master {
-        return Master(rawValue: rawValue) ?? .none
-    }
 }
 
 public enum DmxInvert: String {
     case yes = "Yes"
     case no = "No"
-    
-    static func fromString(_ rawValue: String) -> DmxInvert {
-        return DmxInvert(rawValue: rawValue) ?? .no
-    }
 }
 
 public enum RelationType: String {
@@ -205,47 +156,60 @@ public struct Resource {
 public struct DMXAddress {
     var universe: Int
     var address: Int
-    
-    static func fromString(_ rawValue: String) -> DMXAddress {
+}
+
+extension DMXAddress {
+    init(from rawValue: String) {
         if rawValue.contains(".") {
             let split: [Int] = rawValue.split(separator: ".").map { Int($0)! }
-            return DMXAddress(universe: split[0], address: split[1])
+            self.universe = split[0]
+            self.address = split[1]
+        } else {
+            self.universe = 1
+            self.address = Int(rawValue)!
         }
-        
-        return DMXAddress(universe: 1, address: Int(rawValue)!)
     }
 }
 
 public struct DMXValue {
     var value: Int
     var byteCount: Int
-    
-    static func fromString(_ rawValue: String) -> DMXValue {
+}
+
+extension DMXValue {
+    init(from rawValue: String) {
         let split: [Int] = rawValue.split(separator: "/").map { Int($0)! }
         
-        return DMXValue(value: split[0], byteCount: split[1])
+        self.value = split[0]
+        self.byteCount = split[1]
     }
 }
 
 public struct ColorCIE {
-    var x: Float?
-    var y: Float?
+    var x: Float
+    var y: Float
     var Y: Float?
-    
-    static func fromString(_ rawValue: String) -> ColorCIE {
+}
+
+extension ColorCIE {
+    init(from rawValue: String) {        
         let split: [Float] = rawValue.split(separator: ",").map { Float($0)! }
         
-        // if we do not have all values, return white
-        if split.count != 3 { return ColorCIE(x: 0.3127, y: 0.3290, Y: 100) }
-            
-        return ColorCIE(x: split[safe: 0], y: split[safe: 1], Y: split[safe: 2])
+        self.x = split[0]
+        self.y = split[1]
+        
+        if (split.count == 3) {
+            self.Y = split[2]
+        }
     }
 }
 
 public struct Rotation {
     var matrix: [[Float]]
-    
-    static func fromString(_ rawValue: String) -> Rotation {
+}
+
+extension Rotation {
+    init(from rawValue: String) {
         var strMatrix = rawValue
         strMatrix = strMatrix.replacingOccurrences(of: "}{", with: ",")
         strMatrix = strMatrix.replacingOccurrences(of: "{", with: "")
@@ -258,7 +222,7 @@ public struct Rotation {
         let matrix: [[Float]] = stride(from: 0, to: flatMatrix.count,by: 3)
                                     .map{ Array(flatMatrix[$0..<$0 + 3]) }
         
-        return Rotation(matrix: matrix)
+        self.matrix = matrix
     }
 }
 
@@ -269,8 +233,10 @@ public struct Matrix {
         [0, 0, 1, 0],
         [0, 0, 0, 1],
     ]
-    
-    static func fromString(_ rawValue: String) -> Matrix {
+}
+
+extension Matrix {
+    init(from rawValue: String) {
         var strMatrix = rawValue
         strMatrix = strMatrix.replacingOccurrences(of: "}{", with: ",")
         strMatrix = strMatrix.replacingOccurrences(of: "{", with: "")
@@ -283,30 +249,54 @@ public struct Matrix {
         let matrix: [[Float]] = stride(from: 0, to: flatMatrix.count,by: 4)
                                     .map{ Array(flatMatrix[$0..<$0 + 4]) }
         
-        return Matrix(matrix: matrix)
+        self.matrix = matrix
     }
 }
 
-public struct NodeLink {
-    var start_point: String
-    var path: [String]
-}
+public struct FileResource {
+    public var name: String
+    public var fileExtension: String
+    
+    init?(name: String?, fileExtension: String) {
+        if (name == nil || name!.isEmpty) { return nil }
+        
+        self.name = name!
+        self.fileExtension = fileExtension
+    }
+    
+    init?(filename name: String?) {
+        if (name == nil || name!.isEmpty) { return nil }
 
-public struct ColorSpaceDefinition {
-    var r: ColorCIE
-    var g: ColorCIE
-    var b: ColorCIE
-    var w: ColorCIE
-}
+        let url = URL(fileURLWithPath: name!)
+        
+        self.name = url.deletingPathExtension().lastPathComponent
+        self.fileExtension = url.pathExtension
+    }
+    
+    public var filename: String {
+        return "\(name).\(fileExtension)"
+    }
+    
+    public func resolve(gdtf: Data) -> Data? {
+        do {
+            let zipArchive = try Archive(data: gdtf, accessMode: .read)
+            
+            /// Verify a description.xml file was found, otherwise invalid GDTF
+            guard let entry = zipArchive[filename] else {
+                return nil
+            }
+            
+            /// Make buffer to append extracted ZIP data
+            var xmlData = Data()
 
-public struct ThumbnailOffset {
-    var x: Int
-    var y: Int
-}
-
-extension Collection {
-    /// Returns the element at the specified index if it is within bounds, otherwise nil.
-    subscript (safe index: Index) -> Element? {
-        return indices.contains(index) ? self[index] : nil
+            /// Extract the data into data buffer
+            _ = try zipArchive.extract(entry) { data in
+                xmlData.append(data)
+            }
+            
+            return xmlData
+        } catch {
+            return nil
+        }
     }
 }

@@ -62,7 +62,10 @@ public struct FixtureAttribute {
     public var pretty: String
     public var activationGroup: ActivationGroup?
     public var feature: Feature
+    
+    // This is a node but results in recursive type
     public var mainAttribute: String?
+    
     public var physicalUnit: PhysicalUnit = .none
     public var color: ColorCIE?
     
@@ -201,15 +204,15 @@ public struct DMXMode {
 
 public struct DMXChannel {
     public var dmxBreak: Int
-    public var offset: [Int]
-    public var initialFunction: Node
-    public var highlight: DMXValue
+    public var offset: [Int]?
+    public var initialFunction: ChannelFunction
+    public var highlight: DMXValue?
     
     public var logicalChannels: [LogicalChannel]
 }
 
 public struct LogicalChannel {
-    public var attribute: Node
+    public var attribute: FixtureAttribute
     public var snap: Snap
     public var master: Master
     public var mibFade: Float
@@ -220,7 +223,7 @@ public struct LogicalChannel {
 
 public struct ChannelFunction {
     public var name: String
-    public var attribute: Node
+    public var attribute: FixtureAttribute?
     public var originalAttribute: String
     public var dmxFrom: DMXValue
     public var dmxDefault: DMXValue

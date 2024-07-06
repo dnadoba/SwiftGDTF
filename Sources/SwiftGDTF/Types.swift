@@ -148,11 +148,6 @@ public enum RelationType: String {
     case override = "Override"
 }
 
-public struct Resource {
-    var name: String = ""
-    var extenstion: String
-}
-
 public struct DMXAddress {
     var universe: Int
     var address: Int

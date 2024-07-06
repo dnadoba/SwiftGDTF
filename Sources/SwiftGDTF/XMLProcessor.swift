@@ -9,18 +9,35 @@ import Foundation
 import SWXMLHash
 
 protocol XMLDecodable {
-    init(xml: XMLIndexer)
+    init(xml: XMLIndexer, tree: XMLIndexer)
 }
 
-extension GDTF: XMLDecodable {
+func resolveNode<T: XMLDecodable>(path pathStr: String, base: XMLIndexer, tree fullTree: XMLIndexer) -> T {
+    let path = pathStr.components(separatedBy: ".")
+    var tree = base
+    
+    for step in path {
+        tree = tree.children.first(where: { child in
+            if let name = child.element!.attribute(by: "Name")?.text {
+                return name == step
+            }
+            
+            return false
+        })!
+    }
+    
+    return T(xml: tree, tree: fullTree)    
+}
+
+extension GDTF {
     init(xml: XMLIndexer) {
         self.dataVersion = xml["GDTF"].element!.attribute(by: "DataVersion")!.text
-        self.fixtureType = FixtureType(xml: xml["GDTF"]["FixtureType"])
+        self.fixtureType = FixtureType(xml: xml["GDTF"]["FixtureType"], tree: xml["GDTF"]["FixtureType"])
     }
 }
 
 extension FixtureType: XMLDecodable {
-    init(xml: SWXMLHash.XMLIndexer) {
+    init(xml: XMLIndexer, tree: XMLIndexer) {
         let element = xml.element!
         
         self.name = element.attribute(by: "Name")!.text
@@ -32,13 +49,13 @@ extension FixtureType: XMLDecodable {
         self.refFT = element.attribute(by: "RefFT")?.text
         self.thumbnail = FileResource(name: element.attribute(by: "Thumbnail")?.text, fileExtension: "png")
         
-        self.attributeDefinitions = AttributeDefinitions(xml: xml["AttributeDefinitions"])
+        self.attributeDefinitions = AttributeDefinitions(xml: xml["AttributeDefinitions"], tree: tree)
         
         self.wheels = xml["Wheels"].children.map { wheel in
-            Wheel(xml: wheel)
+            Wheel(xml: wheel, tree: tree)
         }
         
-        self.physicalDescriptions = PhysicalDescriptions(xml: xml["PhysicalDescriptions"])
+        self.physicalDescriptions = PhysicalDescriptions(xml: xml["PhysicalDescriptions"], tree: tree)
     }
 }
 
@@ -47,55 +64,66 @@ extension FixtureType: XMLDecodable {
 ///
 
 extension AttributeDefinitions: XMLDecodable {
-    init(xml: XMLIndexer) {
+    init(xml: XMLIndexer, tree: XMLIndexer) {
         self.activationGroups = xml["ActivationGroups"].children.map { group in
-            ActivationGroup(xml: group)
+            ActivationGroup(xml: group, tree: tree)
         }
         
         self.featureGroups = xml["FeatureGroups"].children.map { group in
-            FeatureGroup(xml: group)
+            FeatureGroup(xml: group, tree: tree)
         }
         
         self.attributes = xml["Attributes"].children.map { attribute in
-            FixtureAttribute(xml: attribute)
+            FixtureAttribute(xml: attribute, tree: tree)
         }
     }
 }
 
 extension ActivationGroup: XMLDecodable {
-    init(xml: XMLIndexer) {
+    init(xml: XMLIndexer, tree: XMLIndexer) {
         self.name = xml.element!.attribute(by: "Name")!.text
     }
 }
 
 extension FeatureGroup: XMLDecodable{
-    init(xml: SWXMLHash.XMLIndexer) {
+    init(xml: XMLIndexer, tree: XMLIndexer) {
         let element = xml.element!
         
         self.name = element.attribute(by: "Name")!.text
         self.pretty = element.attribute(by: "Pretty")!.text
         self.features = xml.children.map { feature in
-            Feature(xml: feature)
+            Feature(xml: feature, tree: tree)
         }
     }
 }
 
 extension Feature: XMLDecodable {
-    init(xml: SWXMLHash.XMLIndexer) {
+    init(xml: XMLIndexer, tree: XMLIndexer) {
         self.name = xml.element!.attribute(by: "Name")!.text
     }
 }
 
 extension FixtureAttribute: XMLDecodable {
-    init(xml: XMLIndexer) {
+    init(xml: XMLIndexer, tree: XMLIndexer) {
         let element = xml.element!
         
         self.name = element.attribute(by: "Name")!.text
         self.pretty = element.attribute(by: "Pretty")!.text
-        self.activationGroup = element.attribute(by: "ActivationGroup")?.text
-        self.feature = element.attribute(by: "Feature")!.text
-        self.mainAttribute = element.attribute(by: "MainAttribute")?.text
         
+        // Resolve ActivationGroup Node
+        if let groupPath = element.attribute(by: "ActivationGroup")?.text {
+            self.activationGroup = resolveNode(path: groupPath, base: tree["AttributeDefinitions"]["ActivationGroups"], tree: tree)
+        }
+        
+        // Resolve Feature Node
+        self.feature = resolveNode(
+                path: element.attribute(by: "Feature")!.text, 
+                base: tree["AttributeDefinitions"]["FeatureGroups"],
+                tree: tree)
+        
+        // Resolve Feature Node
+        self.mainAttribute = element.attribute(by: "MainAttribute")?.text
+                
         if let physicalUnitString = element.attribute(by: "PhysicalUnit")?.text {
             self.physicalUnit = PhysicalUnit(rawValue: physicalUnitString)!
         }
@@ -105,13 +133,13 @@ extension FixtureAttribute: XMLDecodable {
         }
         
         self.subPhysicalUnits = xml.children.map { subPhysicalUnit in
-            SubPhysicalUnit(xml: subPhysicalUnit)
+            SubPhysicalUnit(xml: subPhysicalUnit, tree: tree)
         }
     }
 }
 
 extension SubPhysicalUnit: XMLDecodable {
-    init(xml: XMLIndexer) {
+    init(xml: XMLIndexer, tree: XMLIndexer) {
         let element = xml.element!
         
         self.physicalFrom = Float(element.attribute(by: "PhysicalTo")!.text)!
@@ -128,33 +156,48 @@ extension SubPhysicalUnit: XMLDecodable {
 ///
 
 extension Wheel: XMLDecodable {
-    init(xml: SWXMLHash.XMLIndexer) {
+    init(xml: XMLIndexer, tree: XMLIndexer) {
         let element = xml.element!
         
         self.name = element.attribute(by: "Name")!.text
         self.slots = xml.children.map { slot in
-            Slot(xml: slot)
+            Slot(xml: slot, tree: tree)
         }
     }
 }
 
 extension Slot: XMLDecodable {
-    init(xml: XMLIndexer) {
+    init(xml: XMLIndexer, tree: XMLIndexer) {
         let element = xml.element!
         
         self.name = element.attribute(by: "Name")!.text
         self.color = ColorCIE(from: element.attribute(by: "Color")!.text)
-        self.filter = element.attribute(by: "Filter")?.text
+        
+        if let filterPath = element.attribute(by: "Filter")?.text {
+            self.filter = resolveNode(path: filterPath,
+                                      base: tree["PhysicalDescriptions"]["Filters"], 
+                                      tree: tree)
+        }
+        
         self.mediaFileName = FileResource(name: element.attribute(by: "MediaFileName")?.text, fileExtension: "png")
         
-        self.facets = xml.children.map { facet in
-            PrismFacet(xml: facet)
+        self.facets = []
+        
+        for child in xml.children {
+            switch child.element?.name {
+                case "Facet":
+                    self.facets.append(PrismFacet(xml: child, tree: tree))
+                case "AnimationSystem":
+                    self.animationSystem = AnimationSystem(xml: child, tree: tree)
+                default:
+                    continue
+            }
         }
     }
 }
 
 extension PrismFacet: XMLDecodable {
-    init(xml: XMLIndexer) {
+    init(xml: XMLIndexer, tree: XMLIndexer) {
         let element = xml.element!
         
         self.color = ColorCIE(from: element.attribute(by: "Color")!.text)
@@ -162,38 +205,51 @@ extension PrismFacet: XMLDecodable {
     }
 }
 
+extension AnimationSystem: XMLDecodable {
+    init(xml: XMLIndexer, tree: XMLIndexer) {
+        let element = xml.element!
+        
+        self.p1 = element.attribute(by: "P1")!.text.split(separator: ",").map { Float($0)! }
+        self.p2 = element.attribute(by: "P1")!.text.split(separator: ",").map { Float($0)! }
+        self.p3 = element.attribute(by: "P1")!.text.split(separator: ",").map { Float($0)! }
+        
+        self.radius = Float(element.attribute(by: "P1")!.text)!
+    }
+}
+
 ///
 /// Physical Description Schema
 ///
+
 extension PhysicalDescriptions: XMLDecodable {
     // this object can not exist in which case we will be null
-    init(xml: XMLIndexer) {
+    init(xml: XMLIndexer, tree: XMLIndexer) {
         self.emitters = xml["Emitters"].children.map { emitter in
-            Emitter(xml: emitter)
+            Emitter(xml: emitter, tree: tree)
         }
         
         self.filters = xml["Filters"].children.map { filter in
-            Filter(xml: filter)
+            Filter(xml: filter, tree: tree)
         }
         
         if let _ = xml["ColorSpace"].element {
-            self.colorSpace = ColorSpace(xml: xml["ColorSpace"])
+            self.colorSpace = ColorSpace(xml: xml["ColorSpace"], tree: tree)
         }
         
         self.additionalColorSpaces = xml["AdditionalColorSpaces"].children.map { space in
-            ColorSpace(xml: space)
+            ColorSpace(xml: space, tree: tree)
         }
         
         self.dmxProfiles = xml["DMXProfiles"].children.map { dmx in
-            DMXProfile(xml: dmx)
+            DMXProfile(xml: dmx, tree: tree)
         }
         
-        self.properties = Properties(xml: xml["Properties"])
+        self.properties = Properties(xml: xml["Properties"], tree: tree)
     }
 }
 
 extension Emitter: XMLDecodable {
-    init(xml: SWXMLHash.XMLIndexer) {
+    init(xml: XMLIndexer, tree: XMLIndexer) {
         let element = xml.element!
         self.name = element.attribute(by: "Name")!.text
         
@@ -208,13 +264,13 @@ extension Emitter: XMLDecodable {
         self.diodePart = element.attribute(by: "DiodePart")?.text
         
         self.measurements = xml.children.map { measurement in
-            GDTFMeasurement(xml: measurement)
+            GDTFMeasurement(xml: measurement, tree: tree)
         }
     }
 }
 
 extension GDTFMeasurement: XMLDecodable {
-    init(xml: SWXMLHash.XMLIndexer) {
+    init(xml: XMLIndexer, tree: XMLIndexer) {
         let element = xml.element!
         
         self.physical = Float(element.attribute(by: "Physical")!.text)!
@@ -230,13 +286,13 @@ extension GDTFMeasurement: XMLDecodable {
         self.interpolationTo = InterpolationTo(rawValue: element.attribute(by: "InterpolationTo")!.text)!
         
         self.measurements = xml.children.map { point in
-            MeasurementPoint(xml: point)
+            MeasurementPoint(xml: point, tree: tree)
         }
     }
 }
 
 extension MeasurementPoint: XMLDecodable {
-    init(xml: SWXMLHash.XMLIndexer) {
+    init(xml: XMLIndexer, tree: XMLIndexer) {
         let element = xml.element!
         
         self.energy = Float(element.attribute(by: "Energy")!.text)!
@@ -245,20 +301,20 @@ extension MeasurementPoint: XMLDecodable {
 }
 
 extension Filter: XMLDecodable {
-    init(xml: SWXMLHash.XMLIndexer) {
+    init(xml: XMLIndexer, tree: XMLIndexer) {
         let element = xml.element!
         
         self.name = element.attribute(by: "Name")!.text
         self.color = ColorCIE(from: element.attribute(by: "Color")!.text)
         
         self.measurements = xml.children.map { measurement in
-            GDTFMeasurement(xml: measurement)
+            GDTFMeasurement(xml: measurement, tree: tree)
         }
     }
 }
 
 extension ColorSpace: XMLDecodable {
-    init(xml: SWXMLHash.XMLIndexer) {
+    init(xml: XMLIndexer, tree: XMLIndexer) {
         let element = xml.element!
         
         self.name = element.attribute(by: "Name")!.text
@@ -267,19 +323,19 @@ extension ColorSpace: XMLDecodable {
 }
 
 extension DMXProfile: XMLDecodable {
-    init(xml: SWXMLHash.XMLIndexer) {
+    init(xml: XMLIndexer, tree: XMLIndexer) {
         let element = xml.element!
         
         self.name = element.attribute(by: "Name")!.text
         
         self.points = xml.children.map { point in
-            Point(xml: point)
+            Point(xml: point, tree: tree)
         }
     }
 }
 
 extension Point: XMLDecodable {
-    init(xml: SWXMLHash.XMLIndexer) {
+    init(xml: XMLIndexer, tree: XMLIndexer) {
         let element = xml.element!
         
         self.dmxPercentage = Float(element.attribute(by: "DMXPercentage")?.text ?? "0")!
@@ -292,16 +348,16 @@ extension Point: XMLDecodable {
 }
 
 extension Properties: XMLDecodable {
-    init(xml: SWXMLHash.XMLIndexer) {
+    init(xml: XMLIndexer, tree: XMLIndexer) {
         self.legHeight = Float(xml["LegHeight"].element?.attribute(by: "Value")?.text ?? "0")!
         self.weight = Float(xml["Weight"].element?.attribute(by: "Value")?.text ?? "0")!
         
-        self.operatingTemp = OperatingTemp(xml: xml["OperatingTemperature"])
+        self.operatingTemp = OperatingTemp(xml: xml["OperatingTemperature"], tree: tree)
     }
 }
 
 extension OperatingTemp: XMLDecodable {
-    init(xml: SWXMLHash.XMLIndexer) {
+    init(xml: XMLIndexer, tree: XMLIndexer) {
         let element = xml.element!
         
         self.low = Float(element.attribute(by: "Low")!.text)!

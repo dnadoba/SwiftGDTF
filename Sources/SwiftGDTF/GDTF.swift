@@ -8,11 +8,13 @@
 import Foundation
 import SWXMLHash
 
+/// TODO: handle resolution of nodes
+public typealias Node = String
+
 public struct GDTF {
     public var dataVersion: String
     public var fixtureType: FixtureType
 }
-
 
 public struct FixtureType {
     
@@ -58,8 +60,8 @@ public struct Feature {
 public struct FixtureAttribute {
     public var name: String
     public var pretty: String
-    public var activationGroup: String?
-    public var feature: String
+    public var activationGroup: ActivationGroup?
+    public var feature: Feature
     public var mainAttribute: String?
     public var physicalUnit: PhysicalUnit = .none
     public var color: ColorCIE?
@@ -86,15 +88,24 @@ public struct Wheel {
 public struct Slot {
     public var name: String
     public var color: ColorCIE
-    public var filter: String?
+    public var filter: Filter?
     public var mediaFileName: FileResource?
     
     public var facets: [PrismFacet]
+    public var animationSystem: AnimationSystem?
 }
 
 public struct PrismFacet {
     public var color: ColorCIE
     public var rotation: Rotation
+}
+
+public struct AnimationSystem {
+    public var p1: [Float]
+    public var p2: [Float]
+    public var p3: [Float]
+    
+    public var radius: Float
 }
 
 ///
@@ -175,6 +186,104 @@ public struct OperatingTemp {
     public var high: Float
 }
 
+///
+/// DMX Mode Schema
+///
 
+public struct DMXMode {
+    public var name: String
+    public var description: String
+    
+    public var channels: [DMXChannel]
+    public var relations: [Relation]
+    public var macros: [Macro]
+}
 
+public struct DMXChannel {
+    public var dmxBreak: Int
+    public var offset: [Int]
+    public var initialFunction: Node
+    public var highlight: DMXValue
+    
+    public var logicalChannels: [LogicalChannel]
+}
 
+public struct LogicalChannel {
+    public var attribute: Node
+    public var snap: Snap
+    public var master: Master
+    public var mibFade: Float
+    public var dmxChangeTimeLimit: Float
+    
+    public var channelFunctions: [ChannelFunction]
+}
+
+public struct ChannelFunction {
+    public var name: String
+    public var attribute: Node
+    public var originalAttribute: String
+    public var dmxFrom: DMXValue
+    public var dmxDefault: DMXValue
+    public var physicalFrom: Float
+    public var physicalTo: Float
+    public var realFade: Float
+    public var realAcceleration: Float
+    
+    public var wheel: Node?
+    public var emitter: Node?
+    public var colorSpace: Node?
+    
+    public var modeMaster: Node?
+    public var modeFrom: DMXValue
+    public var modeTo: DMXValue
+    
+    public var dmxProfile: Node
+    
+    public var minimum: Float
+    public var maximum: Float
+    public var customName: String
+    
+    public var channelSets: [ChannelSet]
+    public var subChannelSets: [SubChannelSet]
+}
+
+public struct ChannelSet {
+    public var name: String
+    public var dmxFrom: DMXValue
+    public var physicalFrom: Float
+    public var physicalTo: Float
+    public var wheelSlotIndex: Int
+}
+
+public struct SubChannelSet {
+    public var name: String
+    public var physicalFrom: Float
+    public var physicalTo: Float
+    public var subPhysicalUnit: Node
+    public var wheelSlotIndex: Int
+    public var dmxProfile: Node?
+}
+
+public struct Relation {
+    public var name: String
+    public var master: Node
+    public var follower: Node
+    public var type: RelationType
+}
+
+public struct Macro {
+    public var name: String
+    public var channelFunction: Node
+    
+    public var steps: [MacroStep]
+}
+
+public struct MacroStep {
+    public var duration: Float
+    public var values: [MacroValue]
+}
+
+public struct MacroValue {
+    public var value: DMXValue
+    public var dmxChannel: Node
+}

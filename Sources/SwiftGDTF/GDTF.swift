@@ -8,7 +8,8 @@
 import Foundation
 import SWXMLHash
 
-/// TODO: handle resolution of nodes
+/// This is used to show a String that maps to a node that we cannot currently process
+/// (usually because it results in a recursive type)
 public typealias Node = String
 
 public struct GDTF {
@@ -30,6 +31,7 @@ public struct FixtureType {
     public var attributeDefinitions: AttributeDefinitions
     public var wheels: [Wheel]
     public var physicalDescriptions: PhysicalDescriptions?
+    public var dmxModes: [DMXMode]
 }
 
 ///
@@ -64,7 +66,7 @@ public struct FixtureAttribute {
     public var feature: Feature
     
     // This is a node but results in recursive type
-    public var mainAttribute: String?
+    public var mainAttribute: Node?
     
     public var physicalUnit: PhysicalUnit = .none
     public var color: ColorCIE?
@@ -203,6 +205,7 @@ public struct DMXMode {
 }
 
 public struct DMXChannel {
+    public var name: String?
     public var dmxBreak: Int
     public var offset: [Int]?
     public var initialFunction: ChannelFunction
@@ -232,15 +235,18 @@ public struct ChannelFunction {
     public var realFade: Float
     public var realAcceleration: Float
     
-    public var wheel: Node?
-    public var emitter: Node?
-    public var colorSpace: Node?
+    public var wheel: Wheel?
+    public var emitter: Emitter?
+    public var filter: Filter?
+    public var colorSpace: ColorSpace?
     
+    // modeMaster is a node but can have multiple types
+    // wil revisit this later
     public var modeMaster: Node?
-    public var modeFrom: DMXValue
-    public var modeTo: DMXValue
+    public var modeFrom: DMXValue?
+    public var modeTo: DMXValue?
     
-    public var dmxProfile: Node
+    public var dmxProfile: DMXProfile?
     
     public var minimum: Float
     public var maximum: Float
@@ -255,28 +261,28 @@ public struct ChannelSet {
     public var dmxFrom: DMXValue
     public var physicalFrom: Float
     public var physicalTo: Float
-    public var wheelSlotIndex: Int
+    public var wheelSlotIndex: Int?
 }
 
 public struct SubChannelSet {
     public var name: String
     public var physicalFrom: Float
     public var physicalTo: Float
-    public var subPhysicalUnit: Node
-    public var wheelSlotIndex: Int
-    public var dmxProfile: Node?
+    public var subPhysicalUnit: SubPhysicalUnit
+    public var wheelSlotIndex: Int?
+    public var dmxProfile: DMXProfile?
 }
 
 public struct Relation {
     public var name: String
-    public var master: Node
-    public var follower: Node
+    public var master: DMXChannel
+    public var follower: DMXChannel
     public var type: RelationType
 }
 
 public struct Macro {
     public var name: String
-    public var channelFunction: Node
+    public var channelFunction: ChannelFunction?
     
     public var steps: [MacroStep]
 }
@@ -288,5 +294,5 @@ public struct MacroStep {
 
 public struct MacroValue {
     public var value: DMXValue
-    public var dmxChannel: Node
+    public var dmxChannel: DMXChannel
 }

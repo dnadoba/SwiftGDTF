@@ -28,10 +28,24 @@ func resolveNode<T: XMLDecodable>(path pathStr: String?, base: XMLIndexer, tree 
 }
 
 extension XMLIndexer {
-    func mapChildrenToTypeArray<T: XMLDecodable>(tree fullTree: XMLIndexer) -> [T] {
+    func parseChildrenToArray<T: XMLDecodable>(tree fullTree: XMLIndexer) -> [T] {
         return self.children.map { child in
-            T(xml: child, tree: fullTree)
+            child.parse(tree: fullTree)
         }
+    }
+    
+    func parseChildrenToArray<T: XMLDecodableWithParent>(parent: XMLIndexer, tree fullTree: XMLIndexer) -> [T] {
+        return self.children.map { child in
+            child.parse(parent: parent, tree: fullTree)
+        }
+    }
+    
+    func parse<T: XMLDecodable>(tree fullTree: XMLIndexer) -> T {
+        return T(xml: self, tree: fullTree)
+    }
+    
+    func parse<T: XMLDecodableWithParent>(parent: XMLIndexer, tree fullTree: XMLIndexer) -> T {
+        return T(xml: self, parent: parent, tree: fullTree)
     }
 }
 

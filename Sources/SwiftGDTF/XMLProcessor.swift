@@ -12,11 +12,15 @@ protocol XMLDecodable {
     init(xml: XMLIndexer, tree: XMLIndexer)
 }
 
+protocol XMLDecodableWithParent {
+    init(xml: XMLIndexer, parent: XMLIndexer, tree: XMLIndexer)
+}
+
 
 extension GDTF {
     init(xml: XMLIndexer) {
         self.dataVersion = xml["GDTF"].element!.attribute(by: "DataVersion")!.text
-        self.fixtureType = FixtureType(xml: xml["GDTF"]["FixtureType"], tree: xml["GDTF"]["FixtureType"])
+        self.fixtureType = xml["GDTF"]["FixtureType"].parse(tree: xml["GDTF"]["FixtureType"])
     }
 }
 
@@ -33,11 +37,11 @@ extension FixtureType: XMLDecodable {
         self.refFT = element.attribute(by: "RefFT")?.text
         self.thumbnail = FileResource(name: element.attribute(by: "Thumbnail")?.text, fileExtension: "png")
         
-        self.attributeDefinitions = AttributeDefinitions(xml: xml["AttributeDefinitions"], tree: tree)
+        self.attributeDefinitions = xml["AttributeDefinitions"].parse(tree: tree)
+        self.physicalDescriptions = xml["PhysicalDescriptions"].parse(tree: tree)
         
-        self.wheels = xml["Wheels"].mapChildrenToTypeArray(tree: tree)
-        
-        self.physicalDescriptions = PhysicalDescriptions(xml: xml["PhysicalDescriptions"], tree: tree)
+        self.wheels = xml["Wheels"].parseChildrenToArray(tree: tree)
+        self.dmxModes = xml["DMXModes"].parseChildrenToArray(tree: tree)
     }
 }
 
@@ -47,9 +51,9 @@ extension FixtureType: XMLDecodable {
 
 extension AttributeDefinitions: XMLDecodable {
     init(xml: XMLIndexer, tree: XMLIndexer) {
-        self.activationGroups = xml["ActivationGroups"].mapChildrenToTypeArray(tree: tree)
-        self.featureGroups = xml["FeatureGroups"].mapChildrenToTypeArray(tree: tree)
-        self.attributes = xml["Attributes"].mapChildrenToTypeArray(tree: tree)
+        self.activationGroups = xml["ActivationGroups"].parseChildrenToArray(tree: tree)
+        self.featureGroups = xml["FeatureGroups"].parseChildrenToArray(tree: tree)
+        self.attributes = xml["Attributes"].parseChildrenToArray(tree: tree)
     }
 }
 
@@ -65,7 +69,7 @@ extension FeatureGroup: XMLDecodable{
         
         self.name = element.attribute(by: "Name")!.text
         self.pretty = element.attribute(by: "Pretty")!.text
-        self.features = xml.mapChildrenToTypeArray(tree: tree)
+        self.features = xml.parseChildrenToArray(tree: tree)
     }
 }
 
@@ -102,7 +106,7 @@ extension FixtureAttribute: XMLDecodable {
             self.color = ColorCIE(from: colorString)
         }
         
-        self.subPhysicalUnits = xml.mapChildrenToTypeArray(tree: tree)
+        self.subPhysicalUnits = xml.parseChildrenToArray(tree: tree)
     }
 }
 
@@ -128,7 +132,7 @@ extension Wheel: XMLDecodable {
         let element = xml.element!
         
         self.name = element.attribute(by: "Name")!.text
-        self.slots = xml.mapChildrenToTypeArray(tree: tree)
+        self.slots = xml.parseChildrenToArray(tree: tree)
     }
 }
 
@@ -147,17 +151,10 @@ extension Slot: XMLDecodable {
         
         self.mediaFileName = FileResource(name: element.attribute(by: "MediaFileName")?.text, fileExtension: "png")
         
-        self.facets = []
+        self.facets = xml.filterChildren({ child, _ in child.name == "Facet"}).parseChildrenToArray(tree: tree)
         
-        for child in xml.children {
-            switch child.element?.name {
-                case "Facet":
-                    self.facets.append(PrismFacet(xml: child, tree: tree))
-                case "AnimationSystem":
-                    self.animationSystem = AnimationSystem(xml: child, tree: tree)
-                default:
-                    continue
-            }
+        if let animationSystem = xml["AnimationSystem"].element {
+            self.animationSystem = xml["AnimationSystem"].parse(tree: tree)
         }
     }
 }
@@ -190,17 +187,17 @@ extension AnimationSystem: XMLDecodable {
 extension PhysicalDescriptions: XMLDecodable {
     // this object can not exist in which case we will be null
     init(xml: XMLIndexer, tree: XMLIndexer) {
-        self.emitters = xml["Emitters"].mapChildrenToTypeArray(tree: tree)
-        self.filters = xml["Filters"].mapChildrenToTypeArray(tree: tree)
+        self.emitters = xml["Emitters"].parseChildrenToArray(tree: tree)
+        self.filters = xml["Filters"].parseChildrenToArray(tree: tree)
         
         if xml["ColorSpace"].element != nil {
-            self.colorSpace = ColorSpace(xml: xml["ColorSpace"], tree: tree)
+            self.colorSpace = xml["ColorSpace"].parse(tree: tree)
         }
         
-        self.additionalColorSpaces = xml["AdditionalColorSpaces"].mapChildrenToTypeArray(tree: tree)
-        self.dmxProfiles = xml["DMXProfiles"].mapChildrenToTypeArray(tree: tree)
+        self.additionalColorSpaces = xml["AdditionalColorSpaces"].parseChildrenToArray(tree: tree)
+        self.dmxProfiles = xml["DMXProfiles"].parseChildrenToArray(tree: tree)
         
-        self.properties = Properties(xml: xml["Properties"], tree: tree)
+        self.properties = xml["Properties"].parse(tree: tree)
     }
 }
 
@@ -219,7 +216,7 @@ extension Emitter: XMLDecodable {
         
         self.diodePart = element.attribute(by: "DiodePart")?.text
         
-        self.measurements = xml.mapChildrenToTypeArray(tree: tree)
+        self.measurements = xml.parseChildrenToArray(tree: tree)
     }
 }
 
@@ -237,7 +234,7 @@ extension GDTFMeasurement: XMLDecodable {
                 
         self.interpolationTo = element.attribute(by: "InterpolationTo")?.toEnum() ?? .linear
         
-        self.measurements = xml.mapChildrenToTypeArray(tree: tree)
+        self.measurements = xml.parseChildrenToArray(tree: tree)
     }
 }
 
@@ -257,7 +254,7 @@ extension Filter: XMLDecodable {
         self.name = element.attribute(by: "Name")!.text
         self.color = ColorCIE(from: element.attribute(by: "Color")!.text)
         
-        self.measurements = xml.mapChildrenToTypeArray(tree: tree)
+        self.measurements = xml.parseChildrenToArray(tree: tree)
     }
 }
 
@@ -275,7 +272,7 @@ extension DMXProfile: XMLDecodable {
         let element = xml.element!
         
         self.name = element.attribute(by: "Name")!.text
-        self.points = xml.mapChildrenToTypeArray(tree: tree)
+        self.points = xml.parseChildrenToArray(tree: tree)
     }
 }
 
@@ -298,7 +295,7 @@ extension Properties: XMLDecodable {
         self.weight = xml["Weight"].element?.attribute(by: "Value")?.float ?? 0
         
         if xml["OperatingTemperature"].element != nil {
-            self.operatingTemp = OperatingTemp(xml: xml["OperatingTemperature"], tree: tree)
+            self.operatingTemp = xml["OperatingTemperature"].parse(tree: tree)
         } else {
             self.operatingTemp = OperatingTemp(low: 0, high: 40)
         }
@@ -319,19 +316,21 @@ extension OperatingTemp: XMLDecodable {
 ///
 
 extension DMXMode: XMLDecodable {
-    init(xml: SWXMLHash.XMLIndexer, tree: SWXMLHash.XMLIndexer) {
+    init(xml: XMLIndexer, tree: XMLIndexer) {
         let element = xml.element!
-        
         self.name = element.attribute(by: "Name")!.text
         self.description = element.attribute(by: "Description")!.text
         
-        self.channels = xml["DMXChannels"].mapChildrenToTypeArray(tree: tree)
+        self.channels = xml["DMXChannels"].parseChildrenToArray(tree: tree)
+        self.relations = xml["Relations"].parseChildrenToArray(parent: xml, tree: tree)
+        self.macros = xml["FTMacros"].parseChildrenToArray(parent: xml, tree: tree)
     }
 }
 
 extension DMXChannel: XMLDecodable {
-    init(xml: SWXMLHash.XMLIndexer, tree: SWXMLHash.XMLIndexer) {
+    init(xml: XMLIndexer, tree: XMLIndexer) {
         let element = xml.element!
+        
         
         self.dmxBreak = Int(element.attribute(by: "DMXBreak")!.text)!
         
@@ -339,21 +338,37 @@ extension DMXChannel: XMLDecodable {
             self.offset = element.attribute(by: "DMXBreak")!.text.split(separator: ",").map { Int($0)! }
         }
         
-        // compute the channel path without the first element (which seems to define the current node
-        var channelPath: String = element.attribute(by: "InitialFunction")!.text
-                                    .components(separatedBy: ".")
-                                    .dropFirst()
-                                    .joined(separator: ".")
+        // technically we do have a link but it does not follow convention of Node
+        // the default is first logical channel function
+        // the name of the channel is actually the first element in the Initial Function attribute
+        let initialFunctionParts = element.attribute(by: "InitialFunction")?.text.components(separatedBy: ".")
+        assert(initialFunctionParts?.count == 3)
         
-        self.initialFunction = resolveNode(path: channelPath, base: xml, tree: tree)!
-        self.logicalChannels = xml.mapChildrenToTypeArray(tree: tree)
+        self.name = initialFunctionParts?.first
+        
+        let foundInitial: ChannelFunction? = xml
+            .filterChildren({ child, _ in
+                return child.attribute(by: "Attribute")?.text == initialFunctionParts![1]
+            }).children.first?
+            .filterChildren({child, _ in
+                return child.attribute(by: "Name")?.text == initialFunctionParts![2]
+            }).children.first?.parse(tree: tree)
+        
+        self.initialFunction = foundInitial ?? xml["LogicalChannel"].children.first!.parse(tree: tree)
+        
+        self.logicalChannels = xml.parseChildrenToArray(tree: tree)
+        
+        let highlight = element.attribute(by: "Highlight")?.text
+        if highlight != nil && highlight != "None" {
+            self.highlight = DMXValue(from: highlight!)
+        }
     }
 }
 
 extension LogicalChannel: XMLDecodable {
-    init(xml: SWXMLHash.XMLIndexer, tree: SWXMLHash.XMLIndexer) {
-        let element = tree.element!
-        
+    init(xml: XMLIndexer, tree: XMLIndexer) {
+        let element = xml.element!
+
         self.attribute = resolveNode(
             path: element.attribute(by: "Attribute")!.text,
             base: tree["AttributeDefinitions"]["Attributes"],
@@ -365,14 +380,14 @@ extension LogicalChannel: XMLDecodable {
         self.mibFade = element.attribute(by: "MIBFade")?.float ?? 0
         self.dmxChangeTimeLimit = element.attribute(by: "DMXChangeTimeLimit")?.float ?? 0
         
-        self.channelFunctions = xml.mapChildrenToTypeArray(tree: tree)
+        self.channelFunctions = xml.parseChildrenToArray(tree: tree)
     }
 }
 
 extension ChannelFunction: XMLDecodable {
-    init(xml: SWXMLHash.XMLIndexer, tree: SWXMLHash.XMLIndexer) {
-        let element = tree.element!
-        
+    init(xml: XMLIndexer, tree: XMLIndexer) {
+        let element = xml.element!
+
         self.name = element.attribute(by: "Name")!.text
         
         if element.attribute(by: "Attribute")?.text != "NoFeature" {
@@ -381,8 +396,8 @@ extension ChannelFunction: XMLDecodable {
                                          tree: tree)
         }
         
-        self.originalAttribute = element.attribute(by: "OriginalAttribute")!.text
-        self.dmxFrom = DMXValue(from: element.attribute(by: "DMXFrom")!.text)
+        self.originalAttribute = element.attribute(by: "OriginalAttribute")?.text ?? ""
+        self.dmxFrom = DMXValue(from: element.attribute(by: "DMXFrom")?.text ?? "0/1")
         self.dmxDefault = DMXValue(from: element.attribute(by: "Default")!.text)
         
         self.physicalFrom = element.attribute(by: "PhysicalFrom")?.float ?? 0
@@ -390,9 +405,162 @@ extension ChannelFunction: XMLDecodable {
         self.realFade = element.attribute(by: "RealFade")?.float ?? 0
         self.realAcceleration = element.attribute(by: "RealAcceleration")?.float ?? 0
         
-        // handle node resolution for each
+        // handle node resolution for each type of function
         
+        // Wheel
+        if let wheelName = element.attribute(by: "Wheel")?.text {
+            self.wheel = resolveNode(path: wheelName,
+                                     base: tree["Wheels"],
+                                     tree: tree)
+        }
         
+        // Emitter
+        if let emitterName = element.attribute(by: "Emitter")?.text {
+            self.emitter = resolveNode(path: emitterName,
+                                     base: tree["PhysicalDescriptions"]["Emitter"],
+                                     tree: tree)
+        }
+        
+        // Filter
+        if let filterName = element.attribute(by: "Filter")?.text {
+            self.filter = resolveNode(path: filterName,
+                                     base: tree["PhysicalDescriptions"]["Filters"],
+                                     tree: tree)
+        }
+        
+        // ColorSpace
+        if let filterName = element.attribute(by: "ColorSpace")?.text {
+            self.filter = resolveNode(path: filterName,
+                                     base: tree["PhysicalDescriptions"],
+                                     tree: tree)
+        }
+        
+        // Mode Master
+        self.modeMaster = element.attribute(by: "ModeMaster")?.text
+        // modeFrom/modeTo are only used when modeMaster is prsent
+        if self.modeMaster != nil {
+            self.modeFrom = DMXValue(from: element.attribute(by: "ModeFrom")?.text ?? "0/1")
+            self.modeTo = DMXValue(from: element.attribute(by: "ModeTo")?.text ?? "0/1")
+        }
+        
+        // DMX Profile
+        if let profilePath = element.attribute(by: "DMXProfile")?.text {
+            self.dmxProfile = resolveNode(path: profilePath,
+                                     base: tree["DMXProfiles"],
+                                     tree: tree)
+        }
+        
+        self.minimum = element.attribute(by: "Min")?.float ?? self.physicalFrom
+        self.maximum = element.attribute(by: "Max")?.float ?? self.physicalTo
+        self.customName = element.attribute(by: "CustomName")!.text
+        
+        self.channelSets = xml.filterChildren({ child, _ in child.name == "ChannelSet"}).parseChildrenToArray(parent: xml, tree: tree)
+        
+        self.subChannelSets = xml.filterChildren({ child, _ in child.name == "SubChannelSet"}).parseChildrenToArray(parent: xml, tree: tree)
     }
-    
+}
+
+
+extension ChannelSet: XMLDecodableWithParent {
+    init(xml: XMLIndexer, parent: XMLIndexer, tree: XMLIndexer) {
+        let element = xml.element!
+        
+        self.name = element.attribute(by: "Name")!.text
+        self.dmxFrom = DMXValue(from: element.attribute(by: "DMXFrom")?.text ?? "0/1")
+        
+        // the defaults for these reference parent, they will be nil if not provided
+        self.physicalFrom = element.attribute(by: "PhysicalFrom")?.float
+                                ?? parent.element!.attribute(by: "PhysicalFrom")!.float!
+        self.physicalTo = element.attribute(by: "PhysicalTo")?.float
+                                ?? parent.element!.attribute(by: "PhysicalTo")!.float!
+        
+        self.wheelSlotIndex = element.attribute(by: "WheelSlotIndex")?.int
+    }
+}
+
+extension SubChannelSet: XMLDecodableWithParent {
+    init(xml: XMLIndexer, parent: XMLIndexer, tree: XMLIndexer) {
+        let element = xml.element!
+        
+        self.name = element.attribute(by: "Name")?.text ?? ""
+        
+        self.physicalFrom = element.attribute(by: "PhysicalFrom")!.float!
+        self.physicalTo = element.attribute(by: "PhysicalTo")!.float!
+        
+        // needs the parent's
+        self.subPhysicalUnit = resolveNode(path: element.attribute(by: "SubPhysicalUnit")!.text,
+                                           base: parent,
+                                           tree: tree)!
+        
+        self.dmxProfile = resolveNode(
+            path: element.attribute(by: "DMXProfile")!.text,
+            base: tree["DMXProfiles"],
+            tree: tree)
+        
+        self.wheelSlotIndex = element.attribute(by: "PhysicalTo")?.int
+    }
+}
+
+extension Relation: XMLDecodableWithParent {
+    init(xml: XMLIndexer, parent: XMLIndexer, tree: XMLIndexer) {
+        let element = xml.element!
+        
+        self.name = element.attribute(by: "Name")!.text
+        self.master = resolveNode(path: element.attribute(by: "Master")!.text,
+                                  base: parent,
+                                  tree: tree)!
+        
+        self.follower = resolveNode(path: element.attribute(by: "Follower")!.text,
+                                  base: parent,
+                                  tree: tree)!
+        
+        self.type = element.attribute(by: "Type")!.toEnum()!
+    }
+}
+
+extension Macro: XMLDecodableWithParent {
+    init(xml: XMLIndexer, parent: XMLIndexer, tree: XMLIndexer) {
+        let element = xml.element!
+        
+        self.name = element.attribute(by: "Name")!.text
+        
+        if let channelFunction = element.attribute(by: "ChannelFunction")?.text {
+            print("looking channel")
+            self.channelFunction = resolveNode(path: channelFunction,
+                                               base: parent,
+                                               tree: tree)
+            print("found channel")
+        }
+        
+        self.steps = xml["MacroDMX"].parseChildrenToArray(parent: parent, tree: tree)
+    }
+}
+
+extension MacroStep: XMLDecodableWithParent {
+    init(xml: SWXMLHash.XMLIndexer, parent: SWXMLHash.XMLIndexer, tree: SWXMLHash.XMLIndexer) {
+        let element = xml.element!
+        
+        self.duration = element.attribute(by: "Duration")!.float ?? 1
+        self.values = xml.parseChildrenToArray(parent: parent, tree: tree)
+    }
+}
+
+extension MacroValue: XMLDecodableWithParent {
+    init(xml: SWXMLHash.XMLIndexer, parent: SWXMLHash.XMLIndexer, tree: SWXMLHash.XMLIndexer) {
+        let element = xml.element!
+                
+        // do our own lookup of the channel since it does not follow normal Node Name schema
+        var foundChannel: DMXChannel? = nil
+        
+        for child in parent["DMXChannels"].children {
+            let parts = child.element?.attribute(by: "InitialFunction")?.text.components(separatedBy: ".")
+            
+            if parts?[0] == element.attribute(by: "DMXChannel")!.text {
+                foundChannel = child.parse(tree: tree)
+            }
+        }
+     
+        self.dmxChannel = foundChannel ?? parent["DMXChannels"].children.first!.parse(tree: tree)
+        self.value = DMXValue(from: element.attribute(by: "Value")!.text)
+    }
 }

@@ -153,7 +153,7 @@ extension Slot: XMLDecodable {
         
         self.facets = xml.filterChildren({ child, _ in child.name == "Facet"}).parseChildrenToArray(tree: tree)
         
-        if let animationSystem = xml["AnimationSystem"].element {
+        if let _ = xml["AnimationSystem"].element {
             self.animationSystem = xml["AnimationSystem"].parse(tree: tree)
         }
     }

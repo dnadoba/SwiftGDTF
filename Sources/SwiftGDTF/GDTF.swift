@@ -18,7 +18,6 @@ public struct GDTF {
 }
 
 public struct FixtureType {
-    
     public var name: String
     public var shortName: String
     public var longName: String

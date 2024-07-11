@@ -37,10 +37,17 @@ extension FixtureType: XMLDecodable {
         self.refFT = element.attribute(by: "RefFT")?.text
         self.thumbnail = FileResource(name: element.attribute(by: "Thumbnail")?.text, fileExtension: "png")
         
+        self.attributeDefinitions = AttributeDefinitions(xml: xml["AttributeDefinitions"], tree: tree)
+        
         self.attributeDefinitions = xml["AttributeDefinitions"].parse(tree: tree)
         self.physicalDescriptions = xml["PhysicalDescriptions"].parse(tree: tree)
         
         self.wheels = xml["Wheels"].parseChildrenToArray(tree: tree)
+        
+        xml["Wheels"].children.map { wheel in
+            Wheel(xml: wheel, tree: tree)
+        }
+        
         self.dmxModes = xml["DMXModes"].parseChildrenToArray(tree: tree)
     }
 }
@@ -417,7 +424,7 @@ extension ChannelFunction: XMLDecodable {
         // Emitter
         if let emitterName = element.attribute(by: "Emitter")?.text {
             self.emitter = resolveNode(path: emitterName,
-                                     base: tree["PhysicalDescriptions"]["Emitter"],
+                                     base: tree["PhysicalDescriptions"]["Emitters"],
                                      tree: tree)
         }
         
@@ -452,7 +459,7 @@ extension ChannelFunction: XMLDecodable {
         
         self.minimum = element.attribute(by: "Min")?.float ?? self.physicalFrom
         self.maximum = element.attribute(by: "Max")?.float ?? self.physicalTo
-        self.customName = element.attribute(by: "CustomName")!.text
+        self.customName = element.attribute(by: "CustomName")?.text
         
         self.channelSets = xml.filterChildren({ child, _ in child.name == "ChannelSet"}).parseChildrenToArray(parent: xml, tree: tree)
         

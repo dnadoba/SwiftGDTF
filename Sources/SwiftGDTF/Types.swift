@@ -149,8 +149,8 @@ public enum RelationType: String {
 }
 
 public struct DMXAddress {
-    var universe: Int
-    var address: Int
+    public var universe: Int
+    public var address: Int
 }
 
 extension DMXAddress {
@@ -167,8 +167,8 @@ extension DMXAddress {
 }
 
 public struct DMXValue {
-    var value: Int
-    var byteCount: Int
+    public var value: Int
+    public var byteCount: Int
 }
 
 extension DMXValue {
@@ -181,9 +181,9 @@ extension DMXValue {
 }
 
 public struct ColorCIE {
-    var x: Float
-    var y: Float
-    var Y: Float?
+    public var x: Float
+    public var y: Float
+    public var Y: Float?
 }
 
 extension ColorCIE {
@@ -200,7 +200,7 @@ extension ColorCIE {
 }
 
 public struct Rotation {
-    var matrix: [[Float]]
+    public var matrix: [[Float]]
 }
 
 extension Rotation {
@@ -222,7 +222,7 @@ extension Rotation {
 }
 
 public struct Matrix {
-    var matrix: [[Float]] = [
+    public var matrix: [[Float]] = [
         [1, 0, 0, 0],
         [0, 1, 0, 0],
         [0, 0, 1, 0],

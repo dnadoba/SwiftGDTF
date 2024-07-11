@@ -249,7 +249,7 @@ public struct ChannelFunction {
     
     public var minimum: Float
     public var maximum: Float
-    public var customName: String
+    public var customName: String?
     
     public var channelSets: [ChannelSet]
     public var subChannelSets: [SubChannelSet]

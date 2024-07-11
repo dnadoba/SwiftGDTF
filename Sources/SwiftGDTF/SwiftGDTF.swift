@@ -75,3 +75,4 @@ public func loadGDTFFixtureMode(mode: String, url: URL) throws -> DMXMode {
     
     return mode.parse(tree: xmlTree["GDTF"]["FixtureType"])
 }
+

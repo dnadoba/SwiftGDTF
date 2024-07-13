@@ -8,7 +8,7 @@
 import Foundation
 import ZIPFoundation
 
-public enum PhysicalUnit: String {
+public enum PhysicalUnit: String, Codable {
     case none = "None"
     case percent = "Percent"
     case length = "Length"
@@ -33,7 +33,7 @@ public enum PhysicalUnit: String {
     case colorComponent = "ColorComponent"
 }
 
-public enum SubPhysicalType: String {
+public enum SubPhysicalType: String, Codable {
     case placementOffset = "PlacementOffset"
     case amplitude = "Amplitude"
     case amplitudeMin = "AmplitudeMin"
@@ -47,20 +47,20 @@ public enum SubPhysicalType: String {
     case ratioVertical = "RatioVertical"
 }
 
-public enum InterpolationTo: String {
+public enum InterpolationTo: String, Codable {
     case linear = "Linear"
     case step = "Step"
     case log = "Log"
 }
 
-public enum ColorSpaceMode: String {
+public enum ColorSpaceMode: String, Codable {
     case custom = "Custom"
     case srgb = "sRGB"
     case proPhoto = "ProPhoto"
     case ansi = "ANSI"
 }
 
-public enum PrimitiveType: String {
+public enum PrimitiveType: String, Codable {
     case undefined = "Undefined"
     case cube = "Cube"
     case cylinder = "Cylinder"
@@ -76,19 +76,19 @@ public enum PrimitiveType: String {
     case conventional1_1 = "Conventional1_1"
 }
 
-public enum LampType: String {
+public enum LampType: String, Codable {
     case discharge = "Discharge"
     case tungsten = "Tungsten"
     case halogen = "Halogen"
     case led = "LED"
 }
 
-public enum ColorType: String {
+public enum ColorType: String, Codable {
     case rgb = "RGB"
     case singleWaveLength = "SingleWaveLength"
 }
 
-public enum FuseRating: String {
+public enum FuseRating: String, Codable {
     case b = "B"
     case c = "C"
     case d = "D"
@@ -96,14 +96,14 @@ public enum FuseRating: String {
     case z = "Z"
 }
 
-public enum Orientation: String {
+public enum Orientation: String, Codable {
     case left = "Left"
     case right = "Right"
     case top = "Top"
     case bottom = "Bottom"
 }
 
-public enum ComponentType: String {
+public enum ComponentType: String, Codable {
     case input = "Input"
     case output = "Output"
     case powerSource = "PowerSource"
@@ -115,7 +115,7 @@ public enum ComponentType: String {
     case networkInOut = "NetworkInOut"
 }
 
-public enum BeamType: String {
+public enum BeamType: String, Codable {
     case wash = "Wash"
     case spot = "Spot"
     case none = "None"
@@ -125,30 +125,30 @@ public enum BeamType: String {
     case glow = "Glow"
 }
 
-public enum Snap: String {
+public enum Snap: String, Codable {
     case yes = "Yes"
     case no = "No"
     case on = "On"
     case off = "Off"
 }
 
-public enum Master: String {
+public enum Master: String, Codable {
     case none = "None"
     case grand = "Grand"
     case group = "Group"
 }
 
-public enum DmxInvert: String {
+public enum DmxInvert: String, Codable {
     case yes = "Yes"
     case no = "No"
 }
 
-public enum RelationType: String {
+public enum RelationType: String, Codable {
     case multiply = "Multiply"
     case override = "Override"
 }
 
-public struct DMXAddress {
+public struct DMXAddress: Codable {
     public var universe: Int
     public var address: Int
 }
@@ -166,7 +166,7 @@ extension DMXAddress {
     }
 }
 
-public struct DMXValue {
+public struct DMXValue: Codable {
     public var value: Int
     public var byteCount: Int
 }
@@ -180,7 +180,7 @@ extension DMXValue {
     }
 }
 
-public struct ColorCIE {
+public struct ColorCIE: Codable {
     public var x: Float
     public var y: Float
     public var Y: Float?
@@ -199,7 +199,7 @@ extension ColorCIE {
     }
 }
 
-public struct Rotation {
+public struct Rotation: Codable {
     public var matrix: [[Float]]
 }
 
@@ -221,7 +221,7 @@ extension Rotation {
     }
 }
 
-public struct Matrix {
+public struct Matrix: Codable {
     public var matrix: [[Float]] = [
         [1, 0, 0, 0],
         [0, 1, 0, 0],
@@ -248,7 +248,7 @@ extension Matrix {
     }
 }
 
-public struct FileResource {
+public struct FileResource: Codable {
     public var name: String
     public var fileExtension: String
     

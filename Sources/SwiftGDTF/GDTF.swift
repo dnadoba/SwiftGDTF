@@ -12,12 +12,12 @@ import SWXMLHash
 /// (usually because it results in a recursive type)
 public typealias Node = String
 
-public struct GDTF {
+public struct GDTF: Codable {
     public var dataVersion: String
     public var fixtureType: FixtureType
 }
 
-public struct FixtureType {
+public struct FixtureType: Codable {
     public var name: String
     public var shortName: String
     public var longName: String
@@ -34,7 +34,7 @@ public struct FixtureType {
 }
 
 // this is an identical copy to FixtureType but only includes top level attributes
-public struct FixtureInfo {
+public struct FixtureInfo: Codable {
     public var name: String
     public var shortName: String
     public var longName: String
@@ -49,28 +49,28 @@ public struct FixtureInfo {
 /// AttributeDefinitions Schema
 ///
 
-public struct AttributeDefinitions {
+public struct AttributeDefinitions: Codable {
     public var activationGroups: [ActivationGroup]?
     public var featureGroups: [FeatureGroup]
     public var attributes: [FixtureAttribute]
 }
 
-public struct ActivationGroup {
+public struct ActivationGroup: Codable {
     public var name: String
 }
 
-public struct FeatureGroup {
+public struct FeatureGroup: Codable {
     public var name: String
     public var pretty: String
     
     public var features: [Feature]
 }
 
-public struct Feature {
+public struct Feature: Codable {
     public var name: String
 }
 
-public struct FixtureAttribute {
+public struct FixtureAttribute: Codable {
     public var name: String
     public var pretty: String
     public var activationGroup: ActivationGroup?
@@ -85,7 +85,7 @@ public struct FixtureAttribute {
     public var subPhysicalUnits: [SubPhysicalUnit] = []
 }
 
-public struct SubPhysicalUnit {
+public struct SubPhysicalUnit: Codable {
     public var type: SubPhysicalType
     public var physicalUnit: PhysicalUnit = .none
     public var physicalFrom: Float = 0
@@ -96,12 +96,12 @@ public struct SubPhysicalUnit {
 /// Wheels Schema
 ///
 
-public struct Wheel {
+public struct Wheel: Codable {
     public var name: String
     public var slots: [Slot]
 }
 
-public struct Slot {
+public struct Slot: Codable {
     public var name: String
     public var color: ColorCIE
     public var filter: Filter?
@@ -111,12 +111,12 @@ public struct Slot {
     public var animationSystem: AnimationSystem?
 }
 
-public struct PrismFacet {
+public struct PrismFacet: Codable {
     public var color: ColorCIE
     public var rotation: Rotation
 }
 
-public struct AnimationSystem {
+public struct AnimationSystem: Codable {
     public var p1: [Float]
     public var p2: [Float]
     public var p3: [Float]
@@ -128,7 +128,7 @@ public struct AnimationSystem {
 /// Physical Description Schema
 ///
 
-public struct PhysicalDescriptions {
+public struct PhysicalDescriptions: Codable {
     public var emitters: [Emitter]
     public var filters: [Filter]
     public var colorSpace: ColorSpace?
@@ -137,14 +137,14 @@ public struct PhysicalDescriptions {
     public var properties: Properties?
 }
 
-public struct Emitter {
+public struct Emitter: Codable {
     public var name: String
     public var color: ColorCIE?
     public var dominantWavelength: Float?
     public var diodePart: String?    
 }
 
-public struct GDTFMeasurement {
+public struct GDTFMeasurement: Codable {
     public var physical: Float
     public var luminousIntensity: Float?
     public var transmission: Float?
@@ -153,19 +153,19 @@ public struct GDTFMeasurement {
     public var measurements: [MeasurementPoint]
 }
 
-public struct MeasurementPoint {
+public struct MeasurementPoint: Codable {
     public var wavelength: Float
     public var energy: Float
 }
 
-public struct Filter {
+public struct Filter: Codable {
     public var name: String
     public var color: ColorCIE
     
     public var measurements: [GDTFMeasurement]
 }
 
-public struct ColorSpace {
+public struct ColorSpace: Codable {
     public var name: String
     public var mode: ColorSpaceMode
     
@@ -176,12 +176,12 @@ public struct ColorSpace {
     public var whitePoint: ColorCIE?
 }
 
-public struct DMXProfile {
+public struct DMXProfile: Codable {
     public var name: String
     public var points: [Point]
 }
 
-public struct Point {
+public struct Point: Codable {
     public var dmxPercentage: Float
     public var cfc0: Float
     public var cfc1: Float
@@ -189,13 +189,13 @@ public struct Point {
     public var cfc3: Float
 }
 
-public struct Properties {
+public struct Properties: Codable {
     public var operatingTemp: OperatingTemp
     public var weight: Float
     public var legHeight: Float
 }
 
-public struct OperatingTemp {
+public struct OperatingTemp: Codable {
     public var low: Float
     public var high: Float
 }
@@ -204,7 +204,7 @@ public struct OperatingTemp {
 /// DMX Mode Schema
 ///
 
-public struct DMXMode {
+public struct DMXMode: Codable {
     public var name: String
     public var description: String
     
@@ -213,7 +213,7 @@ public struct DMXMode {
     public var macros: [Macro]
 }
 
-public struct DMXChannel {
+public struct DMXChannel: Codable {
     public var name: String?
     public var dmxBreak: Int
     public var offset: [Int]?
@@ -223,7 +223,7 @@ public struct DMXChannel {
     public var logicalChannels: [LogicalChannel]
 }
 
-public struct LogicalChannel {
+public struct LogicalChannel: Codable {
     public var attribute: FixtureAttribute
     public var snap: Snap
     public var master: Master
@@ -233,7 +233,7 @@ public struct LogicalChannel {
     public var channelFunctions: [ChannelFunction]
 }
 
-public struct ChannelFunction {
+public struct ChannelFunction: Codable {
     public var name: String
     public var attribute: FixtureAttribute?
     public var originalAttribute: String
@@ -265,7 +265,7 @@ public struct ChannelFunction {
     public var subChannelSets: [SubChannelSet]
 }
 
-public struct ChannelSet {
+public struct ChannelSet: Codable {
     public var name: String
     public var dmxFrom: DMXValue
     public var physicalFrom: Float
@@ -273,7 +273,7 @@ public struct ChannelSet {
     public var wheelSlotIndex: Int?
 }
 
-public struct SubChannelSet {
+public struct SubChannelSet: Codable {
     public var name: String
     public var physicalFrom: Float
     public var physicalTo: Float
@@ -282,26 +282,26 @@ public struct SubChannelSet {
     public var dmxProfile: DMXProfile?
 }
 
-public struct Relation {
+public struct Relation: Codable {
     public var name: String
     public var master: DMXChannel
     public var follower: DMXChannel
     public var type: RelationType
 }
 
-public struct Macro {
+public struct Macro: Codable {
     public var name: String
     public var channelFunction: ChannelFunction?
     
     public var steps: [MacroStep]
 }
 
-public struct MacroStep {
+public struct MacroStep: Codable {
     public var duration: Float
     public var values: [MacroValue]
 }
 
-public struct MacroValue {
+public struct MacroValue: Codable {
     public var value: DMXValue
     public var dmxChannel: DMXChannel
 }

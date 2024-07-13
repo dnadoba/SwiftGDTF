@@ -33,6 +33,18 @@ public struct FixtureType {
     public var dmxModes: [DMXMode]
 }
 
+// this is an identical copy to FixtureType but only includes top level attributes
+public struct FixtureInfo {
+    public var name: String
+    public var shortName: String
+    public var longName: String
+    public var manufacturer: String
+    public var description: String
+    public var fixtureTypeID: String
+    public var refFT: String?
+    public var thumbnail: FileResource?
+}
+
 ///
 /// AttributeDefinitions Schema
 ///
@@ -129,9 +141,7 @@ public struct Emitter {
     public var name: String
     public var color: ColorCIE?
     public var dominantWavelength: Float?
-    public var diodePart: String?
-    
-    public var measurements: [GDTFMeasurement]
+    public var diodePart: String?    
 }
 
 public struct GDTFMeasurement {

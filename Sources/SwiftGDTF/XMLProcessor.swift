@@ -36,19 +36,26 @@ extension FixtureType: XMLDecodable {
         self.fixtureTypeID = element.attribute(by: "FixtureTypeID")!.text
         self.refFT = element.attribute(by: "RefFT")?.text
         self.thumbnail = FileResource(name: element.attribute(by: "Thumbnail")?.text, fileExtension: "png")
-        
-        self.attributeDefinitions = AttributeDefinitions(xml: xml["AttributeDefinitions"], tree: tree)
-        
+                
         self.attributeDefinitions = xml["AttributeDefinitions"].parse(tree: tree)
         self.physicalDescriptions = xml["PhysicalDescriptions"].parse(tree: tree)
-        
         self.wheels = xml["Wheels"].parseChildrenToArray(tree: tree)
-        
-        xml["Wheels"].children.map { wheel in
-            Wheel(xml: wheel, tree: tree)
-        }
-        
         self.dmxModes = xml["DMXModes"].parseChildrenToArray(tree: tree)
+    }
+}
+
+extension FixtureInfo: XMLDecodable {
+    init(xml: XMLIndexer, tree: XMLIndexer) {
+        let element = xml.element!
+        
+        self.name = element.attribute(by: "Name")!.text
+        self.shortName = element.attribute(by: "ShortName")!.text
+        self.longName = element.attribute(by: "LongName")!.text
+        self.manufacturer = element.attribute(by: "Manufacturer")!.text
+        self.description = element.attribute(by: "Description")!.text
+        self.fixtureTypeID = element.attribute(by: "FixtureTypeID")!.text
+        self.refFT = element.attribute(by: "RefFT")?.text
+        self.thumbnail = FileResource(name: element.attribute(by: "Thumbnail")?.text, fileExtension: "png")
     }
 }
 
@@ -222,8 +229,9 @@ extension Emitter: XMLDecodable {
         }
         
         self.diodePart = element.attribute(by: "DiodePart")?.text
-        
-        self.measurements = xml.parseChildrenToArray(tree: tree)
+  
+        /// You can enable this if you would like, however its a lot of unneccessary data
+//        self.measurements = xml.parseChildrenToArray(tree: tree)
     }
 }
 

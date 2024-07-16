@@ -170,22 +170,17 @@ public struct DMXValue: Codable {
     public var value: Int
     public var byteCount: Int
     
-    init(value: Int, byteCount: Int) {
-        self.value = value
-        self.byteCount = byteCount
-    }
-    
-    var maxValue: Int {
+    public var maxValue: Int {
         return 2^(8*byteCount)
     }
 }
 
 extension DMXValue {
-    init(_ percentage: Float, byteCount: Int) {
+    public init(_ percentage: Float, byteCount: Int) {
         self.init(value: Int(percentage.constrain(min: 0, max: 1)) * 2^(8*byteCount), byteCount: byteCount)
     }
 
-    init(from rawValue: String) {
+    public init(from rawValue: String) {
         let split: [Int] = rawValue.split(separator: "/").map { Int($0)! }
         self.init(value: split[0], byteCount: split[1])
     }

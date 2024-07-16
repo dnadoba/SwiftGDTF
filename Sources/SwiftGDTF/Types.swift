@@ -169,14 +169,26 @@ extension DMXAddress {
 public struct DMXValue: Codable {
     public var value: Int
     public var byteCount: Int
-}
+    
+    init(value: Int, byteCount: Int) {
+        self.value = value
+        self.byteCount = byteCount
+    }
+    
+    init(_ percentage: Float, byteCount: Int) {
+        self.byteCount = byteCount
+        self.value = Int(percentage.constrain(min: 0, max: 1)) * 2^(8*byteCount)
+    }
 
-extension DMXValue {
     init(from rawValue: String) {
         let split: [Int] = rawValue.split(separator: "/").map { Int($0)! }
         
         self.value = split[0]
         self.byteCount = split[1]
+    }
+    
+    var maxValue: Int {
+        return 2^(8*byteCount)
     }
 }
 

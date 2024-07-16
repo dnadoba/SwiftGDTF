@@ -62,3 +62,17 @@ extension XMLAttribute {
         return T(rawValue: self.text as! T.RawValue)
     }
 }
+
+extension Float {
+    func constrain(min: Float, max: Float) -> Float {
+        if self > max {
+            return max
+        }
+        
+        if self < min {
+            return min
+        }
+        
+        return self
+    }
+}

@@ -50,8 +50,8 @@ extension XMLIndexer {
 }
 
 extension XMLAttribute {
-    var float: Float? {
-        return Float(self.text)
+    var double: Double? {
+        return Double(self.text)
     }
     
     var int: Int? {
@@ -63,8 +63,8 @@ extension XMLAttribute {
     }
 }
 
-extension Float {
-    func constrain(min: Float, max: Float) -> Float {
+extension Double {
+    func constrain(min: Double, max: Double) -> Double {
         if self > max {
             return max
         }

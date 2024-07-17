@@ -88,8 +88,8 @@ public struct FixtureAttribute: Codable {
 public struct SubPhysicalUnit: Codable {
     public var type: SubPhysicalType
     public var physicalUnit: PhysicalUnit = .none
-    public var physicalFrom: Float = 0
-    public var physicalTo: Float = 1
+    public var physicalFrom: Double = 0
+    public var physicalTo: Double = 1
 }
 
 ///
@@ -117,11 +117,11 @@ public struct PrismFacet: Codable {
 }
 
 public struct AnimationSystem: Codable {
-    public var p1: [Float]
-    public var p2: [Float]
-    public var p3: [Float]
+    public var p1: [Double]
+    public var p2: [Double]
+    public var p3: [Double]
     
-    public var radius: Float
+    public var radius: Double
 }
 
 ///
@@ -140,22 +140,22 @@ public struct PhysicalDescriptions: Codable {
 public struct Emitter: Codable {
     public var name: String
     public var color: ColorCIE?
-    public var dominantWavelength: Float?
+    public var dominantWavelength: Double?
     public var diodePart: String?    
 }
 
 public struct GDTFMeasurement: Codable {
-    public var physical: Float
-    public var luminousIntensity: Float?
-    public var transmission: Float?
+    public var physical: Double
+    public var luminousIntensity: Double?
+    public var transmission: Double?
     public var interpolationTo: InterpolationTo
     
     public var measurements: [MeasurementPoint]
 }
 
 public struct MeasurementPoint: Codable {
-    public var wavelength: Float
-    public var energy: Float
+    public var wavelength: Double
+    public var energy: Double
 }
 
 public struct Filter: Codable {
@@ -182,22 +182,22 @@ public struct DMXProfile: Codable {
 }
 
 public struct Point: Codable {
-    public var dmxPercentage: Float
-    public var cfc0: Float
-    public var cfc1: Float
-    public var cfc2: Float
-    public var cfc3: Float
+    public var dmxPercentage: Double
+    public var cfc0: Double
+    public var cfc1: Double
+    public var cfc2: Double
+    public var cfc3: Double
 }
 
 public struct Properties: Codable {
     public var operatingTemp: OperatingTemp
-    public var weight: Float
-    public var legHeight: Float
+    public var weight: Double
+    public var legHeight: Double
 }
 
 public struct OperatingTemp: Codable {
-    public var low: Float
-    public var high: Float
+    public var low: Double
+    public var high: Double
 }
 
 ///
@@ -227,8 +227,8 @@ public struct LogicalChannel: Codable {
     public var attribute: FixtureAttribute
     public var snap: Snap
     public var master: Master
-    public var mibFade: Float
-    public var dmxChangeTimeLimit: Float
+    public var mibFade: Double
+    public var dmxChangeTimeLimit: Double
     
     public var channelFunctions: [ChannelFunction]
 }
@@ -239,10 +239,10 @@ public struct ChannelFunction: Codable {
     public var originalAttribute: String
     public var dmxFrom: DMXValue
     public var dmxDefault: DMXValue
-    public var physicalFrom: Float
-    public var physicalTo: Float
-    public var realFade: Float
-    public var realAcceleration: Float
+    public var physicalFrom: Double
+    public var physicalTo: Double
+    public var realFade: Double
+    public var realAcceleration: Double
     
     public var wheel: Wheel?
     public var emitter: Emitter?
@@ -257,8 +257,8 @@ public struct ChannelFunction: Codable {
     
     public var dmxProfile: DMXProfile?
     
-    public var minimum: Float
-    public var maximum: Float
+    public var minimum: Double
+    public var maximum: Double
     public var customName: String?
     
     public var channelSets: [ChannelSet]
@@ -268,15 +268,15 @@ public struct ChannelFunction: Codable {
 public struct ChannelSet: Codable {
     public var name: String
     public var dmxFrom: DMXValue
-    public var physicalFrom: Float
-    public var physicalTo: Float
+    public var physicalFrom: Double
+    public var physicalTo: Double
     public var wheelSlotIndex: Int?
 }
 
 public struct SubChannelSet: Codable {
     public var name: String
-    public var physicalFrom: Float
-    public var physicalTo: Float
+    public var physicalFrom: Double
+    public var physicalTo: Double
     public var subPhysicalUnit: SubPhysicalUnit
     public var wheelSlotIndex: Int?
     public var dmxProfile: DMXProfile?
@@ -297,7 +297,7 @@ public struct Macro: Codable {
 }
 
 public struct MacroStep: Codable {
-    public var duration: Float
+    public var duration: Double
     public var values: [MacroValue]
 }
 

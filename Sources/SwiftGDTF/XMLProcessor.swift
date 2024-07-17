@@ -128,8 +128,8 @@ extension SubPhysicalUnit: XMLDecodable {
     init(xml: XMLIndexer, tree: XMLIndexer) {
         let element = xml.element!
         
-        self.physicalFrom = element.attribute(by: "PhysicalFrom")?.float ?? 0
-        self.physicalTo = element.attribute(by: "PhysicalTo")?.float ?? 1
+        self.physicalFrom = element.attribute(by: "PhysicalFrom")?.double ?? 0
+        self.physicalTo = element.attribute(by: "PhysicalTo")?.double ?? 1
         
         self.physicalUnit = element.attribute(by: "PhysicalUnit")?.toEnum() ?? .none
         
@@ -186,11 +186,11 @@ extension AnimationSystem: XMLDecodable {
     init(xml: XMLIndexer, tree: XMLIndexer) {
         let element = xml.element!
         
-        self.p1 = element.attribute(by: "P1")!.text.split(separator: ",").map { Float($0)! }
-        self.p2 = element.attribute(by: "P1")!.text.split(separator: ",").map { Float($0)! }
-        self.p3 = element.attribute(by: "P1")!.text.split(separator: ",").map { Float($0)! }
+        self.p1 = element.attribute(by: "P1")!.text.split(separator: ",").map { Double($0)! }
+        self.p2 = element.attribute(by: "P1")!.text.split(separator: ",").map { Double($0)! }
+        self.p3 = element.attribute(by: "P1")!.text.split(separator: ",").map { Double($0)! }
         
-        self.radius = Float(element.attribute(by: "P1")!.text)!
+        self.radius = Double(element.attribute(by: "P1")!.text)!
     }
 }
 
@@ -225,7 +225,7 @@ extension Emitter: XMLDecodable {
         }
         
         if let wavelength = element.attribute(by: "DominantWaveLength")?.text {
-            self.dominantWavelength = Float(wavelength)
+            self.dominantWavelength = Double(wavelength)
         }
         
         self.diodePart = element.attribute(by: "DiodePart")?.text
@@ -239,12 +239,12 @@ extension GDTFMeasurement: XMLDecodable {
     init(xml: XMLIndexer, tree: XMLIndexer) {
         let element = xml.element!
         
-        self.physical = Float(element.attribute(by: "Physical")!.text)!
+        self.physical = Double(element.attribute(by: "Physical")!.text)!
         
-        self.luminousIntensity = element.attribute(by: "LuminousIntensity")?.float
+        self.luminousIntensity = element.attribute(by: "LuminousIntensity")?.double
         
         if let transmission = element.attribute(by: "Transmission")?.text {
-            self.transmission = Float(transmission)!
+            self.transmission = Double(transmission)!
         }
                 
         self.interpolationTo = element.attribute(by: "InterpolationTo")?.toEnum() ?? .linear
@@ -257,8 +257,8 @@ extension MeasurementPoint: XMLDecodable {
     init(xml: XMLIndexer, tree: XMLIndexer) {
         let element = xml.element!
         
-        self.energy = element.attribute(by: "Energy")!.float!
-        self.wavelength = element.attribute(by: "WaveLength")!.float!
+        self.energy = element.attribute(by: "Energy")!.double!
+        self.wavelength = element.attribute(by: "WaveLength")!.double!
     }
 }
 
@@ -295,19 +295,19 @@ extension Point: XMLDecodable {
     init(xml: XMLIndexer, tree: XMLIndexer) {
         let element = xml.element!
         
-        self.dmxPercentage = Float(element.attribute(by: "DMXPercentage")?.text ?? "0")!
+        self.dmxPercentage = Double(element.attribute(by: "DMXPercentage")?.text ?? "0")!
         
-        self.cfc0 = element.attribute(by: "CFC0")?.float ?? 0
-        self.cfc1 = element.attribute(by: "CFC1")?.float ?? 0
-        self.cfc2 = element.attribute(by: "CFC2")?.float ?? 0
-        self.cfc3 = element.attribute(by: "CFC3")?.float ?? 0
+        self.cfc0 = element.attribute(by: "CFC0")?.double ?? 0
+        self.cfc1 = element.attribute(by: "CFC1")?.double ?? 0
+        self.cfc2 = element.attribute(by: "CFC2")?.double ?? 0
+        self.cfc3 = element.attribute(by: "CFC3")?.double ?? 0
     }
 }
 
 extension Properties: XMLDecodable {
     init(xml: XMLIndexer, tree: XMLIndexer) {
-        self.legHeight = xml["LegHeight"].element?.attribute(by: "Value")?.float ?? 0
-        self.weight = xml["Weight"].element?.attribute(by: "Value")?.float ?? 0
+        self.legHeight = xml["LegHeight"].element?.attribute(by: "Value")?.double ?? 0
+        self.weight = xml["Weight"].element?.attribute(by: "Value")?.double ?? 0
         
         if xml["OperatingTemperature"].element != nil {
             self.operatingTemp = xml["OperatingTemperature"].parse(tree: tree)
@@ -321,8 +321,8 @@ extension OperatingTemp: XMLDecodable {
     init(xml: XMLIndexer, tree: XMLIndexer) {
         let element = xml.element!
         
-        self.low = element.attribute(by: "Low")?.float ?? 0
-        self.high = element.attribute(by: "High")?.float ?? 40
+        self.low = element.attribute(by: "Low")?.double ?? 0
+        self.high = element.attribute(by: "High")?.double ?? 40
     }
 }
 
@@ -392,8 +392,8 @@ extension LogicalChannel: XMLDecodable {
         self.snap = element.attribute(by: "Attribute")?.toEnum() ?? .no
         self.master = element.attribute(by: "Master")?.toEnum() ?? .none
         
-        self.mibFade = element.attribute(by: "MIBFade")?.float ?? 0
-        self.dmxChangeTimeLimit = element.attribute(by: "DMXChangeTimeLimit")?.float ?? 0
+        self.mibFade = element.attribute(by: "MIBFade")?.double ?? 0
+        self.dmxChangeTimeLimit = element.attribute(by: "DMXChangeTimeLimit")?.double ?? 0
         
         self.channelFunctions = xml.parseChildrenToArray(tree: tree)
     }
@@ -415,10 +415,10 @@ extension ChannelFunction: XMLDecodable {
         self.dmxFrom = DMXValue(from: element.attribute(by: "DMXFrom")?.text ?? "0/1")
         self.dmxDefault = DMXValue(from: element.attribute(by: "Default")!.text)
         
-        self.physicalFrom = element.attribute(by: "PhysicalFrom")?.float ?? 0
-        self.physicalTo = element.attribute(by: "PhysicalTo")?.float ?? 1
-        self.realFade = element.attribute(by: "RealFade")?.float ?? 0
-        self.realAcceleration = element.attribute(by: "RealAcceleration")?.float ?? 0
+        self.physicalFrom = element.attribute(by: "PhysicalFrom")?.double ?? 0
+        self.physicalTo = element.attribute(by: "PhysicalTo")?.double ?? 1
+        self.realFade = element.attribute(by: "RealFade")?.double ?? 0
+        self.realAcceleration = element.attribute(by: "RealAcceleration")?.double ?? 0
         
         // handle node resolution for each type of function
         
@@ -465,8 +465,8 @@ extension ChannelFunction: XMLDecodable {
                                      tree: tree)
         }
         
-        self.minimum = element.attribute(by: "Min")?.float ?? self.physicalFrom
-        self.maximum = element.attribute(by: "Max")?.float ?? self.physicalTo
+        self.minimum = element.attribute(by: "Min")?.double ?? self.physicalFrom
+        self.maximum = element.attribute(by: "Max")?.double ?? self.physicalTo
         self.customName = element.attribute(by: "CustomName")?.text
         
         self.channelSets = xml.filterChildren({ child, _ in child.name == "ChannelSet"}).parseChildrenToArray(parent: xml, tree: tree)
@@ -484,10 +484,10 @@ extension ChannelSet: XMLDecodableWithParent {
         self.dmxFrom = DMXValue(from: element.attribute(by: "DMXFrom")?.text ?? "0/1")
         
         // the defaults for these reference parent, they will be nil if not provided
-        self.physicalFrom = element.attribute(by: "PhysicalFrom")?.float
-                                ?? parent.element!.attribute(by: "PhysicalFrom")!.float!
-        self.physicalTo = element.attribute(by: "PhysicalTo")?.float
-                                ?? parent.element!.attribute(by: "PhysicalTo")!.float!
+        self.physicalFrom = element.attribute(by: "PhysicalFrom")?.double
+                                ?? parent.element!.attribute(by: "PhysicalFrom")!.double!
+        self.physicalTo = element.attribute(by: "PhysicalTo")?.double
+                                ?? parent.element!.attribute(by: "PhysicalTo")!.double!
         
         self.wheelSlotIndex = element.attribute(by: "WheelSlotIndex")?.int
     }
@@ -499,8 +499,8 @@ extension SubChannelSet: XMLDecodableWithParent {
         
         self.name = element.attribute(by: "Name")?.text ?? ""
         
-        self.physicalFrom = element.attribute(by: "PhysicalFrom")!.float!
-        self.physicalTo = element.attribute(by: "PhysicalTo")!.float!
+        self.physicalFrom = element.attribute(by: "PhysicalFrom")!.double!
+        self.physicalTo = element.attribute(by: "PhysicalTo")!.double!
         
         // needs the parent's
         self.subPhysicalUnit = resolveNode(path: element.attribute(by: "SubPhysicalUnit")!.text,
@@ -555,7 +555,7 @@ extension MacroStep: XMLDecodableWithParent {
     init(xml: SWXMLHash.XMLIndexer, parent: SWXMLHash.XMLIndexer, tree: SWXMLHash.XMLIndexer) {
         let element = xml.element!
         
-        self.duration = element.attribute(by: "Duration")!.float ?? 1
+        self.duration = element.attribute(by: "Duration")!.double ?? 1
         self.values = xml.parseChildrenToArray(parent: parent, tree: tree)
     }
 }

@@ -171,7 +171,7 @@ public struct DMXValue: Codable {
     public var byteCount: Int
     
     public var maxValue: Int {
-        return Int(powf(2, 8*Float(byteCount))) - 1
+        return Int(powl(2, 8*Double(byteCount))) - 1
     }
     
     public var bytes: [UInt8] {
@@ -188,8 +188,8 @@ public struct DMXValue: Codable {
 }
 
 public extension DMXValue {
-    init(_ percentage: Float, byteCount: Int) {
-        let maxValue = powf(2, 8*Float(byteCount)) - 1
+    init(_ percentage: Double, byteCount: Int) {
+        let maxValue = powl(2, 8*Double(byteCount)) - 1
 
         self.init(value: Int(percentage.constrain(min: 0, max: 1) * maxValue), byteCount: byteCount)
     }
@@ -201,14 +201,14 @@ public extension DMXValue {
 }
 
 public struct ColorCIE: Codable {
-    public var x: Float
-    public var y: Float
-    public var Y: Float?
+    public var x: Double
+    public var y: Double
+    public var Y: Double?
 }
 
 extension ColorCIE {
     init(from rawValue: String) {        
-        let split: [Float] = rawValue.split(separator: ",").map { Float($0)! }
+        let split: [Double] = rawValue.split(separator: ",").map { Double($0)! }
         
         self.x = split[0]
         self.y = split[1]
@@ -220,7 +220,7 @@ extension ColorCIE {
 }
 
 public struct Rotation: Codable {
-    public var matrix: [[Float]]
+    public var matrix: [[Double]]
 }
 
 extension Rotation {
@@ -230,11 +230,11 @@ extension Rotation {
         strMatrix = strMatrix.replacingOccurrences(of: "{", with: "")
         strMatrix = strMatrix.replacingOccurrences(of: "}", with: "")
         
-        let flatMatrix: [Float] = strMatrix.split(separator: ",").map{ Float($0)! }
+        let flatMatrix: [Double] = strMatrix.split(separator: ",").map{ Double($0)! }
         assert(flatMatrix.count == 9)
 
         /// convert 1D array into 3x3 2D array (matrix)
-        let matrix: [[Float]] = stride(from: 0, to: flatMatrix.count,by: 3)
+        let matrix: [[Double]] = stride(from: 0, to: flatMatrix.count,by: 3)
                                     .map{ Array(flatMatrix[$0..<$0 + 3]) }
         
         self.matrix = matrix
@@ -242,7 +242,7 @@ extension Rotation {
 }
 
 public struct Matrix: Codable {
-    public var matrix: [[Float]] = [
+    public var matrix: [[Double]] = [
         [1, 0, 0, 0],
         [0, 1, 0, 0],
         [0, 0, 1, 0],
@@ -257,11 +257,11 @@ extension Matrix {
         strMatrix = strMatrix.replacingOccurrences(of: "{", with: "")
         strMatrix = strMatrix.replacingOccurrences(of: "}", with: "")
         
-        let flatMatrix: [Float] = strMatrix.split(separator: ",").map{ Float($0)! }
+        let flatMatrix: [Double] = strMatrix.split(separator: ",").map{ Double($0)! }
         assert(flatMatrix.count == 16)
         
         /// convert 1D array into 3x3 2D array (matrix)
-        let matrix: [[Float]] = stride(from: 0, to: flatMatrix.count,by: 4)
+        let matrix: [[Double]] = stride(from: 0, to: flatMatrix.count,by: 4)
                                     .map{ Array(flatMatrix[$0..<$0 + 4]) }
         
         self.matrix = matrix

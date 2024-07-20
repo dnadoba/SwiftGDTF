@@ -203,7 +203,7 @@ public extension DMXValue {
 public struct ColorCIE: Codable {
     public var x: Double
     public var y: Double
-    public var Y: Double?
+    public var Y: Double
 }
 
 extension ColorCIE {
@@ -214,7 +214,9 @@ extension ColorCIE {
         self.y = split[1]
         
         if (split.count == 3) {
-            self.Y = split[2]
+            self.Y = split[2] > 1 ? split[2] / 100 : split[2]
+        } else {
+            self.Y = 1.0
         }
     }
 }

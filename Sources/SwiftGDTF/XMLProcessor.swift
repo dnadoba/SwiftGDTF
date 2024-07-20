@@ -349,6 +349,7 @@ extension DMXChannel: XMLDecodable {
         
         self.dmxBreak = Int(element.attribute(by: "DMXBreak")!.text)!
         
+        self.offset = []
         if element.attribute(by: "DMXBreak")!.text != "None" {
             self.offset = element.attribute(by: "DMXBreak")!.text.split(separator: ",").map { Int($0)! }
         }

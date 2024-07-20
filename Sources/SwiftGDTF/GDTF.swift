@@ -216,7 +216,7 @@ public struct DMXMode: Codable {
 public struct DMXChannel: Codable {
     public var name: String?
     public var dmxBreak: Int
-    public var offset: [Int]?
+    public var offset: [Int]
     public var initialFunction: ChannelFunction
     public var highlight: DMXValue?
     

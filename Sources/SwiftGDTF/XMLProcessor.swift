@@ -372,7 +372,7 @@ extension DMXChannel: XMLDecodable {
         
         self.initialFunction = foundInitial ?? xml["LogicalChannel"].children.first!.parse(tree: tree)
         
-        self.logicalChannels = xml.parseChildrenToArray(tree: tree)
+        self.logicalChannel = xml.parseChildrenToArray(tree: tree).first!
         
         let highlight = element.attribute(by: "Highlight")?.text
         if highlight != nil && highlight != "None" {

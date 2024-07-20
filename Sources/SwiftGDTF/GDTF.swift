@@ -220,7 +220,7 @@ public struct DMXChannel: Codable {
     public var initialFunction: ChannelFunction
     public var highlight: DMXValue?
     
-    public var logicalChannels: [LogicalChannel]
+    public var logicalChannel: LogicalChannel
 }
 
 public struct LogicalChannel: Codable {

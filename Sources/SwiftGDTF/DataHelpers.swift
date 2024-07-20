@@ -18,9 +18,16 @@ extension DMXMode {
         var total = 0
         
         for channel in self.channels {
-            total += channel.initialFunction.dmxFrom.byteCount
+            total += channel.initialFunction.dmxDefault.byteCount
         }
         
         return total
+    }
+
+}
+
+extension DMXChannel {
+    public var byteCount: Int {
+        return self.initialFunction.dmxDefault.byteCount
     }
 }

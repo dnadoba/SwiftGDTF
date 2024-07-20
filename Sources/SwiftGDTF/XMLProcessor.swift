@@ -12,6 +12,10 @@ protocol XMLDecodable {
     init(xml: XMLIndexer, tree: XMLIndexer)
 }
 
+protocol XMLDecodableWithIndex {
+    init(xml: XMLIndexer, index: Int, tree: XMLIndexer)
+}
+
 protocol XMLDecodableWithParent {
     init(xml: XMLIndexer, parent: XMLIndexer, tree: XMLIndexer)
 }
@@ -150,8 +154,8 @@ extension Wheel: XMLDecodable {
     }
 }
 
-extension Slot: XMLDecodable {
-    init(xml: XMLIndexer, tree: XMLIndexer) {
+extension Slot: XMLDecodableWithIndex {
+    init(xml: XMLIndexer, index: Int, tree: XMLIndexer) {
         let element = xml.element!
         
         self.name = element.attribute(by: "Name")!.text
@@ -170,6 +174,8 @@ extension Slot: XMLDecodable {
         if let _ = xml["AnimationSystem"].element {
             self.animationSystem = xml["AnimationSystem"].parse(tree: tree)
         }
+        
+        self.slotIndex = index
     }
 }
 

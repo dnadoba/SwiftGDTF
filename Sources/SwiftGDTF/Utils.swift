@@ -40,8 +40,18 @@ extension XMLIndexer {
         }
     }
     
+    func parseChildrenToArray<T: XMLDecodableWithIndex>(tree fullTree: XMLIndexer) -> [T] {
+        return self.children.enumerated().map { (index, child) in
+            child.parse(index: index, tree: fullTree)
+        }
+    }
+    
     func parse<T: XMLDecodable>(tree fullTree: XMLIndexer) -> T {
         return T(xml: self, tree: fullTree)
+    }
+    
+    func parse<T: XMLDecodableWithIndex>(index: Int, tree fullTree: XMLIndexer) -> T {
+        return T(xml: self, index: index, tree: fullTree)
     }
     
     func parse<T: XMLDecodableWithParent>(parent: XMLIndexer, tree fullTree: XMLIndexer) -> T {

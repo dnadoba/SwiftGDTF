@@ -106,6 +106,7 @@ public struct Slot: Codable {
     public var color: ColorCIE
     public var filter: Filter?
     public var mediaFileName: FileResource?
+    public var slotIndex: Int
     
     public var facets: [PrismFacet]
     public var animationSystem: AnimationSystem?

@@ -204,6 +204,12 @@ public struct ColorCIE: Codable {
     public var x: Double
     public var y: Double
     public var Y: Double
+    
+    public init(x: Double, y: Double, Y: Double) {
+        self.x = x
+        self.y = y
+        self.Y = Y
+    }
 }
 
 extension ColorCIE {

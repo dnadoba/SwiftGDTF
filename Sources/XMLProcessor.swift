@@ -1,6 +1,6 @@
 //
-//  File.swift
-//  
+//  XMLProcessor.swift
+//
 //
 //  Created by Brandon Wees on 7/4/24.
 //
@@ -168,13 +168,9 @@ extension Slot: XMLDecodableWithIndex {
         }
         
         self.mediaFileName = FileResource(name: element.attribute(by: "MediaFileName")?.text, fileExtension: "png")
-        
         self.facets = xml.filterChildren({ child, _ in child.name == "Facet"}).parseChildrenToArray(tree: tree)
-        
-        if let _ = xml["AnimationSystem"].element {
-            self.animationSystem = xml["AnimationSystem"].parse(tree: tree)
-        }
-        
+        self.animationSystem = xml["AnimationSystem"].optionalParse(tree: tree)
+
         self.slotIndex = index
     }
 }
@@ -193,10 +189,10 @@ extension AnimationSystem: XMLDecodable {
         let element = xml.element!
         
         self.p1 = element.attribute(by: "P1")!.text.split(separator: ",").map { Double($0)! }
-        self.p2 = element.attribute(by: "P1")!.text.split(separator: ",").map { Double($0)! }
-        self.p3 = element.attribute(by: "P1")!.text.split(separator: ",").map { Double($0)! }
+        self.p2 = element.attribute(by: "P2")!.text.split(separator: ",").map { Double($0)! }
+        self.p3 = element.attribute(by: "P3")!.text.split(separator: ",").map { Double($0)! }
         
-        self.radius = Double(element.attribute(by: "P1")!.text)!
+        self.radius = Double(element.attribute(by: "Radius")!.text)!
     }
 }
 
@@ -210,9 +206,8 @@ extension PhysicalDescriptions: XMLDecodable {
         self.emitters = xml["Emitters"].parseChildrenToArray(tree: tree)
         self.filters = xml["Filters"].parseChildrenToArray(tree: tree)
         
-        if xml["ColorSpace"].element != nil {
-            self.colorSpace = xml["ColorSpace"].parse(tree: tree)
-        }
+
+        self.colorSpace = xml["ColorSpace"].optionalParse(tree: tree)
         
         self.additionalColorSpaces = xml["AdditionalColorSpaces"].parseChildrenToArray(tree: tree)
         self.dmxProfiles = xml["DMXProfiles"].parseChildrenToArray(tree: tree)
@@ -351,8 +346,8 @@ extension DMXMode: XMLDecodable {
 extension DMXChannel: XMLDecodable {
     init(xml: XMLIndexer, tree: XMLIndexer) {
         let element = xml.element!
-        
-        
+
+        // TODO: Handle overrides from geometry nodes
         self.dmxBreak = Int(element.attribute(by: "DMXBreak")!.text)!
         
         self.offset = []
@@ -528,12 +523,13 @@ extension Relation: XMLDecodableWithParent {
         let element = xml.element!
         
         self.name = element.attribute(by: "Name")!.text
+        
         self.master = resolveNode(path: element.attribute(by: "Master")!.text,
-                                  base: parent,
+                                  base: parent.child(named: "DMXChannels")!,
                                   tree: tree)!
         
         self.follower = resolveNode(path: element.attribute(by: "Follower")!.text,
-                                  base: parent,
+                                  base: parent.child(named: "DMXChannels")!,
                                   tree: tree)!
         
         self.type = element.attribute(by: "Type")!.toEnum()!
@@ -547,11 +543,9 @@ extension Macro: XMLDecodableWithParent {
         self.name = element.attribute(by: "Name")!.text
         
         if let channelFunction = element.attribute(by: "ChannelFunction")?.text {
-            print("looking channel")
             self.channelFunction = resolveNode(path: channelFunction,
                                                base: parent,
                                                tree: tree)
-            print("found channel")
         }
         
         self.steps = xml["MacroDMX"].parseChildrenToArray(parent: parent, tree: tree)

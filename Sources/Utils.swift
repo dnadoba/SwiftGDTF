@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  Utils.swift
 //  
 //
 //  Created by Brandon Wees on 7/6/24.
@@ -16,8 +16,22 @@ func resolveNode<T: XMLDecodable>(path pathStr: String?, base: XMLIndexer, tree 
     
     for step in path {
         tree = tree.children.first(where: { child in
+            // if there is a name field
             if let name = child.element!.attribute(by: "Name")?.text {
                 return name == step
+            }
+            
+            // if there is a attribure field
+            if let name = child.element!.attribute(by: "Attribute")?.text {
+                return name == step
+            }
+            
+            // otherwise we need to look for ChannelFunction for the name
+            if let initialFunction = child.element!.attribute(by: "InitialFunction")?.text {
+                let initialFunctionParts = initialFunction.components(separatedBy: ".")
+                assert(initialFunctionParts.count == 3)
+                                
+                return initialFunctionParts.first == step
             }
             
             return false
@@ -50,12 +64,22 @@ extension XMLIndexer {
         return T(xml: self, tree: fullTree)
     }
     
+    func optionalParse<T: XMLDecodable>(tree fullTree: XMLIndexer) -> T? {
+        guard self.element != nil else { return nil }
+        
+        return self.parse(tree: fullTree)
+    }
+    
     func parse<T: XMLDecodableWithIndex>(index: Int, tree fullTree: XMLIndexer) -> T {
         return T(xml: self, index: index, tree: fullTree)
     }
     
     func parse<T: XMLDecodableWithParent>(parent: XMLIndexer, tree fullTree: XMLIndexer) -> T {
         return T(xml: self, parent: parent, tree: fullTree)
+    }
+    
+    func child(named: String) -> XMLIndexer? {
+        return self.children.first(where: { c in c.element?.name == named })
     }
 }
 

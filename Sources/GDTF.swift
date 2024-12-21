@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  GDTF.swift
 //  
 //
 //  Created by Brandon Wees on 7/4/24.
@@ -286,7 +286,7 @@ public struct SubChannelSet: Codable {
 public struct Relation: Codable {
     public var name: String
     public var master: DMXChannel
-    public var follower: DMXChannel
+    public var follower: ChannelFunction
     public var type: RelationType
 }
 

@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  Types.swift
 //  
 //
 //  Created by Brandon Wees on 7/2/24.

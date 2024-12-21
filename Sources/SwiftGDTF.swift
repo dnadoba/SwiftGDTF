@@ -1,5 +1,9 @@
-// The Swift Programming Language
-// https://docs.swift.org/swift-book
+//
+//  SwiftGDTF.swift
+//
+//
+//  Created by Brandon Wees on 7/4/24.
+//
 
 import Foundation
 import SWXMLHash

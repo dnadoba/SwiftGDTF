@@ -156,12 +156,12 @@ public struct DMXAddress: Codable {
 extension DMXAddress {
     init(from rawValue: String) {
         if rawValue.contains(".") {
-            let split: [Int] = rawValue.split(separator: ".").map { Int($0)! }
+            let split: [Int] = rawValue.split(separator: ".").map { Int($0) ?? 0 }
             self.universe = split[0]
             self.address = split[1]
         } else {
             self.universe = 1
-            self.address = Int(rawValue)!
+            self.address = Int(rawValue) ?? 0
         }
     }
 }
@@ -195,7 +195,7 @@ public extension DMXValue {
     }
 
     init(from rawValue: String) {
-        let split: [Int] = rawValue.split(separator: "/").map { Int($0)! }
+        let split: [Int] = rawValue.split(separator: "/").map { Int($0) ?? 0 }
         self.init(value: split[0], byteCount: split[1])
     }
 }
@@ -214,7 +214,7 @@ public struct ColorCIE: Codable {
 
 extension ColorCIE {
     init(from rawValue: String) {        
-        let split: [Double] = rawValue.split(separator: ",").map { Double($0)! }
+        let split: [Double] = rawValue.split(separator: ",").map { Double($0) ?? 0 }
         
         self.x = split[0]
         self.y = split[1]
@@ -238,7 +238,7 @@ extension Rotation {
         strMatrix = strMatrix.replacingOccurrences(of: "{", with: "")
         strMatrix = strMatrix.replacingOccurrences(of: "}", with: "")
         
-        let flatMatrix: [Double] = strMatrix.split(separator: ",").map{ Double($0)! }
+        let flatMatrix: [Double] = strMatrix.split(separator: ",").map{ Double($0) ?? 0 }
         assert(flatMatrix.count == 9)
 
         /// convert 1D array into 3x3 2D array (matrix)
@@ -265,7 +265,7 @@ extension Matrix {
         strMatrix = strMatrix.replacingOccurrences(of: "{", with: "")
         strMatrix = strMatrix.replacingOccurrences(of: "}", with: "")
         
-        let flatMatrix: [Double] = strMatrix.split(separator: ",").map{ Double($0)! }
+        let flatMatrix: [Double] = strMatrix.split(separator: ",").map{ Double($0) ?? 0 }
         assert(flatMatrix.count == 16)
         
         /// convert 1D array into 3x3 2D array (matrix)
@@ -281,16 +281,20 @@ public struct FileResource: Codable {
     public var fileExtension: String
     
     init?(name: String?, fileExtension: String) {
-        if (name == nil || name!.isEmpty) { return nil }
+        guard let name = name, !name.isEmpty else {
+            return nil
+        }
         
-        self.name = name!
+        self.name = name
         self.fileExtension = fileExtension
     }
     
     init?(filename name: String?) {
-        if (name == nil || name!.isEmpty) { return nil }
+        guard let name = name, !name.isEmpty else {
+            return nil
+        }
 
-        let url = URL(fileURLWithPath: name!)
+        let url = URL(fileURLWithPath: name)
         
         self.name = url.deletingPathExtension().lastPathComponent
         self.fileExtension = url.pathExtension

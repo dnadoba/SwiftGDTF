@@ -72,6 +72,7 @@ public struct Feature: Codable {
 
 public struct FixtureAttribute: Codable {
     public var name: String
+    public var type: AttributeType
     public var pretty: String
     public var activationGroup: ActivationGroup?
     public var feature: Feature
@@ -222,6 +223,7 @@ public struct DMXChannel: Codable {
     public var highlight: DMXValue?
     
     public var logicalChannel: LogicalChannel
+    public var geometry: String
 }
 
 public struct LogicalChannel: Codable {
@@ -306,3 +308,287 @@ public struct MacroValue: Codable {
     public var value: DMXValue
     public var dmxChannel: DMXChannel
 }
+
+// see Annex A: https://github.com/mvrdevelopment/spec/blob/main/gdtf-spec.md#annex-a-normative-attribute-definitions
+public enum AttributeType: Hashable, Codable {
+    case dimmer
+    case pan
+    case tilt
+    case panRotate
+    case tiltRotate
+    case positionEffect
+    case positionEffectRate
+    case positionEffectFade
+    case xYZ_X
+    case xYZ_Y
+    case xYZ_Z
+    case rot_X
+    case rot_Y
+    case rot_Z
+    case scale_X
+    case scale_Y
+    case scale_Z
+    case scale_XYZ
+    case gobo(n: Int)
+    case goboSelectSpin(n: Int)
+    case goboSelectShake(n: Int)
+    case goboSelectEffects(n: Int)
+    case goboWheelIndex(n: Int)
+    case goboWheelSpin(n: Int)
+    case goboWheelShake(n: Int)
+    case goboWheelRandom(n: Int)
+    case goboWheelAudio(n: Int)
+    case goboPos(n: Int)
+    case goboPosRotate(n: Int)
+    case goboPosShake(n: Int)
+    case animationWheel(n: Int)
+    case animationWheelAudio(n: Int)
+    case animationWheelMacro(n: Int)
+    case animationWheelRandom(n: Int)
+    case animationWheelSelectEffects(n: Int)
+    case animationWheelSelectShake(n: Int)
+    case animationWheelSelectSpin(n: Int)
+    case animationWheelPos(n: Int)
+    case animationWheelPosRotate(n: Int)
+    case animationWheelPosShake(n: Int)
+    case animationSystem(n: Int)
+    case animationSystemRamp(n: Int)
+    case animationSystemShake(n: Int)
+    case animationSystemAudio(n: Int)
+    case animationSystemRandom(n: Int)
+    case animationSystemPos(n: Int)
+    case animationSystemPosRotate(n: Int)
+    case animationSystemPosShake(n: Int)
+    case animationSystemPosRandom(n: Int)
+    case animationSystemPosAudio(n: Int)
+    case animationSystemMacro(n: Int)
+    case mediaFolder(n: Int)
+    case mediaContent(n: Int)
+    case modelFolder(n: Int)
+    case modelContent(n: Int)
+    case playMode
+    case playBegin
+    case playEnd
+    case playSpeed
+    case colorEffects(n: Int)
+    case color(n: Int)
+    case colorWheelIndex(n: Int)
+    case colorWheelSpin(n: Int)
+    case colorWheelRandom(n: Int)
+    case colorWheelAudio(n: Int)
+    case colorAdd_R
+    case colorAdd_G
+    case colorAdd_B
+    case colorAdd_C
+    case colorAdd_M
+    case colorAdd_Y
+    case colorAdd_RY
+    case colorAdd_GY
+    case colorAdd_GC
+    case colorAdd_BC
+    case colorAdd_BM
+    case colorAdd_RM
+    case colorAdd_W
+    case colorAdd_WW
+    case colorAdd_CW
+    case colorAdd_UV
+    case colorSub_R
+    case colorSub_G
+    case colorSub_B
+    case colorSub_C
+    case colorSub_M
+    case colorSub_Y
+    case colorMacro(n: Int)
+    case colorMacroRate(n: Int)
+    case cTO
+    case cTC
+    case cTB
+    case tint
+    case hSB_Hue
+    case hSB_Saturation
+    case hSB_Brightness
+    case hSB_Quality
+    case cIE_X
+    case cIE_Y
+    case cIE_Brightness
+    case colorRGB_Red
+    case colorRGB_Green
+    case colorRGB_Blue
+    case colorRGB_Cyan
+    case colorRGB_Magenta
+    case colorRGB_Yellow
+    case colorRGB_Quality
+    case videoBoost_R
+    case videoBoost_G
+    case videoBoost_B
+    case videoHueShift
+    case videoSaturation
+    case videoBrightness
+    case videoContrast
+    case videoKeyColor_R
+    case videoKeyColor_G
+    case videoKeyColor_B
+    case videoKeyIntensity
+    case videoKeyTolerance
+    case strobeDuration
+    case strobeRate
+    case strobeFrequency
+    case strobeModeShutter
+    case strobeModeStrobe
+    case strobeModePulse
+    case strobeModePulseOpen
+    case strobeModePulseClose
+    case strobeModeRandom
+    case strobeModeRandomPulse
+    case strobeModeRandomPulseOpen
+    case strobeModeRandomPulseClose
+    case strobeModeEffect
+    case shutter(n: Int)
+    case shutterStrobe(n: Int)
+    case shutterStrobePulse(n: Int)
+    case shutterStrobePulseClose(n: Int)
+    case shutterStrobePulseOpen(n: Int)
+    case shutterStrobeRandom(n: Int)
+    case shutterStrobeRandomPulse(n: Int)
+    case shutterStrobeRandomPulseClose(n: Int)
+    case shutterStrobeRandomPulseOpen(n: Int)
+    case shutterStrobeEffect(n: Int)
+    case iris
+    case irisStrobe
+    case irisStrobeRandom
+    case irisPulseClose
+    case irisPulseOpen
+    case irisRandomPulseClose
+    case irisRandomPulseOpen
+    case frost(n: Int)
+    case frostPulseOpen(n: Int)
+    case frostPulseClose(n: Int)
+    case frostRamp(n: Int)
+    case prism(n: Int)
+    case prismSelectSpin(n: Int)
+    case prismMacro(n: Int)
+    case prismPos(n: Int)
+    case prismPosRotate(n: Int)
+    case effects(n: Int)
+    case effectsRate(n: Int)
+    case effectsFade(n: Int)
+    case effectsAdjust(n: Int, m: Int)
+    case effectsPos(n: Int)
+    case effectsPosRotate(n: Int)
+    case effectsSync
+    case beamShaper
+    case beamShaperMacro
+    case beamShaperPos
+    case beamShaperPosRotate
+    case zoom
+    case zoomModeSpot
+    case zoomModeBeam
+    case digitalZoom
+    case focus(n: Int)
+    case focusAdjust(n: Int)
+    case focusDistance(n: Int)
+    case control(n: Int)
+    case dimmerMode
+    case dimmerCurve
+    case blackoutMode
+    case lEDFrequency
+    case lEDZoneMode
+    case pixelMode
+    case panMode
+    case tiltMode
+    case panTiltMode
+    case positionModes
+    case goboWheelMode(n: Int)
+    case goboWheelShortcutMode
+    case animationWheelMode(n: Int)
+    case animationWheelShortcutMode
+    case colorMode(n: Int)
+    case colorWheelShortcutMode
+    case cyanMode
+    case magentaMode
+    case yellowMode
+    case colorMixMode
+    case chromaticMode
+    case colorCalibrationMode
+    case colorConsistency
+    case colorControl
+    case colorModelMode
+    case colorSettingsReset
+    case colorUniformity
+    case cRIMode
+    case customColor
+    case uVStability
+    case wavelengthCorrection
+    case whiteCount
+    case strobeMode
+    case zoomMode
+    case focusMode
+    case irisMode
+    case fanMode(n: Int)
+    case followSpotMode
+    case beamEffectIndexRotateMode
+    case intensityMSpeed
+    case positionMSpeed
+    case colorMixMSpeed
+    case colorWheelSelectMSpeed
+    case goboWheelMSpeed(n: Int)
+    case irisMSpeed
+    case prismMSpeed(n: Int)
+    case focusMSpeed
+    case frostMSpeed(n: Int)
+    case zoomMSpeed
+    case frameMSpeed
+    case globalMSpeed
+    case reflectorAdjust
+    case fixtureGlobalReset
+    case dimmerReset
+    case shutterReset
+    case beamReset
+    case colorMixReset
+    case colorWheelReset
+    case focusReset
+    case frameReset
+    case goboWheelReset
+    case intensityReset
+    case irisReset
+    case positionReset
+    case panReset
+    case tiltReset
+    case zoomReset
+    case cTBReset
+    case cTOReset
+    case cTCReset
+    case animationSystemReset
+    case fixtureCalibrationReset
+    case function
+    case lampControl
+    case displayIntensity
+    case dMXInput
+    case noFeature
+    case blower(n: Int)
+    case fan(n: Int)
+    case fog(n: Int)
+    case haze(n: Int)
+    case lampPowerMode
+    case fans
+    case bladeA(n: Int)
+    case bladeB(n: Int)
+    case bladeRot(n: Int)
+    case shaperRot
+    case shaperMacros
+    case shaperMacrosSpeed
+    case bladeSoftA(n: Int)
+    case bladeSoftB(n: Int)
+    case keyStoneA(n: Int)
+    case keyStoneB(n: Int)
+    case video
+    case videoEffectType(n: Int)
+    case videoEffectParameter(n: Int, m: Int)
+    case videoCamera(n: Int)
+    case videoSoundVolume(n: Int)
+    case videoBlendMode
+    case inputSource
+    case fieldOfView
+    case custom
+}
+

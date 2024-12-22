@@ -18,6 +18,12 @@ public enum GDTFError: Error {
     case fileResourceNotFound(String)
 }
 
+public struct FixturePackage {
+    public var info: FixtureInfo
+    public var mode: DMXMode
+    public var fileResources: [String:Data]
+}
+
 
 /// Loads the description.xml data from a GDTF file
 /// - Parameter url: URL to the compressed GDTF data
@@ -85,7 +91,7 @@ func loadXML(xmlData: Data) throws -> XMLIndexer {
 public func loadGDTF(url: URL) throws -> GDTF {
     let xmlTree = try loadXMLFromGDTF(url: url)
         
-    return GDTF(xml: xmlTree)
+    return try GDTF(xml: xmlTree)
 }
 
 
@@ -97,11 +103,11 @@ public func loadGDTFDescription(url: URL) throws -> GDTF {
     let xmlData = try Data(contentsOf: url)
     let xmlTree = try loadXML(xmlData: xmlData)
     
-    return GDTF(xml: xmlTree)
+    return try GDTF(xml: xmlTree)
 }
 
 
-/// Convenience function that oads that necessary files to work with a fixture in the specified mode.
+/// Convenience function that loads that necessary files to work with a fixture in the specified mode.
 /// - Parameters:
 ///   - mode: The string of the mode to load
 ///   - url: URL to the GDTF data to load from (compressed ZIP)
@@ -110,7 +116,7 @@ public func loadGDTFDescription(url: URL) throws -> GDTF {
 ///   - fixtureInfo: Info from the top level FixtureType Attribute
 ///   - dmxMode: DMX mode information for the specified mode
 ///   - fileResources: List of file resources that are associated with the given mode
-public func loadFixtureModePackage(mode: String, url: URL) throws -> (FixtureInfo, DMXMode, [String:Data]) {
+public func loadFixtureModePackage(mode: String, url: URL) throws -> FixturePackage {
     return try loadFixtureModePackage(mode: mode, gdtf: try Data(contentsOf: url))
 }
 
@@ -122,17 +128,19 @@ public func loadFixtureModePackage(mode: String, url: URL) throws -> (FixtureInf
 /// - Throws: Errors related to loading the fixture package
 /// - Returns:
 ///   - fixtureInfo: The high level attributes from the Fixture
-public func loadFixtureModePackage(mode: String, gdtf: Data) throws -> (FixtureInfo, DMXMode, [String:Data]) {
+public func loadFixtureModePackage(mode: String, gdtf: Data) throws -> FixturePackage {
     let xmlTree = try loadXMLFromGDTF(gdtf: gdtf)["GDTF"]["FixtureType"]
     
     /// Find the requested dmx mode
-    guard let modeTree = xmlTree["DMXModes"].filterChildren({child, _ in child.attribute(by: "Name")!.text == mode}).children.first else {
-        throw GDTFError.dmxModeNotFound
-    }
+    guard let modeTree = xmlTree["DMXModes"]
+        .filterChildren({ child, _ in
+            return (try? child.attribute(named: "Name").text == mode) ?? false
+        }).children.first
+        else { throw GDTFError.dmxModeNotFound }
     
     /// Get initial description data
-    let mode: DMXMode = modeTree.parse(tree: xmlTree)
-    let fixtureInfo: FixtureInfo = xmlTree.parse(tree: xmlTree)
+    let mode: DMXMode = try modeTree.parse(tree: xmlTree)
+    let fixtureInfo: FixtureInfo = try xmlTree.parse(tree: xmlTree)
     
     ///
     /// Load the wheels associated with this mode
@@ -149,7 +157,7 @@ public func loadFixtureModePackage(mode: String, gdtf: Data) throws -> (FixtureI
                 // if the wheel has a media filename
                 if let slotFile = slot.mediaFileName {
                     /// Verify we havent loaded it yet
-                    if fileResources[slot.mediaFileName!.name] != nil { continue }
+                    if fileResources[slotFile.name] != nil { continue }
                     
                     /// Verify a wheel was found
                     guard let entry = zipArchive["wheels/\(slotFile.name).\(slotFile.fileExtension)"] else {
@@ -178,5 +186,5 @@ public func loadFixtureModePackage(mode: String, gdtf: Data) throws -> (FixtureI
         }
     }
     
-    return (fixtureInfo, mode, fileResources)
+    return FixturePackage(info: fixtureInfo, mode: mode, fileResources: fileResources)
 }

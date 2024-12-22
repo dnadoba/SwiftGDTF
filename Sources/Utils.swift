@@ -8,78 +8,113 @@
 import Foundation
 import SWXMLHash
 
-func resolveNode<T: XMLDecodable>(path pathStr: String?, base: XMLIndexer, tree fullTree: XMLIndexer) -> T? {
-    guard let pathStr else { return nil }
-    
-    let path = pathStr.components(separatedBy: ".")
-    var tree = base
-    
-    for step in path {
-        tree = tree.children.first(where: { child in
-            // if there is a name field
-            if let name = child.element!.attribute(by: "Name")?.text {
-                return name == step
+public enum XMLParsingError: Error {
+    case elementMissing
+    case attributeMissing(named: String)
+    case childNotFound(named: String)
+    case initialFunctionPathInvalid
+    case enumCastFailed(enumType: String, stringValue: String)
+    case nodeResolutionFailed
+    case noChildren
+}
+
+extension XMLAttribute {
+    func resolveNode<T: XMLDecodable>(base: XMLIndexer, tree fullTree: XMLIndexer) throws -> T {
+        let pathStr = self.text
+                
+        let path = pathStr.components(separatedBy: ".")
+        var tree = base
+        
+        for step in path {
+            guard let nextTree = try tree.children.first(where: { child in
+                guard let childElement = child.element else {
+                    throw XMLParsingError.childNotFound(named: step)
+                }
+                
+                // if there is a name field
+                if let name = (try? childElement.attribute(named: "Name"))?.text {
+                    return name == step
+                }
+                
+                // if there is a attribure field
+                if let name = (try? childElement.attribute(named: "Attribute"))?.text {
+                    return name == step
+                }
+                
+                // otherwise we need to look for ChannelFunction for the name
+                if let initialFunction = try? childElement.attribute(named: "InitialFunction").text {
+                    let initialFunctionParts = initialFunction.components(separatedBy: ".")
+                    guard initialFunctionParts.count == 3 else {
+                        throw XMLParsingError.initialFunctionPathInvalid
+                    }
+                                    
+                    return initialFunctionParts.first == step
+                }
+                
+                return false
+            }) else {
+                throw XMLParsingError.childNotFound(named: step)
             }
             
-            // if there is a attribure field
-            if let name = child.element!.attribute(by: "Attribute")?.text {
-                return name == step
-            }
-            
-            // otherwise we need to look for ChannelFunction for the name
-            if let initialFunction = child.element!.attribute(by: "InitialFunction")?.text {
-                let initialFunctionParts = initialFunction.components(separatedBy: ".")
-                assert(initialFunctionParts.count == 3)
-                                
-                return initialFunctionParts.first == step
-            }
-            
-            return false
-        })!
+            tree = nextTree
+        }
+        
+        return try T(xml: tree, tree: fullTree)
     }
-    
-    return T(xml: tree, tree: fullTree)
+
 }
 
 extension XMLIndexer {
-    func parseChildrenToArray<T: XMLDecodable>(tree fullTree: XMLIndexer) -> [T] {
-        return self.children.map { child in
-            child.parse(tree: fullTree)
+    func parseChildrenToArray<T: XMLDecodable>(tree fullTree: XMLIndexer) throws -> [T] {
+        return try self.children.map { child in
+            try child.parse(tree: fullTree)
         }
     }
     
-    func parseChildrenToArray<T: XMLDecodableWithParent>(parent: XMLIndexer, tree fullTree: XMLIndexer) -> [T] {
-        return self.children.map { child in
-            child.parse(parent: parent, tree: fullTree)
+    func parseChildrenToArray<T: XMLDecodableWithParent>(parent: XMLIndexer, tree fullTree: XMLIndexer) throws -> [T]  {
+        return try self.children.map { child in
+            try child.parse(parent: parent, tree: fullTree)
         }
     }
     
-    func parseChildrenToArray<T: XMLDecodableWithIndex>(tree fullTree: XMLIndexer) -> [T] {
-        return self.children.enumerated().map { (index, child) in
-            child.parse(index: index, tree: fullTree)
+    func parseChildrenToArray<T: XMLDecodableWithIndex>(tree fullTree: XMLIndexer) throws -> [T] {
+        return try self.children.enumerated().map { (index, child) in
+            try child.parse(index: index, tree: fullTree)
         }
     }
     
-    func parse<T: XMLDecodable>(tree fullTree: XMLIndexer) -> T {
-        return T(xml: self, tree: fullTree)
+    func parse<T: XMLDecodable>(tree fullTree: XMLIndexer) throws -> T  {
+        return try T(xml: self, tree: fullTree)
     }
     
-    func optionalParse<T: XMLDecodable>(tree fullTree: XMLIndexer) -> T? {
+    func optionalParse<T: XMLDecodable>(tree fullTree: XMLIndexer) throws -> T? {
         guard self.element != nil else { return nil }
         
-        return self.parse(tree: fullTree)
+        return try self.parse(tree: fullTree)
     }
     
-    func parse<T: XMLDecodableWithIndex>(index: Int, tree fullTree: XMLIndexer) -> T {
-        return T(xml: self, index: index, tree: fullTree)
+    func parse<T: XMLDecodableWithIndex>(index: Int, tree fullTree: XMLIndexer) throws -> T {
+        return try T(xml: self, index: index, tree: fullTree)
     }
     
-    func parse<T: XMLDecodableWithParent>(parent: XMLIndexer, tree fullTree: XMLIndexer) -> T {
-        return T(xml: self, parent: parent, tree: fullTree)
+    func parse<T: XMLDecodableWithParent>(parent: XMLIndexer, tree fullTree: XMLIndexer) throws -> T {
+        return try T(xml: self, parent: parent, tree: fullTree)
     }
     
-    func child(named: String) -> XMLIndexer? {
-        return self.children.first(where: { c in c.element?.name == named })
+    func child(named name: String) throws -> XMLIndexer {
+        guard let child = self.children.first(where: { c in c.element?.name == name }) else {
+            throw XMLParsingError.childNotFound(named: name)
+        }
+        
+        return child
+    }
+    
+    func firstChild() throws -> XMLIndexer {
+        guard let firstChild = self.children.first else {
+            throw XMLParsingError.noChildren
+        }
+        
+        return firstChild
     }
 }
 
@@ -92,8 +127,20 @@ extension XMLAttribute {
         return Int(self.text)
     }
     
-    func toEnum<T: RawRepresentable>() -> T? {
-        return T(rawValue: self.text as! T.RawValue)
+    func toEnum<T: RawRepresentable>() throws -> T {
+        guard let raw = self.text as? T.RawValue, let enumValue = T(rawValue: raw) else {
+            throw XMLParsingError.enumCastFailed(enumType: String(describing: T.self), stringValue: self.text)
+        }
+        
+        return enumValue
+    }
+}
+
+extension SWXMLHash.XMLElement {
+    func attribute(named name: String) throws -> XMLAttribute {
+        guard let attr = self.attribute(by: name) else { throw XMLParsingError.attributeMissing(named: name)}
+        
+        return attr
     }
 }
 

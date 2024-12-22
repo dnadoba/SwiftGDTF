@@ -327,3 +327,34 @@ public struct FileResource: Codable {
         }
     }
 }
+
+//
+// SwiftGDTF Specfic Types
+//
+
+/// Errors related to parsing GDTF data
+public enum GDTFError: Error {
+    case invalidGDTF
+    case invalidGDTFDescription
+    case dmxModeNotFound
+    case fileResourceNotFound(String)
+}
+
+public struct FixturePackage {
+    public var info: FixtureInfo
+    public var mode: DMXMode
+    public var fileResources: [String:Data]
+}
+
+// includes only basic information about a DMXMode
+public struct HighLevelMode {
+    public var name: String
+    public var description: String
+    public var footprint: UInt
+}
+
+/// Includes basica info about a fixture, useful when showing a list of all fixtures in a patch window
+public struct FixtureDetails {
+    public var info: FixtureInfo
+    public var modes: [HighLevelMode]
+}

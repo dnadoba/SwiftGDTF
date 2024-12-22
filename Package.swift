@@ -5,11 +5,15 @@ import PackageDescription
 
 let package = Package(
     name: "SwiftGDTF",
+    platforms: [
+        .macOS(.v12), .iOS(.v17)
+    ],
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
             name: "SwiftGDTF",
-            targets: ["SwiftGDTF"]),
+            targets: ["SwiftGDTF"]
+        ),
     ],
     dependencies: [
         .package(url: "https://github.com/drmohundro/SWXMLHash.git", from: "7.0.0"),

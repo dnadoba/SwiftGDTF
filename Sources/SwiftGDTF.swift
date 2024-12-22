@@ -10,34 +10,6 @@ import SWXMLHash
 import ZIPFoundation
 
 
-/// Errors related to parsing GDTF data
-public enum GDTFError: Error {
-    case invalidGDTF
-    case invalidGDTFDescription
-    case dmxModeNotFound
-    case fileResourceNotFound(String)
-}
-
-public struct FixturePackage {
-    public var info: FixtureInfo
-    public var mode: DMXMode
-    public var fileResources: [String:Data]
-}
-
-// includes only basic information about a DMXMode
-public struct HighLevelMode {
-    public var name: String
-    public var description: String
-    public var footprint: UInt
-}
-
-/// Includes basica info about a fixture, useful when showing a list of all fixtures in a patch window
-public struct FixtureDetails {
-    public var info: FixtureInfo
-    public var modes: [HighLevelMode]
-}
-
-
 /// Loads the description.xml data from a GDTF file
 /// - Parameter url: URL to the compressed GDTF data
 /// - Throws: Errors related to parsing description.xml

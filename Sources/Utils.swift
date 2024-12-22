@@ -16,6 +16,7 @@ public enum XMLParsingError: Error {
     case enumCastFailed(enumType: String, stringValue: String)
     case nodeResolutionFailed
     case noChildren
+    case failedToParseString
 }
 
 extension XMLAttribute {

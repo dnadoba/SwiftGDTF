@@ -24,6 +24,19 @@ public struct FixturePackage {
     public var fileResources: [String:Data]
 }
 
+// includes only basic information about a DMXMode
+public struct HighLevelMode {
+    public var name: String
+    public var description: String
+    public var footprint: UInt
+}
+
+/// Includes basica info about a fixture, useful when showing a list of all fixtures in a patch window
+public struct FixtureDetails {
+    public var info: FixtureInfo
+    public var modes: [HighLevelMode]
+}
+
 
 /// Loads the description.xml data from a GDTF file
 /// - Parameter url: URL to the compressed GDTF data
@@ -113,9 +126,7 @@ public func loadGDTFDescription(url: URL) throws -> GDTF {
 ///   - url: URL to the GDTF data to load from (compressed ZIP)
 /// - Throws: Errors related to loading the fixture package
 /// - Returns:
-///   - fixtureInfo: Info from the top level FixtureType Attribute
-///   - dmxMode: DMX mode information for the specified mode
-///   - fileResources: List of file resources that are associated with the given mode
+///   - FixturePackage: All needed data to operate the fixture
 public func loadFixtureModePackage(mode: String, url: URL) throws -> FixturePackage {
     return try loadFixtureModePackage(mode: mode, gdtf: try Data(contentsOf: url))
 }
@@ -127,7 +138,7 @@ public func loadFixtureModePackage(mode: String, url: URL) throws -> FixturePack
 ///   - gdtf: The GDTF data to load from (compressed ZIP)
 /// - Throws: Errors related to loading the fixture package
 /// - Returns:
-///   - fixtureInfo: The high level attributes from the Fixture
+///   - FixturePackage: All needed data to operate the fixture
 public func loadFixtureModePackage(mode: String, gdtf: Data) throws -> FixturePackage {
     let xmlTree = try loadXMLFromGDTF(gdtf: gdtf)["GDTF"]["FixtureType"]
     
@@ -187,4 +198,49 @@ public func loadFixtureModePackage(mode: String, gdtf: Data) throws -> FixturePa
     }
     
     return FixturePackage(info: fixtureInfo, mode: mode, fileResources: fileResources)
+}
+
+/// Loads a limited amount of data for a fixture, useful for when showing a patch screen
+/// - Parameters:
+///   - gdtf: The GDTF data to load from (compressed ZIP)
+/// - Throws: Errors related to loading the fixture details
+/// - Returns:
+///   - fixtureDetails: The high level attributes from the Fixture
+public func loadFixtureDetails(url: URL) throws -> FixtureDetails {
+    return try loadFixtureDetails(gdtf: try Data(contentsOf: url))
+}
+
+
+/// Loads a limited amount of data for a fixture, useful for when showing a patch screen
+/// - Parameters:
+///   - gdtf: The GDTF data to load from (compressed ZIP)
+/// - Throws: Errors related to loading the fixture details
+/// - Returns:
+///   - fixtureDetails: The high level attributes from the Fixture
+public func loadFixtureDetails(gdtf: Data) throws -> FixtureDetails {
+    let xmlTree = try loadXMLFromGDTF(gdtf: gdtf)["GDTF"]["FixtureType"]
+
+    let fixtureInfo: FixtureInfo = try xmlTree.parse(tree: xmlTree)
+    
+    var modes: [HighLevelMode] = []
+    for mode in xmlTree["DMXModes"].children {
+        guard let element = mode.element else { throw XMLParsingError.elementMissing }
+
+        let description = try element.attribute(named: "Description").text
+        let name = try element.attribute(named: "Name").text
+        
+        let channelList = try mode.child(named: "DMXChannels").children
+        
+        guard let lastChannel = channelList.last?.element?.attribute(by: "Offset")?.text.components(separatedBy: ",").last else {
+            throw XMLParsingError.attributeMissing(named: "Offset")
+        }
+        
+        guard let footprint = UInt(lastChannel) else {
+            throw XMLParsingError.failedToParseString
+        }
+        
+        modes.append(HighLevelMode(name: name, description: description, footprint: footprint))
+    }
+    
+    return FixtureDetails(info: fixtureInfo, modes: modes)
 }

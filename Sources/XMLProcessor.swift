@@ -424,7 +424,7 @@ extension ChannelFunction: XMLDecodable {
 
         self.name = try element.attribute(by: "Name")?.text ?? element.attribute(named: "Attribute").text
         
-        if (element.attribute(by: "Attribute")?.text != "NoFunction") {
+        if (element.attribute(by: "Attribute")?.text != "NoFeature") {
             self.attribute = try element.attribute(by: "Attribute")?.resolveNode(base: tree["AttributeDefinitions"]["Attributes"], tree: tree)
         }
         
@@ -449,7 +449,7 @@ extension ChannelFunction: XMLDecodable {
         self.filter = try element.attribute(by: "Filter")?.resolveNode(base: tree["PhysicalDescriptions"]["Filters"], tree: tree)
         
         // ColorSpace
-        self.filter = try element.attribute(by: "ColorSpace")?.resolveNode(base: tree["PhysicalDescriptions"], tree: tree)
+        self.colorSpace = try element.attribute(by: "ColorSpace")?.resolveNode(base: tree["PhysicalDescriptions"]["AdditionalColorSpaces"], tree: tree)
         
         // Mode Master
         self.modeMaster = element.attribute(by: "ModeMaster")?.text
@@ -501,9 +501,15 @@ extension SubChannelSet: XMLDecodableWithParent {
         self.physicalTo = (try? element.attribute(named: "PhysicalTo"))?.double ?? 1
         
         // needs the parent
-        self.subPhysicalUnit = try element.attribute(named: "SubPhysicalUnit").resolveNode(base: parent, tree: tree)
+        guard let attributeName = try parent.element?.attribute(named: "Attribute") else {
+            throw XMLParsingError.attributeMissing(named: "Attribute", on: parent.element?.text ?? "")
+        }
         
-        self.dmxProfile = try element.attribute(named: "DMXProfile").resolveNode(base: tree["DMXProfiles"], tree: tree)
+        let associatedAttribute = try tree["AttributeDefinitions"]["Attributes"].findChild(with: "Name", being: attributeName.text)
+
+        self.subPhysicalUnit = try element.attribute(named: "SubPhysicalUnit").resolveNode(base: associatedAttribute, tree: tree)
+        
+        self.dmxProfile = try? element.attribute(named: "DMXProfile").resolveNode(base: tree["DMXProfiles"], tree: tree)
     }
 }
 
@@ -527,7 +533,7 @@ extension Macro: XMLDecodableWithParent {
         self.name = try element.attribute(named: "Name").text
         
         if element.attribute(by: "ChannelFunction") != nil {
-            self.channelFunction = try element.attribute(named: "ChannelFunction").resolveNode(base: parent, tree: tree)
+            self.channelFunction = try element.attribute(named: "ChannelFunction").resolveNode(base: parent["DMXChannels"], tree: tree)
         }
         
         self.steps = try xml["MacroDMX"].parseChildrenToArray(parent: parent, tree: tree)

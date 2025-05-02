@@ -32,6 +32,19 @@ extension XMLAttribute {
                     throw XMLParsingError.childNotFound(named: step, at: path.joined(separator: "."))
                 }
                 
+                // if the childElement is a DMXChannel, we have to build its name manually
+                // "The name of a DMX channel cannot be user-defined and must consist of a geometry
+                // name and the attribute name of the first logical channel with separator "_"."
+                if (childElement.name == "DMXChannel") {
+                    guard let logicalChannel = try child.child(named: "LogicalChannel").element else {
+                        throw XMLParsingError.childNotFound(named: "LogicalChannel", at: child.element?.text ?? "N/A")
+                    }
+                    
+                    let channelName = try childElement.attribute(named: "Geometry").text + "_" + logicalChannel.attribute(named: "Attribute").text
+                    
+                    return channelName == step
+                }
+                
                 // if there is a name field
                 if let name = (try? childElement.attribute(named: "Name"))?.text {
                     return name == step
@@ -39,6 +52,12 @@ extension XMLAttribute {
                 
                 // if there is a attribute field
                 if let name = (try? childElement.attribute(named: "Attribute"))?.text {
+                    return name == step
+                }
+                
+                // if there is a Type field and its a SubPhysicalUnit
+                if (childElement.name == "SubPhysicalUnit"),
+                   let name = (try? childElement.attribute(named: "Type"))?.text {
                     return name == step
                 }
                 
@@ -107,6 +126,16 @@ extension XMLIndexer {
             throw XMLParsingError.childNotFound(named: name, at: self.element?.text ?? "")
         }
         
+        return child
+    }
+    
+    func findChild(with attributeName: String, being match: String) throws -> XMLIndexer {
+        guard let child = self.children.first(where: { c in
+            c.element?.attribute(by: attributeName)?.text == match
+        }) else {
+            throw XMLParsingError.childNotFound(named: attributeName + " == " + match, at: self.element?.text ?? "")
+        }
+                
         return child
     }
     

@@ -75,7 +75,7 @@ public struct FixtureAttribute: Codable {
     public var type: AttributeType
     public var pretty: String
     public var activationGroup: ActivationGroup?
-    public var feature: Feature
+    public var feature: Feature?
     
     // This is a node but results in recursive type
     public var mainAttribute: Node?

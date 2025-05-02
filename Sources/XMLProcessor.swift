@@ -117,7 +117,7 @@ extension FixtureAttribute: XMLDecodable {
             tree: tree)
 
         // Resolve Feature Node
-        self.feature = try element.attribute(named: "Feature").resolveNode(
+        self.feature = try element.attribute(by: "Feature")?.resolveNode(
             base: tree["AttributeDefinitions"]["FeatureGroups"],
             tree: tree)
         
@@ -276,7 +276,7 @@ extension ColorSpace: XMLDecodable {
     init(xml: XMLIndexer, tree: XMLIndexer) throws {
         guard let element = xml.element else { throw XMLParsingError.elementMissing }
         
-        self.name = try element.attribute(named: "Name").text
+        self.name = element.attribute(by: "Name")?.text ?? "Default"
         self.mode = try element.attribute(named: "Mode").toEnum()
     }
 }
@@ -334,7 +334,7 @@ extension DMXMode: XMLDecodable {
         guard let element = xml.element else { throw XMLParsingError.elementMissing }
         
         self.name = try element.attribute(named: "Name").text
-        self.description = try element.attribute(named: "Description").text
+        self.description = element.attribute(by: "Description")?.text ?? ""
         
         self.channels = try xml["DMXChannels"].parseChildrenToArray(tree: tree)
         self.relations = try xml["Relations"].parseChildrenToArray(parent: xml, tree: tree)
@@ -346,44 +346,58 @@ extension DMXChannel: XMLDecodable {
     init(xml: XMLIndexer, tree: XMLIndexer) throws {
         guard let element = xml.element else { throw XMLParsingError.elementMissing }
 
-        // TODO: Handle overrides from geometry nodes
-        self.dmxBreak = try element.attribute(named: "DMXBreak").int ?? 0
-        
         self.offset = []
-        if try element.attribute(named: "DMXBreak").text != "None" {
-            self.offset = try element.attribute(named: "DMXBreak").text.split(separator: ",").map { Int($0) ?? 0 }
-        }
-        
-        // technically we do have a link but it does not follow convention of Node
-        // the default is first logical channel function
-        // the name of the channel is actually the first element in the Initial Function attribute
-        guard
-            let initialFunctionParts = element.attribute(by: "InitialFunction")?.text.components(separatedBy: "."),
-            initialFunctionParts.count == 3
-        else {
-            throw XMLParsingError.nodeResolutionFailed
-        }
-        
-        assert(initialFunctionParts.count == 3)
-        
-        self.name = initialFunctionParts.first
-        
-        let foundInitial: ChannelFunction? = try xml
-            .filterChildren({ child, _ in
-                return (try? child.attribute(named: "Attribute").text == initialFunctionParts[1]) ?? false
-            }).children.first?
-            .filterChildren({child, _ in
-                return (try? child.attribute(named: "Name").text == initialFunctionParts[2]) ?? false
-            }).children.first?.parse(tree: tree)
-        
 
-        self.initialFunction =  try foundInitial ?? xml["LogicalChannel"].firstChild().parse(tree: tree)
+        // TODO: Handle overrides from geometry nodes
+        
+        if let dmxBreak = element.attribute(by: "DMXBreak") {
+            self.dmxBreak = dmxBreak.int ?? 0
+            
+            if dmxBreak.text != "None" {
+                self.offset = dmxBreak.text.split(separator: ",").map { Int($0) ?? 0 }
+            }
+        } else {
+            self.dmxBreak = 0
+        }
+        
         
         guard let logicalChannel: LogicalChannel = try xml.parseChildrenToArray(tree: tree).first else {
             throw XMLParsingError.noChildren
         }
 
         self.logicalChannel = logicalChannel
+        
+        // Initial Function
+        //
+        // technically we do have a link but it does not follow convention of Node
+        // the default is first logical channel function
+        // the name of the channel is actually the first element in the Initial Function attribute
+        if element.attribute(by: "InitialFunction") != nil {
+            let path = element.attribute(by: "InitialFunction")!.text
+            let initialFunctionParts = path.components(separatedBy: ".")
+            
+            guard initialFunctionParts.count == 3 else { throw XMLParsingError.initialFunctionPathInvalid}
+            
+            self.name = initialFunctionParts.first
+            
+            let foundInitial: ChannelFunction? = try xml
+                .filterChildren({ child, _ in
+                    return (try? child.attribute(named: "Attribute").text == initialFunctionParts[1]) ?? false
+                }).children.first?
+                .filterChildren({child, _ in
+                    return (try? child.attribute(named: "Name").text == initialFunctionParts[2]) ?? false
+                }).children.first?.parse(tree: tree)
+            
+
+            self.initialFunction =  try foundInitial ?? xml["LogicalChannel"].firstChild().parse(tree: tree)
+            
+        } else {
+            // "Default value is the first channel function of the first logical function of this DMX channel."
+            
+            guard let initFn = logicalChannel.channelFunctions.first else { throw XMLParsingError.initialFunctionPathInvalid }
+            
+            self.initialFunction = initFn
+        }
         
         
         if let highlight = element.attribute(by: "Highlight")?.text, highlight != "None" {
@@ -422,7 +436,7 @@ extension ChannelFunction: XMLDecodable {
         
         self.originalAttribute = element.attribute(by: "OriginalAttribute")?.text ?? ""
         self.dmxFrom = DMXValue(from: element.attribute(by: "DMXFrom")?.text ?? "0/1")
-        self.dmxDefault = try DMXValue(from: element.attribute(named: "Default").text)
+        self.dmxDefault = DMXValue(from: element.attribute(by: "Default")?.text ?? "0/1")
         
         self.physicalFrom = element.attribute(by: "PhysicalFrom")?.double ?? 0
         self.physicalTo = element.attribute(by: "PhysicalTo")?.double ?? 1
@@ -518,7 +532,10 @@ extension Macro: XMLDecodableWithParent {
         
         self.name = try element.attribute(named: "Name").text
         
-        self.channelFunction = try element.attribute(named: "ChannelFunction").resolveNode(base: parent, tree: tree)
+        if element.attribute(by: "ChannelFunction") != nil {
+            self.channelFunction = try element.attribute(named: "ChannelFunction").resolveNode(base: parent, tree: tree)
+        }
+        
         self.steps = try xml["MacroDMX"].parseChildrenToArray(parent: parent, tree: tree)
     }
 }

@@ -57,6 +57,7 @@ func loadXML(xmlData: Data) throws -> XMLIndexer {
     let config = XMLHash.config { config in
         config.shouldProcessLazily = false
         config.detectParsingErrors = true
+        config.caseInsensitive = true
     }
     
     /// parse XML tree and verify we got a GDTF root node
@@ -204,7 +205,7 @@ public func loadFixtureDetails(gdtf: Data) throws -> FixtureDetails {
         let channelList = try mode.child(named: "DMXChannels").children
         
         guard let lastChannel = channelList.last?.element?.attribute(by: "Offset")?.text.components(separatedBy: ",").last else {
-            throw XMLParsingError.attributeMissing(named: "Offset")
+            throw XMLParsingError.attributeMissing(named: "Offset", on: channelList.last?.element?.description ?? "N/A")
         }
         
         guard let footprint = UInt(lastChannel) else {

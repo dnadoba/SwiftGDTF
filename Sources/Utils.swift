@@ -10,11 +10,11 @@ import SWXMLHash
 
 public enum XMLParsingError: Error {
     case elementMissing
-    case attributeMissing(named: String)
-    case childNotFound(named: String)
+    case attributeMissing(named: String, on: String)
+    case childNotFound(named: String, at: String)
     case initialFunctionPathInvalid
     case enumCastFailed(enumType: String, stringValue: String)
-    case nodeResolutionFailed
+    case nodeResolutionFailed(path: String)
     case noChildren
     case failedToParseString
 }
@@ -29,7 +29,7 @@ extension XMLAttribute {
         for step in path {
             guard let nextTree = try tree.children.first(where: { child in
                 guard let childElement = child.element else {
-                    throw XMLParsingError.childNotFound(named: step)
+                    throw XMLParsingError.childNotFound(named: step, at: path.joined(separator: "."))
                 }
                 
                 // if there is a name field
@@ -37,7 +37,7 @@ extension XMLAttribute {
                     return name == step
                 }
                 
-                // if there is a attribure field
+                // if there is a attribute field
                 if let name = (try? childElement.attribute(named: "Attribute"))?.text {
                     return name == step
                 }
@@ -54,7 +54,7 @@ extension XMLAttribute {
                 
                 return false
             }) else {
-                throw XMLParsingError.childNotFound(named: step)
+                throw XMLParsingError.childNotFound(named: step, at: path.joined(separator: "."))
             }
             
             tree = nextTree
@@ -104,7 +104,7 @@ extension XMLIndexer {
     
     func child(named name: String) throws -> XMLIndexer {
         guard let child = self.children.first(where: { c in c.element?.name == name }) else {
-            throw XMLParsingError.childNotFound(named: name)
+            throw XMLParsingError.childNotFound(named: name, at: "")
         }
         
         return child
@@ -139,7 +139,9 @@ extension XMLAttribute {
 
 extension SWXMLHash.XMLElement {
     func attribute(named name: String) throws -> XMLAttribute {
-        guard let attr = self.attribute(by: name) else { throw XMLParsingError.attributeMissing(named: name)}
+        guard let attr = self.attribute(by: name) else {
+            throw XMLParsingError.attributeMissing(named: name, on: self.description)
+        }
         
         return attr
     }

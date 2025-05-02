@@ -382,10 +382,10 @@ extension DMXChannel: XMLDecodable {
                 }).children.first?
                 .filterChildren({child, _ in
                     return (try? child.attribute(named: "Name").text == initialFunctionParts[2]) ?? false
-                }).children.first?.parse(tree: tree)
+                }).children.first?.parse(index: 0, tree: tree)
             
 
-            self.initialFunction =  try foundInitial ?? xml["LogicalChannel"].firstChild().parse(tree: tree)
+            self.initialFunction =  try foundInitial ?? xml["LogicalChannel"].firstChild().parse(index: 0, tree: tree)
             
         } else {
             // "Default value is the first channel function of the first logical function of this DMX channel."
@@ -418,11 +418,11 @@ extension LogicalChannel: XMLDecodable {
     }
 }
 
-extension ChannelFunction: XMLDecodable {
-    init(xml: XMLIndexer, tree: XMLIndexer) throws {
+extension ChannelFunction: XMLDecodableWithIndex {
+    init(xml: XMLIndexer, index: Int, tree: XMLIndexer) throws {
         guard let element = xml.element else { throw XMLParsingError.elementMissing }
 
-        self.name = try element.attribute(by: "Name")?.text ?? element.attribute(named: "Attribute").text
+        self.name = try element.attribute(by: "Name")?.text ?? element.attribute(named: "Attribute").text + " " + String(index+1)
         
         if (element.attribute(by: "Attribute")?.text != "NoFeature") {
             self.attribute = try element.attribute(by: "Attribute")?.resolveNode(base: tree["AttributeDefinitions"]["Attributes"], tree: tree)
@@ -520,6 +520,7 @@ extension Relation: XMLDecodableWithParent {
         self.name = try element.attribute(named: "Name").text
         
         self.master = try element.attribute(named: "Master").resolveNode(base: parent.child(named: "DMXChannels"), tree: tree)
+        
         self.follower = try element.attribute(named: "Follower").resolveNode(base: parent.child(named: "DMXChannels"), tree: tree)
         
         self.type = try element.attribute(named: "Type").toEnum()

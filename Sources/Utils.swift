@@ -20,14 +20,14 @@ public enum XMLParsingError: Error {
 }
 
 extension XMLAttribute {
-    func resolveNode<T: XMLDecodable>(base: XMLIndexer, tree fullTree: XMLIndexer) throws -> T {
-        let pathStr = self.text
-                
+    
+    fileprivate func resolveXML(at pathStr: String, base: XMLIndexer, tree fullTree: XMLIndexer) throws -> (Int, XMLIndexer) {
         let path = pathStr.components(separatedBy: ".")
         var tree = base
+        var foundIndex = -1
         
         for step in path {
-            guard let nextTree = try tree.children.first(where: { child in
+            guard let (idx, nextTree) = try tree.children.enumerated().first(where: { (index, child) in
                 guard let childElement = child.element else {
                     throw XMLParsingError.childNotFound(named: step, at: path.joined(separator: "."))
                 }
@@ -46,19 +46,27 @@ extension XMLAttribute {
                 }
                 
                 // if there is a name field
-                if let name = (try? childElement.attribute(named: "Name"))?.text {
-                    return name == step
+                if let name = (try? childElement.attribute(named: "Name"))?.text,
+                   name == step {
+                    return true
                 }
                 
                 // if there is a attribute field
-                if let name = (try? childElement.attribute(named: "Attribute"))?.text {
-                    return name == step
+                if let name = (try? childElement.attribute(named: "Attribute"))?.text,
+                   name == step {
+                    return true
                 }
                 
                 // if there is a Type field and its a SubPhysicalUnit
                 if (childElement.name == "SubPhysicalUnit"),
-                   let name = (try? childElement.attribute(named: "Type"))?.text {
-                    return name == step
+                   let name = (try? childElement.attribute(named: "Type"))?.text,
+                   name == step {
+                    return true
+                }
+                
+                if (childElement.name == "ChannelFunction") {
+                    let name = (try? childElement.attribute(named: "Attribute").text + " " + String(index+1))
+                    if (name == step) { return true }
                 }
                 
                 // otherwise we need to look for ChannelFunction for the name
@@ -68,20 +76,38 @@ extension XMLAttribute {
                         throw XMLParsingError.initialFunctionPathInvalid
                     }
                                     
-                    return initialFunctionParts.first == step
+                    if (initialFunctionParts.first == step) { return true }
                 }
                 
                 return false
             }) else {
-                throw XMLParsingError.childNotFound(named: step, at: path.joined(separator: "."))
+                throw XMLParsingError.childNotFound(named: step, at: pathStr)
             }
-            
+                        
             tree = nextTree
+            foundIndex = idx
         }
         
-        return try T(xml: tree, tree: fullTree)
+        return (foundIndex, tree)
     }
-
+    
+    func resolveNode<T: XMLDecodable>(base: XMLIndexer, tree fullTree: XMLIndexer) throws -> T {
+        let pathStr = self.text
+        
+        let (_, foundTree) = try resolveXML(at: pathStr, base: base, tree: fullTree)
+        
+        return try T(xml: foundTree, tree: fullTree)
+    }
+    
+    func resolveNode<T: XMLDecodableWithIndex>(base: XMLIndexer, tree fullTree: XMLIndexer) throws -> T {
+        let pathStr = self.text
+        
+        let (idx, foundTree) = try resolveXML(at: pathStr, base: base, tree: fullTree)
+        
+        return try T(xml: foundTree, index: idx, tree: fullTree)
+    }
+    
+    
 }
 
 extension XMLIndexer {

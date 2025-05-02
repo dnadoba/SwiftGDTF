@@ -335,7 +335,7 @@ extension DMXMode: XMLDecodable {
         
         self.name = try element.attribute(named: "Name").text
         self.description = element.attribute(by: "Description")?.text ?? ""
-        
+                
         self.channels = try xml["DMXChannels"].parseChildrenToArray(tree: tree)
         self.relations = try xml["Relations"].parseChildrenToArray(parent: xml, tree: tree)
         self.macros = try xml["FTMacros"].parseChildrenToArray(parent: xml, tree: tree)
@@ -361,11 +361,7 @@ extension DMXChannel: XMLDecodable {
         }
         
         
-        guard let logicalChannel: LogicalChannel = try xml.parseChildrenToArray(tree: tree).first else {
-            throw XMLParsingError.noChildren
-        }
-
-        self.logicalChannel = logicalChannel
+        self.logicalChannels = try xml.parseChildrenToArray(tree: tree)
         
         // Initial Function
         //
@@ -393,10 +389,8 @@ extension DMXChannel: XMLDecodable {
             
         } else {
             // "Default value is the first channel function of the first logical function of this DMX channel."
-            
-            guard let initFn = logicalChannel.channelFunctions.first else { throw XMLParsingError.initialFunctionPathInvalid }
-            
-            self.initialFunction = initFn
+                        
+            self.initialFunction = logicalChannels.first?.channelFunctions.first
         }
         
         
@@ -428,7 +422,7 @@ extension ChannelFunction: XMLDecodable {
     init(xml: XMLIndexer, tree: XMLIndexer) throws {
         guard let element = xml.element else { throw XMLParsingError.elementMissing }
 
-        self.name = try element.attribute(named: "Name").text
+        self.name = try element.attribute(by: "Name")?.text ?? element.attribute(named: "Attribute").text
         
         if (element.attribute(by: "Attribute")?.text != "NoFunction") {
             self.attribute = try element.attribute(by: "Attribute")?.resolveNode(base: tree["AttributeDefinitions"]["Attributes"], tree: tree)
@@ -483,15 +477,15 @@ extension ChannelSet: XMLDecodableWithParent {
         guard let element = xml.element else { throw XMLParsingError.elementMissing }
         guard let parentElement = parent.element else { throw XMLParsingError.elementMissing }
         
-        self.name = try element.attribute(named: "Name").text
+        self.name = element.attribute(by: "Name")?.text ?? ""
         
         self.dmxFrom = DMXValue(from: element.attribute(by: "DMXFrom")?.text ?? "0/1")
         
         // the defaults for these reference parent, they will be nil if not provided
-        self.physicalFrom = try element.attribute(by: "PhysicalFrom")?.double
-                                ?? parentElement.attribute(named: "PhysicalFrom").double ?? 0
-        self.physicalTo = try element.attribute(by: "PhysicalTo")?.double
-                                ?? parentElement.attribute(named: "PhysicalTo").double ?? 1
+        self.physicalFrom = element.attribute(by: "PhysicalFrom")?.double
+                                ?? parentElement.attribute(by: "PhysicalFrom")?.double ?? 0
+        self.physicalTo = element.attribute(by: "PhysicalTo")?.double
+                                ?? parentElement.attribute(by: "PhysicalTo")?.double ?? 1
         
         self.wheelSlotIndex = element.attribute(by: "WheelSlotIndex")?.int
     }

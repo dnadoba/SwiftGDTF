@@ -55,9 +55,9 @@ func loadXML(xmlData: Data) throws -> XMLIndexer {
     
     /// Setup XML parser config
     let config = XMLHash.config { config in
+        config.caseInsensitive = true
         config.shouldProcessLazily = false
         config.detectParsingErrors = true
-        config.caseInsensitive = true
     }
     
     /// parse XML tree and verify we got a GDTF root node
@@ -136,7 +136,7 @@ public func loadFixtureModePackage(mode: String, gdtf: Data) throws -> FixturePa
     
     // Load wheel images from the mode
     for channel in mode.channels {
-        if let wheel = channel.initialFunction.wheel {
+        if let wheel = channel.initialFunction?.wheel {
             for slot in wheel.slots {
                 // if the wheel has a media filename
                 if let slotFile = slot.mediaFileName {

@@ -15,7 +15,7 @@ public enum XMLParsingError: Error {
     case initialFunctionPathInvalid
     case enumCastFailed(enumType: String, stringValue: String)
     case nodeResolutionFailed(path: String)
-    case noChildren
+    case noChildren(in: String)
     case failedToParseString
 }
 
@@ -103,8 +103,8 @@ extension XMLIndexer {
     }
     
     func child(named name: String) throws -> XMLIndexer {
-        guard let child = self.children.first(where: { c in c.element?.name == name }) else {
-            throw XMLParsingError.childNotFound(named: name, at: "")
+        guard let child = self.children.first(where: { c in c.element?.name.lowercased() == name.lowercased() }) else {
+            throw XMLParsingError.childNotFound(named: name, at: self.element?.text ?? "")
         }
         
         return child
@@ -112,7 +112,7 @@ extension XMLIndexer {
     
     func firstChild() throws -> XMLIndexer {
         guard let firstChild = self.children.first else {
-            throw XMLParsingError.noChildren
+            throw XMLParsingError.noChildren(in: self.element?.text ?? "")
         }
         
         return firstChild

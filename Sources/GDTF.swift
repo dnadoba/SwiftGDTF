@@ -219,10 +219,10 @@ public struct DMXChannel: Codable {
     public var name: String?
     public var dmxBreak: Int
     public var offset: [Int]
-    public var initialFunction: ChannelFunction
+    public var initialFunction: ChannelFunction?
     public var highlight: DMXValue?
     
-    public var logicalChannel: LogicalChannel
+    public var logicalChannels: [LogicalChannel]
     public var geometry: String
 }
 

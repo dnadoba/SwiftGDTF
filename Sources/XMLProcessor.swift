@@ -460,7 +460,7 @@ extension ChannelFunction: XMLDecodableWithIndex {
         }
         
         // DMX Profile
-        self.dmxProfile = try element.attribute(by: "DMXProfile")?.resolveNode(base: tree["DMXProfiles"], tree: tree)
+        self.dmxProfile = try? element.attribute(by: "DMXProfile")?.resolveNode(base: tree["DMXProfiles"], tree: tree)
         
         self.minimum = element.attribute(by: "Min")?.double ?? self.physicalFrom
         self.maximum = element.attribute(by: "Max")?.double ?? self.physicalTo

@@ -17,6 +17,6 @@ Install with SPM, currently running off of master branch until a v1 release.
 
 ```
 dependencies: [
-    .package(url: "https://github.com/bwees/SwiftGDTF.git", branch: "master)
+    .package(url: "https://github.com/bwees/SwiftGDTF.git", branch: "master")
 ]
 ```

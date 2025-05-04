@@ -8,7 +8,15 @@ let env = ProcessInfo.processInfo.environment
 // as they do not follow proper spec
 
 let FIXTURE_BLACKLIST = [
-    "None"
+    "S380H IP_Terbly_D3950060-1900-4193-97A5-24FEDFD38E73.gdtf",
+    "S380H_Terbly_EDB6335A-E04D-40AC-871F-234419A60D6B.gdtf"
+    "TMH S-200_Eurolite_CC902559-910C-46E3-92FF-5D4F460C12B3.gdtf",
+    "Gemini 1x1 Hard_Litepanels_C06B8887-F9CD-49B0-9A05-F735D19B228B.gdtf",
+    "Gemini 1x1 Soft_Litepanels_2319CD84-61C3-4AE6-830C-E5284BF9A4AB.gdtf",
+    "Moonlight Kugel 60cm_Boehlke Beleuchtung_8B5119CF-4C53-4BBE-8CA9-657C67729691.gdtf",
+    "Gemini 2x1 Soft_Litepanels_E5EB68B1-680A-48AA-A0F9-F26DC612985C.gdtf",
+    "Gemini 2x1 Hard_Litepanels_6D5063F5-9B6A-42D2-8D8C-21BCF5B06BF8.gdtf",
+    "LED TMH-S200_Eurolite_9D17D5E9-3776-4315-8104-14BE1BDE8AA4.gdtf"
 ]
 
 // MARK: - Credentials
@@ -225,70 +233,62 @@ class GDTFValidator {
         self.fixturesDirectory = fixturesDirectory
     }
 
-    func validateAll() async {
-        do {
-            let fileURLs = try FileManager.default.contentsOfDirectory(at: fixturesDirectory, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
-            let gdtfFiles = fileURLs.filter { $0.pathExtension.lowercased() == "gdtf" }
+    func validateAll() async throws {
+        let fileURLs = try FileManager.default.contentsOfDirectory(at: fixturesDirectory, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
+        let gdtfFiles = fileURLs.filter { $0.pathExtension.lowercased() == "gdtf" }
 
-            print("Found \(gdtfFiles.count) GDTF files to validate.\n")
+        print("Found \(gdtfFiles.count) GDTF files to validate.\n")
 
-            await withTaskGroup(of: (String, Result<Void, Error>).self) { group in
-                for fileURL in gdtfFiles {
-                    group.addTask {
-                        let filename = fileURL.lastPathComponent
-                        do {
-                            _ = try loadGDTF(url: fileURL)
-                            return (filename, .success(()))
-                        } catch {
-                            return (filename, .failure(error))
-                        }
-                    }
-                }
-
-                for await (filename, result) in group {
-                    switch result {
-                    case .success:
-                        successes.append(filename)
-//                        print("✅ Successfully parsed: \(filename)")
-                    case .failure(let error):
-                        failures.append((filename, "\(error)"))
-                        print("❌ Failed to parse: \(filename)\n   Error: \(error)")
+        await withTaskGroup(of: (String, Result<Void, Error>).self) { group in
+            for fileURL in gdtfFiles {
+                group.addTask {
+                    let filename = fileURL.lastPathComponent
+                    do {
+                        _ = try loadGDTF(url: fileURL)
+                        return (filename, .success(()))
+                    } catch {
+                        return (filename, .failure(error))
                     }
                 }
             }
 
-            // Summary
-            print("\nValidation Summary:")
-            print("✅ Successes: \(successes.count)")
-            print("❌ Failures: \(failures.count)")
-            let errorGrouped = Dictionary.init(zip(failures.map(\.1), repeatElement(1, count: .max)), uniquingKeysWith: +).sorted(by: { $0.value > $1.value})
-            print("Failure Reasons")
-            for error in errorGrouped {
-                print("\(error.key): \(error.value)")
-            }
-            
-            
-
-            if !failures.isEmpty {
-                print("\nFailed Files:")
-                for (filename, errorDescription) in failures {
-                    print(" - \(filename): \(errorDescription)")
+            for await (filename, result) in group {
+                switch result {
+                case .success:
+                    successes.append(filename)
+                    // print("✅ Successfully parsed: \(filename)")
+                case .failure(let error):
+                    failures.append((filename, "\(error)"))
+                    print("❌ Failed to parse: \(filename)\n   Error: \(error)")
                 }
+            }
+        }
 
-                // fail the test
-                throw NSError(domain: "GDTFValidationError", code: 1, userInfo: [NSLocalizedDescriptionKey: "GDTF validation failed for \(failures.count) files."])
+        // Summary
+        print("\nValidation Summary:")
+        print("✅ Successes: \(successes.count)")
+        print("❌ Failures: \(failures.count)")
+
+        let errorGrouped = Dictionary.init(zip(failures.map(\.1), repeatElement(1, count: .max)), uniquingKeysWith: +).sorted(by: { $0.value > $1.value})
+        
+        print("Failure Reasons")
+        for error in errorGrouped {
+            print("\(error.key): \(error.value)")
+        }
+        
+        if !failures.isEmpty {
+            print("\nFailed Files:")
+            for (filename, errorDescription) in failures {
+                print(" - \(filename): \(errorDescription)")
             }
 
-        } catch {
-            print("Error accessing fixtures directory: \(error.localizedDescription)")
+            // fail the test
+            throw NSError(domain: "GDTFValidationError", code: 1, userInfo: [NSLocalizedDescriptionKey: "GDTF validation failed for \(failures.count) files."])
         }
     }
 }
 
 // MARK: - Main Execution
-
-
-
 
 @Suite
 struct GDTFShare {
@@ -300,7 +300,7 @@ struct GDTFShare {
         let downloader = GDTFDownloader(credentials: credentials, downloadDirectory: downloadFolder)
         try await downloader.start()
 
-        await GDTFValidator(fixturesDirectory: downloadFolder).validateAll()
+        try await GDTFValidator(fixturesDirectory: downloadFolder).validateAll()
     }
     
     // Useful for debugging

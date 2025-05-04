@@ -18,6 +18,7 @@ final class GDTFStatistics {
     
     struct FixtureStats {
         let name: String
+        let fixtureTypeID: UUID  // Store the UUID for reference
         let goboWheels: [WheelInfo]
         let colorWheels: [WheelInfo]
         let dmxBitWidths: Set<Int>
@@ -41,43 +42,43 @@ final class GDTFStatistics {
         // Gobo wheel stats
         var maxGoboWheels: Int = 0
         var fixtureWithMaxGoboWheels: String = ""
-        var goboWheelDistribution: [Int: Int] = [:] // [wheelCount: numberOfFixtures]
+        var goboWheelDistribution: [Int: (count: Int, fixtureIDs: [UUID])] = [:] // [wheelCount: (count, fixtureIDs)]
         
         // Color wheel stats
         var maxColorWheels: Int = 0
         var fixtureWithMaxColorWheels: String = ""
-        var colorWheelDistribution: [Int: Int] = [:] // [wheelCount: numberOfFixtures]
+        var colorWheelDistribution: [Int: (count: Int, fixtureIDs: [UUID])] = [:] // [wheelCount: (count, fixtureIDs)]
         
-        // Gobo count per whele stats
+        // Gobo count per wheel stats
         var maxGobosPerWheel: Int = 0
         var wheelWithMaxGobos: String = ""
         var fixtureWithMaxGobosPerWheel: String = ""
-        var goboPerWheelDistribution: [Int: Int] = [:] // [goboCount: numberOfWheels]
+        var goboPerWheelDistribution: [Int: (count: Int, fixtureIDs: [UUID])] = [:] // [goboCount: (wheelCount, fixtureIDs)]
         
         // Total gobo count stats
         var maxTotalGobos: Int = 0
         var fixtureWithMaxTotalGobos: String = ""
-        var totalGobosDistribution: [Int: Int] = [:] // [goboCount: numberOfFixtures]
+        var totalGobosDistribution: [Int: (count: Int, fixtureIDs: [UUID])] = [:] // [goboCount: (fixtureCount, fixtureIDs)]
         
         // Color count per wheel stats
         var maxColorsPerWheel: Int = 0
         var wheelWithMaxColors: String = ""
         var fixtureWithMaxColorsPerWheel: String = ""
-        var colorPerWheelDistribution: [Int: Int] = [:] // [colorCount: numberOfWheels]
+        var colorPerWheelDistribution: [Int: (count: Int, fixtureIDs: [UUID])] = [:] // [colorCount: (wheelCount, fixtureIDs)]
         
         // Total color count stats
         var maxTotalColors: Int = 0
         var fixtureWithMaxTotalColors: String = ""
-        var totalColorsDistribution: [Int: Int] = [:] // [colorCount: numberOfFixtures]
+        var totalColorsDistribution: [Int: (count: Int, fixtureIDs: [UUID])] = [:] // [colorCount: (fixtureCount, fixtureIDs)]
         
         // DMX bit width stats
-        var dmxBitWidthDistribution: [Int: Int] = [:] // [bitWidth: count]
+        var dmxBitWidthDistribution: [Int: (count: Int, fixtureIDs: [UUID])] = [:] // [bitWidth: (count, fixtureIDs)]
         
         // Attribute bit width stats - now grouped by bit width first
-        var bitWidthAttributeDistribution: [Int: [AttributeType: Int]] = [:] // [bitWidth: [AttributeType: count]]
+        var bitWidthAttributeDistribution: [Int: [AttributeType: (count: Int, fixtureIDs: [UUID])]] = [:] // [bitWidth: [AttributeType: (count, fixtureIDs)]]
         
         // New: Attribute usage stats
-        var attributeUsageCount: [AttributeType: Int] = [:] // [AttributeType: number of fixtures using it]
+        var attributeUsageCount: [AttributeType: (count: Int, fixtureIDs: [UUID])] = [:] // [AttributeType: (fixtureCount, fixtureIDs)]
         
         var description: String {
             var result = """
@@ -88,10 +89,10 @@ final class GDTFStatistics {
             """
             
             // Add the attribute usage statistics, sorted by usage count (descending)
-            let sortedAttributeUsage = attributeUsageCount.sorted { $0.value > $1.value }
-            for (attributeType, count) in sortedAttributeUsage {
-                let percentage = Double(count) / Double(parsedFixtureCount) * 100
-                result += "\n\(attributeType): \(count) fixture(s) (\(String(format: "%.1f", percentage))%)"
+            let sortedAttributeUsage = attributeUsageCount.sorted { $0.value.count > $1.value.count }
+            for (attributeType, stats) in sortedAttributeUsage {
+                let percentage = Double(stats.count) / Double(parsedFixtureCount) * 100
+                result += "\n\(attributeType): \(stats.count) fixture(s) (\(String(format: "%.1f", percentage))%)"
             }
             
             result += """
@@ -104,8 +105,8 @@ final class GDTFStatistics {
             """
             
             let sortedGoboWheelDistribution = goboWheelDistribution.sorted { $0.key < $1.key }
-            for (wheelCount, fixtureCount) in sortedGoboWheelDistribution {
-                result += "\n\(wheelCount) wheel(s): \(fixtureCount) fixture(s)"
+            for (wheelCount, stats) in sortedGoboWheelDistribution {
+                result += "\n\(wheelCount) wheel(s): \(stats.count) fixture(s)"
             }
             
             result += """
@@ -118,8 +119,8 @@ final class GDTFStatistics {
             """
             
             let sortedGoboPerWheelDistribution = goboPerWheelDistribution.sorted { $0.key < $1.key }
-            for (goboCount, wheelCount) in sortedGoboPerWheelDistribution {
-                result += "\n\(goboCount) gobo(s): \(wheelCount) wheel(s)"
+            for (goboCount, stats) in sortedGoboPerWheelDistribution {
+                result += "\n\(goboCount) gobo(s): \(stats.count) wheel(s)"
             }
             
             result += """
@@ -132,8 +133,8 @@ final class GDTFStatistics {
             """
             
             let sortedTotalGobosDistribution = totalGobosDistribution.sorted { $0.key < $1.key }
-            for (goboCount, fixtureCount) in sortedTotalGobosDistribution {
-                result += "\n\(goboCount) gobo(s): \(fixtureCount) fixture(s)"
+            for (goboCount, stats) in sortedTotalGobosDistribution {
+                result += "\n\(goboCount) gobo(s): \(stats.count) fixture(s)"
             }
             
             result += """
@@ -146,8 +147,8 @@ final class GDTFStatistics {
             """
             
             let sortedColorWheelDistribution = colorWheelDistribution.sorted { $0.key < $1.key }
-            for (wheelCount, fixtureCount) in sortedColorWheelDistribution {
-                result += "\n\(wheelCount) wheel(s): \(fixtureCount) fixture(s)"
+            for (wheelCount, stats) in sortedColorWheelDistribution {
+                result += "\n\(wheelCount) wheel(s): \(stats.count) fixture(s)"
             }
             
             result += """
@@ -160,8 +161,8 @@ final class GDTFStatistics {
             """
             
             let sortedColorPerWheelDistribution = colorPerWheelDistribution.sorted { $0.key < $1.key }
-            for (colorCount, wheelCount) in sortedColorPerWheelDistribution {
-                result += "\n\(colorCount) color(s): \(wheelCount) wheel(s)"
+            for (colorCount, stats) in sortedColorPerWheelDistribution {
+                result += "\n\(colorCount) color(s): \(stats.count) wheel(s)"
             }
             
             result += """
@@ -174,8 +175,8 @@ final class GDTFStatistics {
             """
             
             let sortedTotalColorsDistribution = totalColorsDistribution.sorted { $0.key < $1.key }
-            for (colorCount, fixtureCount) in sortedTotalColorsDistribution {
-                result += "\n\(colorCount) color(s): \(fixtureCount) fixture(s)"
+            for (colorCount, stats) in sortedTotalColorsDistribution {
+                result += "\n\(colorCount) color(s): \(stats.count) fixture(s)"
             }
             
             result += """
@@ -186,8 +187,8 @@ final class GDTFStatistics {
             """
             
             let sortedDMXBitWidthDistribution = dmxBitWidthDistribution.sorted { $0.key < $1.key }
-            for (bitWidth, count) in sortedDMXBitWidthDistribution {
-                result += "\n\(bitWidth)-bit: \(count) usage(s)"
+            for (bitWidth, stats) in sortedDMXBitWidthDistribution {
+                result += "\n\(bitWidth)-bit: \(stats.count) usage(s)"
             }
             
             result += """
@@ -205,9 +206,9 @@ final class GDTFStatistics {
                 
                 if let attributes = bitWidthAttributeDistribution[bitWidth] {
                     // Sort attributes by name for consistent output
-                    let sortedAttributes = attributes.sorted { $0.value > $1.value }
-                    for (attribute, count) in sortedAttributes {
-                        result += "\n  \(attribute): \(count) fixture(s)"
+                    let sortedAttributes = attributes.sorted { $0.value.count > $1.value.count }
+                    for (attribute, stats) in sortedAttributes {
+                        result += "\n  \(attribute): \(stats.count) fixture(s)"
                     }
                 } else {
                     result += "\n  No data"
@@ -215,6 +216,51 @@ final class GDTFStatistics {
             }
             
             return result
+        }
+        
+        // Helper method to get fixtures with specific gobo wheel count
+        func fixturesWithGoboWheelCount(_ count: Int) -> [UUID] {
+            return goboWheelDistribution[count]?.fixtureIDs ?? []
+        }
+        
+        // Helper method to get fixtures with specific color wheel count
+        func fixturesWithColorWheelCount(_ count: Int) -> [UUID] {
+            return colorWheelDistribution[count]?.fixtureIDs ?? []
+        }
+        
+        // Helper method to get fixtures with specific number of gobos per wheel
+        func fixturesWithGoboPerWheelCount(_ count: Int) -> [UUID] {
+            return goboPerWheelDistribution[count]?.fixtureIDs ?? []
+        }
+        
+        // Helper method to get fixtures with specific total gobo count
+        func fixturesWithTotalGoboCount(_ count: Int) -> [UUID] {
+            return totalGobosDistribution[count]?.fixtureIDs ?? []
+        }
+        
+        // Helper method to get fixtures with specific colors per wheel
+        func fixturesWithColorPerWheelCount(_ count: Int) -> [UUID] {
+            return colorPerWheelDistribution[count]?.fixtureIDs ?? []
+        }
+        
+        // Helper method to get fixtures with specific total color count
+        func fixturesWithTotalColorCount(_ count: Int) -> [UUID] {
+            return totalColorsDistribution[count]?.fixtureIDs ?? []
+        }
+        
+        // Helper method to get fixtures with specific DMX bit width
+        func fixturesWithDMXBitWidth(_ bitWidth: Int) -> [UUID] {
+            return dmxBitWidthDistribution[bitWidth]?.fixtureIDs ?? []
+        }
+        
+        // Helper method to get fixtures using a specific attribute
+        func fixturesUsingAttribute(_ attribute: AttributeType) -> [UUID] {
+            return attributeUsageCount[attribute]?.fixtureIDs ?? []
+        }
+        
+        // Helper method to get fixtures using a specific attribute at specific bit width
+        func fixturesUsingAttribute(_ attribute: AttributeType, withBitWidth bitWidth: Int) -> [UUID] {
+            return bitWidthAttributeDistribution[bitWidth]?[attribute]?.fixtureIDs ?? []
         }
     }
     
@@ -283,7 +329,11 @@ final class GDTFStatistics {
                     
                     // Gobo wheel stats
                     let goboWheelCount = fixtureStats.goboWheels.count
-                    result.goboWheelDistribution[goboWheelCount, default: 0] += 1
+                    if let existing = result.goboWheelDistribution[goboWheelCount] {
+                        result.goboWheelDistribution[goboWheelCount] = (existing.count + 1, existing.fixtureIDs + [fixtureStats.fixtureTypeID])
+                    } else {
+                        result.goboWheelDistribution[goboWheelCount] = (1, [fixtureStats.fixtureTypeID])
+                    }
                     
                     if goboWheelCount > result.maxGoboWheels {
                         result.maxGoboWheels = goboWheelCount
@@ -292,7 +342,11 @@ final class GDTFStatistics {
                     
                     // Gobo per wheel stats
                     for wheel in fixtureStats.goboWheels {
-                        result.goboPerWheelDistribution[wheel.slotCount, default: 0] += 1
+                        if let existing = result.goboPerWheelDistribution[wheel.slotCount] {
+                            result.goboPerWheelDistribution[wheel.slotCount] = (existing.count + 1, existing.fixtureIDs + [fixtureStats.fixtureTypeID])
+                        } else {
+                            result.goboPerWheelDistribution[wheel.slotCount] = (1, [fixtureStats.fixtureTypeID])
+                        }
                         
                         if wheel.slotCount > result.maxGobosPerWheel {
                             result.maxGobosPerWheel = wheel.slotCount
@@ -303,7 +357,11 @@ final class GDTFStatistics {
                     
                     // Total gobos stats
                     let totalGobos = fixtureStats.totalGoboCount
-                    result.totalGobosDistribution[totalGobos, default: 0] += 1
+                    if let existing = result.totalGobosDistribution[totalGobos] {
+                        result.totalGobosDistribution[totalGobos] = (existing.count + 1, existing.fixtureIDs + [fixtureStats.fixtureTypeID])
+                    } else {
+                        result.totalGobosDistribution[totalGobos] = (1, [fixtureStats.fixtureTypeID])
+                    }
                     
                     if totalGobos > result.maxTotalGobos {
                         result.maxTotalGobos = totalGobos
@@ -312,7 +370,11 @@ final class GDTFStatistics {
                     
                     // Color wheel stats
                     let colorWheelCount = fixtureStats.colorWheels.count
-                    result.colorWheelDistribution[colorWheelCount, default: 0] += 1
+                    if let existing = result.colorWheelDistribution[colorWheelCount] {
+                        result.colorWheelDistribution[colorWheelCount] = (existing.count + 1, existing.fixtureIDs + [fixtureStats.fixtureTypeID])
+                    } else {
+                        result.colorWheelDistribution[colorWheelCount] = (1, [fixtureStats.fixtureTypeID])
+                    }
                     
                     if colorWheelCount > result.maxColorWheels {
                         result.maxColorWheels = colorWheelCount
@@ -321,7 +383,11 @@ final class GDTFStatistics {
                     
                     // Color per wheel stats
                     for wheel in fixtureStats.colorWheels {
-                        result.colorPerWheelDistribution[wheel.slotCount, default: 0] += 1
+                        if let existing = result.colorPerWheelDistribution[wheel.slotCount] {
+                            result.colorPerWheelDistribution[wheel.slotCount] = (existing.count + 1, existing.fixtureIDs + [fixtureStats.fixtureTypeID])
+                        } else {
+                            result.colorPerWheelDistribution[wheel.slotCount] = (1, [fixtureStats.fixtureTypeID])
+                        }
                         
                         if wheel.slotCount > result.maxColorsPerWheel {
                             result.maxColorsPerWheel = wheel.slotCount
@@ -332,7 +398,11 @@ final class GDTFStatistics {
                     
                     // Total colors stats
                     let totalColors = fixtureStats.totalColorCount
-                    result.totalColorsDistribution[totalColors, default: 0] += 1
+                    if let existing = result.totalColorsDistribution[totalColors] {
+                        result.totalColorsDistribution[totalColors] = (existing.count + 1, existing.fixtureIDs + [fixtureStats.fixtureTypeID])
+                    } else {
+                        result.totalColorsDistribution[totalColors] = (1, [fixtureStats.fixtureTypeID])
+                    }
                     
                     if totalColors > result.maxTotalColors {
                         result.maxTotalColors = totalColors
@@ -341,19 +411,36 @@ final class GDTFStatistics {
                     
                     // DMX bit width stats
                     for bitWidth in fixtureStats.dmxBitWidths {
-                        result.dmxBitWidthDistribution[bitWidth, default: 0] += 1
+                        if let existing = result.dmxBitWidthDistribution[bitWidth] {
+                            result.dmxBitWidthDistribution[bitWidth] = (existing.count + 1, existing.fixtureIDs + [fixtureStats.fixtureTypeID])
+                        } else {
+                            result.dmxBitWidthDistribution[bitWidth] = (1, [fixtureStats.fixtureTypeID])
+                        }
                     }
                     
                     // Attribute bit width stats - now grouped by bit width first
                     for (attributeType, bitWidths) in fixtureStats.attributeBitWidths {
                         for bitWidth in bitWidths {
-                            result.bitWidthAttributeDistribution[bitWidth, default: [:]][attributeType, default: 0] += 1
+                            if let attributeMap = result.bitWidthAttributeDistribution[bitWidth] {
+                                if let existing = attributeMap[attributeType] {
+                                    result.bitWidthAttributeDistribution[bitWidth]?[attributeType] =
+                                        (existing.count + 1, existing.fixtureIDs + [fixtureStats.fixtureTypeID])
+                                } else {
+                                    result.bitWidthAttributeDistribution[bitWidth]?[attributeType] = (1, [fixtureStats.fixtureTypeID])
+                                }
+                            } else {
+                                result.bitWidthAttributeDistribution[bitWidth] = [attributeType: (1, [fixtureStats.fixtureTypeID])]
+                            }
                         }
                     }
                     
                     // Process attribute usage stats
                     for attributeType in fixtureStats.usedAttributes {
-                        result.attributeUsageCount[attributeType, default: 0] += 1
+                        if let existing = result.attributeUsageCount[attributeType] {
+                            result.attributeUsageCount[attributeType] = (existing.count + 1, existing.fixtureIDs + [fixtureStats.fixtureTypeID])
+                        } else {
+                            result.attributeUsageCount[attributeType] = (1, [fixtureStats.fixtureTypeID])
+                        }
                     }
                 }
             }
@@ -408,6 +495,7 @@ final class GDTFStatistics {
         
         return FixtureStats(
             name: name,
+            fixtureTypeID: gdtf.fixtureType.fixtureTypeID,
             goboWheels: goboWheels,
             colorWheels: colorWheels,
             dmxBitWidths: dmxBitWidths,

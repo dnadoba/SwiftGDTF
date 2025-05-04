@@ -23,7 +23,7 @@ public struct FixtureType: Codable {
     public var longName: String
     public var manufacturer: String
     public var description: String
-    public var fixtureTypeID: String
+    public var fixtureTypeID: UUID
     public var refFT: String?
     public var thumbnail: FileResource?
     

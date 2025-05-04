@@ -183,6 +183,15 @@ extension XMLAttribute {
     var int: Int? {
         return Int(self.text)
     }
+
+    var uuid: UUID {
+        get throws {
+            guard let uuid = UUID(uuidString: text) else {
+                throw XMLParsingError.invalidUUID(text: text)
+            }
+            return uuid
+        }
+    }
     
     func toEnum<T: RawRepresentable>() throws -> T {
         guard let raw = self.text as? T.RawValue, let enumValue = T(rawValue: raw) else {

@@ -40,7 +40,7 @@ extension FixtureType: XMLDecodable {
         self.longName = try element.attribute(named: "LongName").text
         self.manufacturer = try element.attribute(named: "Manufacturer").text
         self.description = try element.attribute(named: "Description").text
-        self.fixtureTypeID = try element.attribute(named: "FixtureTypeID").text
+        self.fixtureTypeID = try element.attribute(named: "FixtureTypeID").uuid
         self.refFT = element.attribute(by: "RefFT")?.text
         self.thumbnail = FileResource(name: element.attribute(by: "Thumbnail")?.text, fileExtension: "png")
                 

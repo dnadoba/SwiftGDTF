@@ -184,7 +184,7 @@ class GDTFDownloader {
         let destinationURL = downloadDirectory.appendingPathComponent(fixture.filename())
 
         if FileManager.default.fileExists(atPath: destinationURL.path) {
-            print("Skipping \(fixture.filename()), already exists.")
+//            print("Skipping \(fixture.filename()), already exists.")
             return
         }
 
@@ -249,7 +249,7 @@ class GDTFValidator {
                     switch result {
                     case .success:
                         successes.append(filename)
-                        print("✅ Successfully parsed: \(filename)")
+//                        print("✅ Successfully parsed: \(filename)")
                     case .failure(let error):
                         failures.append((filename, "\(error)"))
                         print("❌ Failed to parse: \(filename)\n   Error: \(error)")

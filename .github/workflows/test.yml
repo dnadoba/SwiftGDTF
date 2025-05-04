@@ -8,9 +8,7 @@ on:
 
 jobs:
   test:
-    # use 22.04, theres an issue with setup-swift
-    # https://github.com/swift-actions/setup-swift/issues/694
-    runs-on: ubuntu-22.04
+    runs-on: macos-latest
     env:
       GDTF_SHARE_USERNAME: ${{ secrets.GDTF_SHARE_USERNAME }}
       GDTF_SHARE_PASSWORD: ${{ secrets.GDTF_SHARE_PASSWORD }}

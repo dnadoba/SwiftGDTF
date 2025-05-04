@@ -157,8 +157,8 @@ class GDTFDownloader {
                     do {
                         try await self.downloadFixture(fixture)
                         downloadedCount += 1
-                        let progress = Double(downloadedCount) / Double(totalCount) * 100
-                        print(String(format: "Progress: %.2f%% (%d/%d)", progress, downloadedCount, totalCount))
+                        // let progress = Double(downloadedCount) / Double(totalCount) * 100
+                        // print(String(format: "Progress: %.2f%% (%d/%d)", progress, downloadedCount, totalCount))
                     } catch {
                         print("Failed to download fixture \(fixture.uuid): \(error)")
                     }

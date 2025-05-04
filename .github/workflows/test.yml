@@ -1,0 +1,45 @@
+name: Swift Package Tests
+
+on:
+  push:
+    branches:
+        - main
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GDTF_SHARE_USERNAME: ${{ secrets.GDTF_SHARE_USERNAME }}
+      GDTF_SHARE_PASSWORD: ${{ secrets.GDTF_SHARE_PASSWORD }}
+
+    steps:
+      # Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Set up Swift
+      - name: Set up Swift
+        uses: fwal/setup-swift@v1
+        with:
+          swift-version: '6.1' # Adjust to your Swift version
+
+      # Restore cached Fixtures folder
+      - name: Restore Fixtures cache
+        uses: actions/cache@v3
+        with:
+            path: Fixtures/
+            key: ${{ runner.os }}-fixtures
+            restore-keys: |
+                ${{ runner.os }}-fixtures
+
+      # Run tests
+      - name: Run Swift tests
+        run: swift test
+
+      # Save updated Fixtures folder to cache
+      - name: Save Fixtures cache
+        uses: actions/cache@v3
+        with:
+            path: Fixtures/
+            key: ${{ runner.os }}-fixtures

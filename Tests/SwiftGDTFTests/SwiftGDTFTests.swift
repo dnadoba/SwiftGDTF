@@ -1,6 +1,16 @@
 import Testing
 import Foundation
 
+let env = ProcessInfo.processInfo.environment
+
+// These fixtures have known issues with their profiles
+// and should be ignored in reguards to validating this library
+// as they do not follow proper spec
+
+let FIXTURE_BLACKLIST = [
+    "None"
+]
+
 // MARK: - Credentials
 
 struct Credentials {
@@ -16,6 +26,10 @@ struct Fixture: Decodable {
     var fixture: String
     var manufacturer: String
     var creationDate: Int
+    
+    func filename() -> String {
+        return "\(self.fixture)_\(self.manufacturer)_\(self.uuid).gdtf".replacingOccurrences(of: "/", with: "_")
+    }
 }
 
 // MARK: - Session Manager
@@ -123,6 +137,11 @@ class GDTFDownloader {
         }
 
         self.fixtures = Array(latestByUUID.values.sorted(by: { $0.rid < $1.rid }))
+        
+        // filter out blacklisted fixtures
+        self.fixtures = fixtures.filter({ f in
+            return !FIXTURE_BLACKLIST.contains(f.filename())
+        })
     }
 
     private func downloadFixtures() async throws {
@@ -162,11 +181,10 @@ class GDTFDownloader {
     }
 
     private func downloadFixture(_ fixture: Fixture) async throws {
-        let filename = "\(fixture.fixture)_\(fixture.manufacturer)_\(fixture.uuid).gdtf".replacingOccurrences(of: "/", with: "_")
-        let destinationURL = downloadDirectory.appendingPathComponent(filename)
+        let destinationURL = downloadDirectory.appendingPathComponent(fixture.filename())
 
         if FileManager.default.fileExists(atPath: destinationURL.path) {
-            print("Skipping \(filename), already exists.")
+            print("Skipping \(fixture.filename()), already exists.")
             return
         }
 
@@ -190,7 +208,7 @@ class GDTFDownloader {
         }
 
         try FileManager.default.moveItem(at: tempURL, to: destinationURL)
-        print("Downloaded \(filename)")
+        print("Downloaded \(fixture.filename())")
     }
 }
 
@@ -272,18 +290,18 @@ class GDTFValidator {
 @Suite
 struct GDTFShare {
     let downloadFolder = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("Fixtures")
-    let credentials = Credentials(username: "username", password: "password")
+    let credentials = Credentials(username: env["GDTF_SHARE_USERNAME"]!, password: env["GDTF_SHARE_PASSWORD"]!)
     
     @Test func parseAllFixtures() async throws {
         
         let downloader = GDTFDownloader(credentials: credentials, downloadDirectory: downloadFolder)
-        // can be commented out if all fixtures have already been downloaded as they are cached
-//        try await downloader.start()
+        try await downloader.start()
 
         await GDTFValidator(fixturesDirectory: downloadFolder).validateAll()
     }
     
-    @Test func testIndividual() async throws {
-        _ = try loadGDTF(url: downloadFolder.appending(component: "Reflect Color Studio_Brother Brother and Sons_379FE751-C45E-4734-A6C8-843A2BF28F42.gdtf"))
-    }
+    // Useful for debugging
+//    @Test func testIndividual() async throws {
+//        _ = try loadGDTF(url: downloadFolder.appending(component: "Reflect Color Studio_Brother Brother and Sons_379FE751-C45E-4734-A6C8-843A2BF28F42.gdtf"))
+//    }
 }

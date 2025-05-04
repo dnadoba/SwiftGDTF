@@ -274,6 +274,9 @@ class GDTFValidator {
                 for (filename, errorDescription) in failures {
                     print(" - \(filename): \(errorDescription)")
                 }
+
+                // fail the test
+                throw NSError(domain: "GDTFValidationError", code: 1, userInfo: [NSLocalizedDescriptionKey: "GDTF validation failed for \(failures.count) files."])
             }
 
         } catch {

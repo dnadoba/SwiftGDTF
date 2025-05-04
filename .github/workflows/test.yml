@@ -10,7 +10,6 @@ jobs:
   test:
     runs-on: macos-latest
     env:
-      GDTF_SHARE_USERNAME: ${{ secrets.GDTF_SHARE_USERNAME }}
       GDTF_SHARE_PASSWORD: ${{ secrets.GDTF_SHARE_PASSWORD }}
 
     steps:

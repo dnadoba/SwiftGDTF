@@ -25,9 +25,7 @@ extension GDTF {
     init(xml: XMLIndexer) throws {
         
         self.dataVersion = xml["GDTF"].element!.attribute(by: "DataVersion")!.text
-        self.fixtureType = try xml["GDTF"]["FixtureType"].parse(tree: xml["GDTF"]["FixtureType"])
-        
-//         self.fixtureType = try xml["GDTF"]["FixtureType"].parse(tree: xml["GDTF"]["FixtureType"])
+        self.fixtureType = try xml["GDTF"]["FixtureType"].parse(tree: xml["GDTF"]["FixtureType"])        
     }
 }
 

@@ -150,8 +150,6 @@ class GDTFDownloader {
     private func downloadFixtures() async throws {
         try FileManager.default.createDirectory(at: downloadDirectory, withIntermediateDirectories: true, attributes: nil)
         print("downloading to \(downloadDirectory)")
-
-        let totalCount = fixtures.count
         var downloadedCount = 0
 
         await withTaskGroup(of: Void.self) { group in
@@ -160,8 +158,6 @@ class GDTFDownloader {
                     do {
                         try await self.downloadFixture(fixture)
                         downloadedCount += 1
-                        // let progress = Double(downloadedCount) / Double(totalCount) * 100
-                        // print(String(format: "Progress: %.2f%% (%d/%d)", progress, downloadedCount, totalCount))
                     } catch {
                         print("Failed to download fixture \(fixture.uuid): \(error)")
                     }
@@ -187,7 +183,7 @@ class GDTFDownloader {
         let destinationURL = downloadDirectory.appendingPathComponent(fixture.filename())
 
         if FileManager.default.fileExists(atPath: destinationURL.path) {
-//            print("Skipping \(fixture.filename()), already exists.")
+            // already downloaded, skip
             return
         }
 
@@ -257,7 +253,6 @@ class GDTFValidator {
                 switch result {
                 case .success:
                     successes.append(filename)
-                    // print("✅ Successfully parsed: \(filename)")
                 case .failure(let error):
                     failures.append((filename, "\(error)"))
                     print("❌ Failed to parse: \(filename)\n   Error: \(error)")

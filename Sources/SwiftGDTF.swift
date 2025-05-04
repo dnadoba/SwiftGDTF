@@ -205,7 +205,7 @@ public func loadFixtureDetails(gdtf: Data) throws -> FixtureDetails {
         let channelList = try mode.child(named: "DMXChannels").children
         
         guard let lastChannel = channelList.last?.element?.attribute(by: "Offset")?.text.components(separatedBy: ",").last else {
-            throw XMLParsingError.attributeMissing(named: "Offset", on: channelList.last?.element?.description ?? "N/A")
+            throw XMLParsingError.attributeMissing(named: "Offset", on: channelList.last?.element)
         }
         
         guard let footprint = UInt(lastChannel) else {

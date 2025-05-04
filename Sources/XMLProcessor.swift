@@ -502,7 +502,7 @@ extension SubChannelSet: XMLDecodableWithParent {
         
         // needs the parent
         guard let attributeName = try parent.element?.attribute(named: "Attribute") else {
-            throw XMLParsingError.attributeMissing(named: "Attribute", on: parent.element?.text ?? "")
+            throw XMLParsingError.attributeMissing(named: "Attribute", on: parent.element)
         }
         
         let associatedAttribute = try tree["AttributeDefinitions"]["Attributes"].findChild(with: "Name", being: attributeName.text)

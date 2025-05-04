@@ -10,10 +10,11 @@ import SWXMLHash
 
 public enum XMLParsingError: Error {
     case elementMissing
-    case attributeMissing(named: String, on: String)
+    case attributeMissing(named: String, on: SWXMLHash.XMLElement?)
     case childNotFound(named: String, at: String)
     case initialFunctionPathInvalid
     case enumCastFailed(enumType: String, stringValue: String)
+    case invalidUUID(text: String)
     case nodeResolutionFailed(path: String)
     case noChildren(in: String)
     case failedToParseString
@@ -195,7 +196,7 @@ extension XMLAttribute {
 extension SWXMLHash.XMLElement {
     func attribute(named name: String) throws -> XMLAttribute {
         guard let attr = self.attribute(by: name) else {
-            throw XMLParsingError.attributeMissing(named: name, on: self.description)
+            throw XMLParsingError.attributeMissing(named: name, on: self)
         }
         
         return attr

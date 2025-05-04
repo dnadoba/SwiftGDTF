@@ -145,11 +145,6 @@ class GDTFDownloader {
         }
 
         self.fixtures = Array(latestByUUID.values.sorted(by: { $0.rid < $1.rid }))
-        
-        // filter out blacklisted fixtures
-        self.fixtures = fixtures.filter({ f in
-            return !FIXTURE_BLACKLIST.contains(f.filename())
-        })
     }
 
     private func downloadFixtures() async throws {
@@ -241,8 +236,14 @@ class GDTFValidator {
 
         await withTaskGroup(of: (String, Result<Void, Error>).self) { group in
             for fileURL in gdtfFiles {
+                let filename = fileURL.lastPathComponent
+
+                if (FIXTURE_BLACKLIST.contains(filename)) {
+                    print("Skipping " + filename)
+                    continue
+                }
+                
                 group.addTask {
-                    let filename = fileURL.lastPathComponent
                     do {
                         _ = try loadGDTF(url: fileURL)
                         return (filename, .success(()))
@@ -269,14 +270,15 @@ class GDTFValidator {
         print("✅ Successes: \(successes.count)")
         print("❌ Failures: \(failures.count)")
 
-        let errorGrouped = Dictionary.init(zip(failures.map(\.1), repeatElement(1, count: .max)), uniquingKeysWith: +).sorted(by: { $0.value > $1.value})
-        
-        print("Failure Reasons")
-        for error in errorGrouped {
-            print("\(error.key): \(error.value)")
-        }
         
         if !failures.isEmpty {
+            let errorGrouped = Dictionary.init(zip(failures.map(\.1), repeatElement(1, count: .max)), uniquingKeysWith: +).sorted(by: { $0.value > $1.value})
+            
+            print("Failure Reasons")
+            for error in errorGrouped {
+                print("\(error.key): \(error.value)")
+            }
+            
             print("\nFailed Files:")
             for (filename, errorDescription) in failures {
                 print(" - \(filename): \(errorDescription)")

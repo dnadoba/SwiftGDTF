@@ -20,6 +20,7 @@ final class GDTFStatistics {
         let goboWheels: [WheelInfo]
         let colorWheels: [WheelInfo]
         let dmxBitWidths: Set<Int>
+        let attributeBitWidths: [AttributeType: Set<Int>] // [AttributeType: Set of unique bit widths]
         
         var totalGoboCount: Int {
             return goboWheels.reduce(0) { $0 + $1.slotCount }
@@ -69,6 +70,9 @@ final class GDTFStatistics {
         
         // DMX bit width stats
         var dmxBitWidthDistribution: [Int: Int] = [:] // [bitWidth: count]
+        
+        // Attribute bit width stats - now grouped by bit width first
+        var bitWidthAttributeDistribution: [Int: [AttributeType: Int]] = [:] // [bitWidth: [AttributeType: count]]
         
         var description: String {
             var result = """
@@ -167,6 +171,30 @@ final class GDTFStatistics {
                 result += "\n\(bitWidth)-bit: \(count) usage(s)"
             }
             
+            result += """
+            
+            
+            === ATTRIBUTE BIT WIDTH DETAILS ===
+            Bit width distribution by attribute type:
+            """
+            
+            // Get a sorted list of bit widths for consistent output
+            let bitWidths = bitWidthAttributeDistribution.keys.sorted()
+            
+            for bitWidth in bitWidths {
+                result += "\n\n\(bitWidth)-bit:"
+                
+                if let attributes = bitWidthAttributeDistribution[bitWidth] {
+                    // Sort attributes by name for consistent output
+                    let sortedAttributes = attributes.sorted { $0.value > $1.value }
+                    for (attribute, count) in sortedAttributes {
+                        result += "\n  \(attribute): \(count) fixture(s)"
+                    }
+                } else {
+                    result += "\n  No data"
+                }
+            }
+            
             return result
         }
     }
@@ -175,13 +203,24 @@ final class GDTFStatistics {
         var result = Result()
         
         do {
+            let startTime = Date()
+            let progressFormatter = DateComponentsFormatter()
+            progressFormatter.allowedUnits = [.hour, .minute, .second]
+            progressFormatter.unitsStyle = .abbreviated
+            progressFormatter.maximumUnitCount = 2
+            
             let gdtfFiles = try getListOfGDTFs(at: fixturesDirectory)
             let limitedFiles = Array(gdtfFiles.prefix(limit))
             
             result.fixtureCount = limitedFiles.count
+            print("Starting to process \(limitedFiles.count) fixture files...")
+            
+            var processedCount = 0
             
             await withTaskGroup(of: FixtureStats?.self) { group in
-                for fileURL in limitedFiles {
+                var filesToProcess = limitedFiles.makeIterator()
+                func addTaskIfNeeded() {
+                    guard let fileURL = filesToProcess.next() else { return }
                     group.addTask {
                         do {
                             let gdtf = try loadGDTF(url: fileURL)
@@ -195,7 +234,27 @@ final class GDTFStatistics {
                     }
                 }
                 
+                for _ in 0..<ProcessInfo.processInfo.processorCount {
+                    addTaskIfNeeded()
+                }
+                
+                
                 for await fixtureStats in group {
+                    addTaskIfNeeded()
+                    processedCount += 1
+                    // Show progress every 5% or every file if there are few files
+                    let reportInterval = max(1, limitedFiles.count / 20)
+                    if processedCount % reportInterval == 0 || processedCount == limitedFiles.count {
+                        let elapsedTime = Date().timeIntervalSince(startTime)
+                        let filesPerSecond = Double(processedCount) / elapsedTime
+                        let remainingFiles = limitedFiles.count - processedCount
+                        let remainingTimeSeconds = filesPerSecond > 0 ? Double(remainingFiles) / filesPerSecond : 0
+                        
+                        let percentage = Double(processedCount) / Double(limitedFiles.count) * 100
+                        let remainingTimeFormatted = progressFormatter.string(from: remainingTimeSeconds) ?? "unknown"
+                        
+                        print("Progress: \(processedCount)/\(limitedFiles.count) (\(String(format: "%.1f", percentage))%) - Est. remaining time: \(remainingTimeFormatted)")
+                    }
                     guard let fixtureStats = fixtureStats else {
                         continue
                     }
@@ -264,8 +323,18 @@ final class GDTFStatistics {
                     for bitWidth in fixtureStats.dmxBitWidths {
                         result.dmxBitWidthDistribution[bitWidth, default: 0] += 1
                     }
+                    
+                    // Attribute bit width stats - now grouped by bit width first
+                    for (attributeType, bitWidths) in fixtureStats.attributeBitWidths {
+                        for bitWidth in bitWidths {
+                            result.bitWidthAttributeDistribution[bitWidth, default: [:]][attributeType, default: 0] += 1
+                        }
+                    }
                 }
             }
+            
+            let totalTime = Date().timeIntervalSince(startTime)
+            print("Processing completed in \(progressFormatter.string(from: totalTime) ?? "unknown")")
             
         } catch {
             print("Error accessing fixtures directory: \(error)")
@@ -279,6 +348,7 @@ final class GDTFStatistics {
         var goboWheels: [WheelInfo] = []
         var colorWheels: [WheelInfo] = []
         var dmxBitWidths = Set<Int>()
+        var attributeBitWidths: [AttributeType: Set<Int>] = [:]
     
         let goboWheelMap = getGoboWheels(in: gdtf)
         let colorWheelMap = getColorWheels(in: gdtf)
@@ -295,7 +365,12 @@ final class GDTFStatistics {
             for channel in mode.channels {
                 for logicalChannel in channel.logicalChannels {
                     for channelFunction in logicalChannel.channelFunctions {
-                        dmxBitWidths.insert(channelFunction.dmxFrom.byteCount * 8)
+                        let bitWidth = channelFunction.dmxFrom.byteCount * 8
+                        dmxBitWidths.insert(bitWidth)
+                        
+                        if let attributeType = channelFunction.attribute?.type {
+                            attributeBitWidths[attributeType, default: []].insert(bitWidth)
+                        }
                     }
                 }
             }
@@ -305,7 +380,8 @@ final class GDTFStatistics {
             name: name,
             goboWheels: goboWheels,
             colorWheels: colorWheels,
-            dmxBitWidths: dmxBitWidths
+            dmxBitWidths: dmxBitWidths,
+            attributeBitWidths: attributeBitWidths
         )
     }
     

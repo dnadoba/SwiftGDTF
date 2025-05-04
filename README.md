@@ -1,8 +1,6 @@
 # SwiftGDTF
 A Swift library for interacting with GDTF files.
 
-*Note: This library is still in development and will have frequent breaking changes. Look out for a v1 release that will be more stable in updates*
-
 This library:
 - Handles the decompression and parsing of GDTF Files, and their file resources (when using `loadFixtureModePackage`)
 - Resolves node links present in attributes
@@ -17,6 +15,6 @@ Install with SPM, currently running off of master branch until a v1 release.
 
 ```
 dependencies: [
-    .package(url: "https://github.com/bwees/SwiftGDTF.git", branch: "master")
+    .package(url: "https://github.com/bwees/SwiftGDTF.git", from: "1.0.0")
 ]
 ```

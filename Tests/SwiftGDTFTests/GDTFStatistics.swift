@@ -1,6 +1,7 @@
 import Foundation
 import SwiftGDTF
 
+@available(macOS 15.4, iOS 18.4, *)
 final class GDTFStatistics {
     let fixturesDirectory: URL
     let limit: Int
@@ -21,6 +22,7 @@ final class GDTFStatistics {
         let colorWheels: [WheelInfo]
         let dmxBitWidths: Set<Int>
         let attributeBitWidths: [AttributeType: Set<Int>] // [AttributeType: Set of unique bit widths]
+        let usedAttributes: Set<AttributeType> // New field to track attributes used in this fixture
         
         var totalGoboCount: Int {
             return goboWheels.reduce(0) { $0 + $1.slotCount }
@@ -74,9 +76,26 @@ final class GDTFStatistics {
         // Attribute bit width stats - now grouped by bit width first
         var bitWidthAttributeDistribution: [Int: [AttributeType: Int]] = [:] // [bitWidth: [AttributeType: count]]
         
+        // New: Attribute usage stats
+        var attributeUsageCount: [AttributeType: Int] = [:] // [AttributeType: number of fixtures using it]
+        
         var description: String {
             var result = """
             Analyzed \(fixtureCount) fixtures (successfully parsed \(parsedFixtureCount))
+            
+            === ATTRIBUTE USAGE ===
+            Attributes by number of fixtures using them:
+            """
+            
+            // Add the attribute usage statistics, sorted by usage count (descending)
+            let sortedAttributeUsage = attributeUsageCount.sorted { $0.value > $1.value }
+            for (attributeType, count) in sortedAttributeUsage {
+                let percentage = Double(count) / Double(parsedFixtureCount) * 100
+                result += "\n\(attributeType): \(count) fixture(s) (\(String(format: "%.1f", percentage))%)"
+            }
+            
+            result += """
+            
             
             === GOBO WHEELS ===
             Maximum number of gobo wheels: \(maxGoboWheels) (in fixture: \(fixtureWithMaxGoboWheels))
@@ -219,9 +238,10 @@ final class GDTFStatistics {
             
             await withTaskGroup(of: FixtureStats?.self) { group in
                 var filesToProcess = limitedFiles.makeIterator()
+                let queue = DispatchQueue.global(qos: .userInitiated)
                 func addTaskIfNeeded() {
                     guard let fileURL = filesToProcess.next() else { return }
-                    group.addTask {
+                    group.addTask(executorPreference: queue) {
                         do {
                             let gdtf = try loadGDTF(url: fileURL)
                             let fixtureName = fileURL.lastPathComponent
@@ -330,6 +350,11 @@ final class GDTFStatistics {
                             result.bitWidthAttributeDistribution[bitWidth, default: [:]][attributeType, default: 0] += 1
                         }
                     }
+                    
+                    // Process attribute usage stats
+                    for attributeType in fixtureStats.usedAttributes {
+                        result.attributeUsageCount[attributeType, default: 0] += 1
+                    }
                 }
             }
             
@@ -349,6 +374,7 @@ final class GDTFStatistics {
         var colorWheels: [WheelInfo] = []
         var dmxBitWidths = Set<Int>()
         var attributeBitWidths: [AttributeType: Set<Int>] = [:]
+        var usedAttributes = Set<AttributeType>()
     
         let goboWheelMap = getGoboWheels(in: gdtf)
         let colorWheelMap = getColorWheels(in: gdtf)
@@ -364,12 +390,16 @@ final class GDTFStatistics {
         for mode in gdtf.fixtureType.dmxModes {
             for channel in mode.channels {
                 for logicalChannel in channel.logicalChannels {
+                    // Add the attribute type from the logical channel to the set of used attributes
+                    usedAttributes.insert(logicalChannel.attribute.type)
+                    
                     for channelFunction in logicalChannel.channelFunctions {
                         let bitWidth = channelFunction.dmxFrom.byteCount * 8
                         dmxBitWidths.insert(bitWidth)
                         
                         if let attributeType = channelFunction.attribute?.type {
                             attributeBitWidths[attributeType, default: []].insert(bitWidth)
+                            usedAttributes.insert(attributeType)
                         }
                     }
                 }
@@ -381,7 +411,8 @@ final class GDTFStatistics {
             goboWheels: goboWheels,
             colorWheels: colorWheels,
             dmxBitWidths: dmxBitWidths,
-            attributeBitWidths: attributeBitWidths
+            attributeBitWidths: attributeBitWidths,
+            usedAttributes: usedAttributes
         )
     }
     
@@ -426,6 +457,12 @@ final class GDTFStatistics {
         
         return colorWheels
     }
+    
+    func getListOfGDTFs(at directory: URL) throws -> [URL] {
+        let fileManager = FileManager.default
+        let directoryContents = try fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+        return directoryContents.filter { $0.pathExtension.lowercased() == "gdtf" }
+    }
 }
 
 extension AttributeType {
@@ -449,7 +486,10 @@ extension AttributeType {
 
 import Testing
 
-@Test func calculateStatistics() async throws {
+
+@Test
+@available(macOS 15.4, iOS 18.4, *)
+func calculateStatistics() async throws {
     let statistics = GDTFStatistics(fixturesDirectory: GDTFShare().downloadFolder, limit: .max)
     let results = await statistics.collect()
     print(results)

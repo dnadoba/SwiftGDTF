@@ -29,6 +29,17 @@ extension GDTF {
     }
 }
 
+extension XMLAttribute {
+    var uuid: UUID {
+        get throws {
+            guard let uuid = UUID(uuidString: text) else {
+                throw XMLParsingError.invalidUUID(text: text)
+            }
+            return uuid
+        }
+    }
+}
+
 extension FixtureType: XMLDecodable {
     init(xml: XMLIndexer, tree: XMLIndexer) throws {
         guard let element = xml.element else { throw XMLParsingError.elementMissing }

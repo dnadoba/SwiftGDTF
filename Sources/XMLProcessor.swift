@@ -792,18 +792,18 @@ extension AttributeType {
         compile(regex: "^Fan(?<n>[0-9]+)Mode$") : { e in .fanMode(n: e[0]) },
         compile(regex: "^FollowSpotMode$") : { _ in .followSpotMode },
         compile(regex: "^BeamEffectIndexRotateMode$") : { _ in .beamEffectIndexRotateMode },
-        compile(regex: "^IntensityMSpeed$") : { _ in .intensityMSpeed },
-        compile(regex: "^PositionMSpeed$") : { _ in .positionMSpeed },
-        compile(regex: "^ColorMixMSpeed$") : { _ in .colorMixMSpeed },
-        compile(regex: "^ColorWheelSelectMSpeed$") : { _ in .colorWheelSelectMSpeed },
+        compile(regex: "^Intensity(?<n>[0-9]+)MSpeed$") : { e in .intensityMSpeed(n: e[0]) },
+        compile(regex: "^Position(?<n>[0-9]+)MSpeed$") : { e in .positionMSpeed(n: e[0]) },
+        compile(regex: "^ColorMix(?<n>[0-9]+)MSpeed$") : { e in .colorMixMSpeed(n: e[0]) },
+        compile(regex: "^ColorWheelSelect(?<n>[0-9]+)Speed$") : { e in .colorWheelSelectMSpeed(n: e[0]) },
         compile(regex: "^GoboWheel(?<n>[0-9]+)MSpeed$") : { e in .goboWheelMSpeed(n: e[0]) },
-        compile(regex: "^IrisMSpeed$") : { _ in .irisMSpeed },
+        compile(regex: "^Iris(?<n>[0-9]+)MSpeed$") : { e in .irisMSpeed(n: e[0]) },
         compile(regex: "^Prism(?<n>[0-9]+)MSpeed$") : { e in .prismMSpeed(n: e[0]) },
-        compile(regex: "^FocusMSpeed$") : { _ in .focusMSpeed },
+        compile(regex: "^Focus(?<n>[0-9]+)MSpeed$") : { e in .focusMSpeed(n: e[0]) },
         compile(regex: "^Frost(?<n>[0-9]+)MSpeed$") : { e in .frostMSpeed(n: e[0]) },
-        compile(regex: "^ZoomMSpeed$") : { _ in .zoomMSpeed },
-        compile(regex: "^FrameMSpeed$") : { _ in .frameMSpeed },
-        compile(regex: "^GlobalMSpeed$") : { _ in .globalMSpeed },
+        compile(regex: "^Zoom(?<n>[0-9]+)MSpeed$") : { e in .zoomMSpeed(n: e[0]) },
+        compile(regex: "^Frame(?<n>[0-9]+)MSpeed$") : { e in .frameMSpeed(n: e[0]) },
+        compile(regex: "^Global(?<n>[0-9]+)MSpeed$") : { e in .globalMSpeed(n: e[0]) },
         compile(regex: "^ReflectorAdjust$") : { _ in .reflectorAdjust },
         compile(regex: "^FixtureGlobalReset$") : { _ in .fixtureGlobalReset },
         compile(regex: "^DimmerReset$") : { _ in .dimmerReset },
@@ -887,7 +887,7 @@ extension AttributeType {
             }
         }
         
-        return .custom
+        return .custom(name: str)
     }
 }
 

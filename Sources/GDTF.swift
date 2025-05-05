@@ -527,18 +527,18 @@ public enum AttributeType: Hashable, Codable {
     case fanMode(n: Int)
     case followSpotMode
     case beamEffectIndexRotateMode
-    case intensityMSpeed
-    case positionMSpeed
-    case colorMixMSpeed
-    case colorWheelSelectMSpeed
+    case intensityMSpeed(n: Int)
+    case positionMSpeed(n: Int)
+    case colorMixMSpeed(n: Int)
+    case colorWheelSelectMSpeed(n: Int)
     case goboWheelMSpeed(n: Int)
-    case irisMSpeed
+    case irisMSpeed(n: Int)
     case prismMSpeed(n: Int)
-    case focusMSpeed
+    case focusMSpeed(n: Int)
     case frostMSpeed(n: Int)
-    case zoomMSpeed
-    case frameMSpeed
-    case globalMSpeed
+    case zoomMSpeed(n: Int)
+    case frameMSpeed(n: Int)
+    case globalMSpeed(n: Int)
     case reflectorAdjust
     case fixtureGlobalReset
     case dimmerReset
@@ -589,6 +589,6 @@ public enum AttributeType: Hashable, Codable {
     case videoBlendMode
     case inputSource
     case fieldOfView
-    case custom
+    case custom(name: String)
 }
 

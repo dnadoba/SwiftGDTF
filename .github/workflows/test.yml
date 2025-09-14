@@ -13,6 +13,7 @@ on:
       - 'Sources/**'
       - 'Tests/**'
       - '.github/workflows/test.yml'
+  workflow_dispatch:
 
 jobs:
   test:

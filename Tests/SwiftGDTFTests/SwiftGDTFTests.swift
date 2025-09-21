@@ -290,10 +290,10 @@ class GDTFValidator {
 @Suite
 struct GDTFShare {
     let downloadFolder = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-        .appendingPathComponent(".cache")
+        //.appendingPathComponent(".cache")
         .appendingPathComponent("Fixtures")
 
-    let credentials = Credentials(username: "SwiftGDTF", password: env["GDTF_SHARE_PASSWORD"]!)
+    let credentials = Credentials(username: "SwiftGDTF", password: "hedti4-wadjer-wihtAk")
     
     @Test func parseAllFixtures() async throws {
         

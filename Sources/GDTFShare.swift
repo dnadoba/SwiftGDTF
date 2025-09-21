@@ -9,7 +9,7 @@ import Foundation
 
 public struct GDTFShare {
     
-    public struct LoginResponse: Codable, Sendable {
+    public struct LoginResponse: Equatable, Codable, Sendable {
         // Was login successful
         public let result: Bool
         
@@ -21,7 +21,7 @@ public struct GDTFShare {
         
     }
     
-    public struct DMXMode: Codable, Sendable {
+    public struct DMXMode: Equatable, Codable, Sendable {
         let name: String
         let dmxFootprint: Int
         
@@ -30,15 +30,51 @@ public struct GDTFShare {
         }
     }
     
-    public struct FixtureEntry: Codable, Sendable {
+    public struct FixtureEntry: Equatable, Codable, Sendable {
+        public enum Uploader: Codable, CustomStringConvertible, Sendable, Equatable, Comparable {
+            private static let userString = "User"
+            private static let manufacturerString = "Manuf."
+            case user
+            case manufacturer
+            case unknown(String)
+            public init(from decoder: any Decoder) throws {
+                let string = try decoder.singleValueContainer().decode(String.self)
+                switch string {
+                case Self.userString:
+                    self = .user
+                case Self.manufacturerString:
+                    self = .manufacturer
+                default:
+                    self = .unknown(string)
+                }
+            }
+
+            public func encode(to encoder: any Encoder) throws {
+                var container = encoder.singleValueContainer()
+                let string = switch self {
+                case .user: Self.userString
+                case .manufacturer: Self.manufacturerString
+                case .unknown(let string): string
+                }
+                try container.encode(string)
+            }
+
+            public var description: String {
+                switch self {
+                case .user: "User"
+                case .manufacturer: "Manufacturer"
+                case .unknown(let string): string
+                }
+            }
+        }
         public let revisionID: Int
         public let name: String
         public let manufacturer: String
         public let revisionName: String
-        public let creationDate: Int
-        public let lastModified: Int
-        public let uploader: String
-        
+        public let creationDate: Date
+        public let lastModified: Date
+        public let uploader: Uploader
+
         private let ratingString: String
         public var rating: Double? { Double(ratingString) }
 
@@ -50,7 +86,7 @@ public struct GDTFShare {
         
         public let filesize: Int
         public let modes: [DMXMode]
-        
+
         private enum CodingKeys : String, CodingKey {
             case revisionID = "rid"
             case name = "fixture"
@@ -68,7 +104,7 @@ public struct GDTFShare {
         }
     }
     
-    public struct ListResponse: Codable, Sendable {
+    public struct ListResponse: Equatable, Codable, Sendable {
         // was the request for data successful
         public let result: Bool
         
@@ -103,12 +139,28 @@ public struct GDTFShare {
         let (data, _) = try await URLSession.shared.data(from: url)
 
         // Parse the JSON data
-        return try JSONDecoder().decode(ListResponse.self, from: data)
+        return try decoder.decode(ListResponse.self, from: data)
     }
-    
+
+    public static var decoder: JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+        return decoder
+    }
+
+    public static var encoder: JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .secondsSince1970
+        return encoder
+    }
+
+    public static func downloadURL(revisionID: Int) -> URL {
+        URL(string: "https://gdtf-share.com/apis/public/downloadFile.php?rid=\(revisionID)")!
+    }
+
     public static func download(revisionID: Int) async throws -> Data? {
-        let url = URL(string: "https://gdtf-share.com/apis/public/downloadFile.php?rid=\(revisionID)")!
-                
+        let url = downloadURL(revisionID: revisionID)
+
         let (data, response) = try await URLSession.shared.data(from: url)
         
         

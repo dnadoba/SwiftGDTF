@@ -79,6 +79,15 @@ public func loadGDTF(url: URL) throws -> GDTF {
         
     return try GDTF(xml: xmlTree)
 }
+/// Loads a GDTF from Data of a GDTF file
+/// - Parameter url: URL to compressed GDTF file
+/// - Throws: Errors related to loading GDTF file
+/// - Returns: GDTF object
+public func loadGDTF(data: Data) throws -> GDTF {
+    let xmlTree = try loadXMLFromGDTF(gdtf: data)
+
+    return try GDTF(xml: xmlTree)
+}
 
 
 /// Loads the GDTF Description given a URL to an uncompressed description.xml file

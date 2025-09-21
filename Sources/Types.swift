@@ -326,6 +326,20 @@ public struct FileResource: Codable {
             return nil
         }
     }
+    enum ExtractError: Error {
+        case doesNotExist(filename: String)
+    }
+    public func extract(from gdtf: URL, to destination: URL) throws {
+        let zipArchive = try Archive(url: gdtf, accessMode: .read)
+
+        /// Verify a description.xml file was found, otherwise invalid GDTF
+        guard let entry = zipArchive[filename] else {
+            throw ExtractError.doesNotExist(filename: filename)
+        }
+
+        /// Make buffer to append extracted ZIP data
+        _ = try zipArchive.extract(entry, to: destination)
+    }
 }
 
 //

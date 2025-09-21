@@ -350,14 +350,14 @@ extension DMXChannel: XMLDecodable {
         
         if let dmxBreak = element.attribute(by: "DMXBreak") {
             self.dmxBreak = dmxBreak.int ?? 0
-            
-            if dmxBreak.text != "None" {
-                self.offset = dmxBreak.text.split(separator: ",").map { Int($0) ?? 0 }
-            }
         } else {
             self.dmxBreak = 0
         }
-        
+
+        if let offset = element.attribute(by: "Offset"), offset.text != "None" {
+            self.offset = offset.text.split(separator: ",").map { Int($0) ?? 0 }
+        }
+
         
         self.logicalChannels = try xml.parseChildrenToArray(tree: tree)
         

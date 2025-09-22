@@ -168,8 +168,11 @@ extension Slot: XMLDecodableWithIndex {
         self.color = try ColorCIE(from: element.attribute(named: "Color").text)
         
         self.filter = try element.attribute(by: "Filter")?.resolveNode(base: tree["PhysicalDescriptions"]["Filters"], tree: tree)
-        
-        self.mediaFileName = FileResource(name: element.attribute(by: "MediaFileName")?.text, fileExtension: "png")
+        if let name = element.attribute(by: "MediaFileName")?.text {
+            self.mediaFileName = FileResource(name: "wheels/\(name)", fileExtension: "png")
+        } else {
+            self.mediaFileName = nil
+        }
         self.facets = try xml.filterChildren({ child, _ in child.name == "Facet"}).parseChildrenToArray(tree: tree)
         self.animationSystem = try xml["AnimationSystem"].optionalParse(tree: tree)
 

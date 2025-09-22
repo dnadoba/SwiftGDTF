@@ -314,7 +314,7 @@ public struct MacroValue: Codable {
 }
 
 // see Annex A: https://github.com/mvrdevelopment/spec/blob/main/gdtf-spec.md#annex-a-normative-attribute-definitions
-public enum AttributeType: Hashable, Codable {
+public enum AttributeType: Hashable, Codable, CustomStringConvertible {
     case dimmer
     case pan
     case tilt
@@ -594,5 +594,350 @@ public enum AttributeType: Hashable, Codable {
     case inputSource
     case fieldOfView
     case custom(name: String)
+    
+    public var description: String {
+        switch self {
+        // Position
+        case .dimmer: return "Dimmer"
+        case .pan: return "Pan"
+        case .tilt: return "Tilt"
+        case .panRotate: return "Pan Rotate"
+        case .tiltRotate: return "Tilt Rotate"
+        case .positionEffect: return "Position Effect"
+        case .positionEffectRate: return "Position Effect Rate"
+        case .positionEffectFade: return "Position Effect Fade"
+        
+        // 3D Position
+        case .xYZ_X: return "X Position"
+        case .xYZ_Y: return "Y Position"
+        case .xYZ_Z: return "Z Position"
+        case .rot_X: return "X Rotation"
+        case .rot_Y: return "Y Rotation"
+        case .rot_Z: return "Z Rotation"
+        case .scale_X: return "X Scale"
+        case .scale_Y: return "Y Scale"
+        case .scale_Z: return "Z Scale"
+        case .scale_XYZ: return "XYZ Scale"
+        
+        // Gobo
+        case .gobo(let n): return "Gobo \(n)"
+        case .goboSelectSpin(let n): return "Gobo \(n) Select Spin"
+        case .goboSelectShake(let n): return "Gobo \(n) Select Shake"
+        case .goboSelectEffects(let n): return "Gobo \(n) Select Effects"
+        case .goboWheelIndex(let n): return "Gobo Wheel \(n) Index"
+        case .goboWheelSpin(let n): return "Gobo Wheel \(n) Spin"
+        case .goboWheelShake(let n): return "Gobo Wheel \(n) Shake"
+        case .goboWheelRandom(let n): return "Gobo Wheel \(n) Random"
+        case .goboWheelAudio(let n): return "Gobo Wheel \(n) Audio"
+        case .goboPos(let n): return "Gobo \(n) Position"
+        case .goboPosRotate(let n): return "Gobo \(n) Position Rotate"
+        case .goboPosShake(let n): return "Gobo \(n) Position Shake"
+        
+        // Animation Wheel
+        case .animationWheel(let n): return "Animation Wheel \(n)"
+        case .animationWheelAudio(let n): return "Animation Wheel \(n) Audio"
+        case .animationWheelMacro(let n): return "Animation Wheel \(n) Macro"
+        case .animationWheelRandom(let n): return "Animation Wheel \(n) Random"
+        case .animationWheelSelectEffects(let n): return "Animation Wheel \(n) Select Effects"
+        case .animationWheelSelectShake(let n): return "Animation Wheel \(n) Select Shake"
+        case .animationWheelSelectSpin(let n): return "Animation Wheel \(n) Select Spin"
+        case .animationWheelPos(let n): return "Animation Wheel \(n) Position"
+        case .animationWheelPosRotate(let n): return "Animation Wheel \(n) Position Rotate"
+        case .animationWheelPosShake(let n): return "Animation Wheel \(n) Position Shake"
+        
+        // Animation System
+        case .animationSystem(let n): return "Animation System \(n)"
+        case .animationSystemRamp(let n): return "Animation System \(n) Ramp"
+        case .animationSystemShake(let n): return "Animation System \(n) Shake"
+        case .animationSystemAudio(let n): return "Animation System \(n) Audio"
+        case .animationSystemRandom(let n): return "Animation System \(n) Random"
+        case .animationSystemPos(let n): return "Animation System \(n) Position"
+        case .animationSystemPosRotate(let n): return "Animation System \(n) Position Rotate"
+        case .animationSystemPosShake(let n): return "Animation System \(n) Position Shake"
+        case .animationSystemPosRandom(let n): return "Animation System \(n) Position Random"
+        case .animationSystemPosAudio(let n): return "Animation System \(n) Position Audio"
+        case .animationSystemMacro(let n): return "Animation System \(n) Macro"
+        
+        // Media
+        case .mediaFolder(let n): return "Media Folder \(n)"
+        case .mediaContent(let n): return "Media Content \(n)"
+        case .modelFolder(let n): return "Model Folder \(n)"
+        case .modelContent(let n): return "Model Content \(n)"
+        case .playMode: return "Play Mode"
+        case .playBegin: return "Play Begin"
+        case .playEnd: return "Play End"
+        case .playSpeed: return "Play Speed"
+        
+        // Color
+        case .colorEffects(let n): return "Color Effects \(n)"
+        case .color(let n): return "Color \(n)"
+        case .colorWheelIndex(let n): return "Color Wheel \(n) Index"
+        case .colorWheelSpin(let n): return "Color Wheel \(n) Spin"
+        case .colorWheelRandom(let n): return "Color Wheel \(n) Random"
+        case .colorWheelAudio(let n): return "Color Wheel \(n) Audio"
+        
+        // Color Add
+        case .colorAdd_R: return "Color Add Red"
+        case .colorAdd_G: return "Color Add Green"
+        case .colorAdd_B: return "Color Add Blue"
+        case .colorAdd_C: return "Color Add Cyan"
+        case .colorAdd_M: return "Color Add Magenta"
+        case .colorAdd_Y: return "Color Add Yellow"
+        case .colorAdd_RY: return "Color Add Red-Yellow"
+        case .colorAdd_GY: return "Color Add Green-Yellow"
+        case .colorAdd_GC: return "Color Add Green-Cyan"
+        case .colorAdd_BC: return "Color Add Blue-Cyan"
+        case .colorAdd_BM: return "Color Add Blue-Magenta"
+        case .colorAdd_RM: return "Color Add Red-Magenta"
+        case .colorAdd_W: return "Color Add White"
+        case .colorAdd_WW: return "Color Add Warm White"
+        case .colorAdd_CW: return "Color Add Cool White"
+        case .colorAdd_UV: return "Color Add UV"
+        
+        // Color Sub
+        case .colorSub_R: return "Color Sub Red"
+        case .colorSub_G: return "Color Sub Green"
+        case .colorSub_B: return "Color Sub Blue"
+        case .colorSub_C: return "Color Sub Cyan"
+        case .colorSub_M: return "Color Sub Magenta"
+        case .colorSub_Y: return "Color Sub Yellow"
+        
+        // Color Macros & Temperature
+        case .colorMacro(let n): return "Color Macro \(n)"
+        case .colorMacroRate(let n): return "Color Macro \(n) Rate"
+        case .cTO: return "CTO"
+        case .cTC: return "CTC"
+        case .cTB: return "CTB"
+        case .tint: return "Tint"
+        
+        // HSB
+        case .hSB_Hue: return "HSB Hue"
+        case .hSB_Saturation: return "HSB Saturation"
+        case .hSB_Brightness: return "HSB Brightness"
+        case .hSB_Quality: return "HSB Quality"
+        
+        // CIE
+        case .cIE_X: return "CIE X"
+        case .cIE_Y: return "CIE Y"
+        case .cIE_Brightness: return "CIE Brightness"
+        
+        // RGB
+        case .colorRGB_Red: return "RGB Red"
+        case .colorRGB_Green: return "RGB Green"
+        case .colorRGB_Blue: return "RGB Blue"
+        case .colorRGB_Cyan: return "RGB Cyan"
+        case .colorRGB_Magenta: return "RGB Magenta"
+        case .colorRGB_Yellow: return "RGB Yellow"
+        case .colorRGB_Quality: return "RGB Quality"
+        
+        // Video
+        case .videoBoost_R: return "Video Boost Red"
+        case .videoBoost_G: return "Video Boost Green"
+        case .videoBoost_B: return "Video Boost Blue"
+        case .videoHueShift: return "Video Hue Shift"
+        case .videoSaturation: return "Video Saturation"
+        case .videoBrightness: return "Video Brightness"
+        case .videoContrast: return "Video Contrast"
+        case .videoKeyColor_R: return "Video Key Red"
+        case .videoKeyColor_G: return "Video Key Green"
+        case .videoKeyColor_B: return "Video Key Blue"
+        case .videoKeyIntensity: return "Video Key Intensity"
+        case .videoKeyTolerance: return "Video Key Tolerance"
+        
+        // Strobe
+        case .strobeDuration: return "Strobe Duration"
+        case .strobeRate: return "Strobe Rate"
+        case .strobeFrequency: return "Strobe Frequency"
+        case .strobeModeShutter: return "Strobe Mode Shutter"
+        case .strobeModeStrobe: return "Strobe Mode Strobe"
+        case .strobeModePulse: return "Strobe Mode Pulse"
+        case .strobeModePulseOpen: return "Strobe Mode Pulse Open"
+        case .strobeModePulseClose: return "Strobe Mode Pulse Close"
+        case .strobeModeRandom: return "Strobe Mode Random"
+        case .strobeModeRandomPulse: return "Strobe Mode Random Pulse"
+        case .strobeModeRandomPulseOpen: return "Strobe Mode Random Pulse Open"
+        case .strobeModeRandomPulseClose: return "Strobe Mode Random Pulse Close"
+        case .strobeModeEffect: return "Strobe Mode Effect"
+        
+        // Shutter
+        case .shutter(let n): return "Shutter \(n)"
+        case .shutterStrobe(let n): return "Shutter \(n) Strobe"
+        case .shutterStrobePulse(let n): return "Shutter \(n) Strobe Pulse"
+        case .shutterStrobePulseClose(let n): return "Shutter \(n) Strobe Pulse Close"
+        case .shutterStrobePulseOpen(let n): return "Shutter \(n) Strobe Pulse Open"
+        case .shutterStrobeRandom(let n): return "Shutter \(n) Strobe Random"
+        case .shutterStrobeRandomPulse(let n): return "Shutter \(n) Strobe Random Pulse"
+        case .shutterStrobeRandomPulseClose(let n): return "Shutter \(n) Strobe Random Pulse Close"
+        case .shutterStrobeRandomPulseOpen(let n): return "Shutter \(n) Strobe Random Pulse Open"
+        case .shutterStrobeEffect(let n): return "Shutter \(n) Strobe Effect"
+        
+        // Iris
+        case .iris: return "Iris"
+        case .irisStrobe: return "Iris Strobe"
+        case .irisStrobeRandom: return "Iris Strobe Random"
+        case .irisPulseClose: return "Iris Pulse Close"
+        case .irisPulseOpen: return "Iris Pulse Open"
+        case .irisRandomPulseClose: return "Iris Random Pulse Close"
+        case .irisRandomPulseOpen: return "Iris Random Pulse Open"
+        
+        // Frost
+        case .frost(let n): return "Frost \(n)"
+        case .frostPulseOpen(let n): return "Frost \(n) Pulse Open"
+        case .frostPulseClose(let n): return "Frost \(n) Pulse Close"
+        case .frostRamp(let n): return "Frost \(n) Ramp"
+        
+        // Prism
+        case .prism(let n): return "Prism \(n)"
+        case .prismSelectSpin(let n): return "Prism \(n) Select Spin"
+        case .prismMacro(let n): return "Prism \(n) Macro"
+        case .prismPos(let n): return "Prism \(n) Position"
+        case .prismPosRotate(let n): return "Prism \(n) Position Rotate"
+        
+        // Effects
+        case .effects(let n): return "Effects \(n)"
+        case .effectsRate(let n): return "Effects \(n) Rate"
+        case .effectsFade(let n): return "Effects \(n) Fade"
+        case .effectsAdjust(let n, let m): return "Effects \(n) Adjust \(m)"
+        case .effectsPos(let n): return "Effects \(n) Position"
+        case .effectsPosRotate(let n): return "Effects \(n) Position Rotate"
+        case .effectsSync: return "Effects Sync"
+        
+        // Beam Shaper
+        case .beamShaper: return "Beam Shaper"
+        case .beamShaperMacro: return "Beam Shaper Macro"
+        case .beamShaperPos: return "Beam Shaper Position"
+        case .beamShaperPosRotate: return "Beam Shaper Position Rotate"
+        
+        // Zoom & Focus
+        case .zoom: return "Zoom"
+        case .zoomModeSpot: return "Zoom Mode Spot"
+        case .zoomModeBeam: return "Zoom Mode Beam"
+        case .digitalZoom: return "Digital Zoom"
+        case .focus(let n): return "Focus \(n)"
+        case .focusAdjust(let n): return "Focus \(n) Adjust"
+        case .focusDistance(let n): return "Focus \(n) Distance"
+        
+        // Control
+        case .control(let n): return "Control \(n)"
+        case .dimmerMode: return "Dimmer Mode"
+        case .dimmerCurve: return "Dimmer Curve"
+        case .blackoutMode: return "Blackout Mode"
+        case .lEDFrequency: return "LED Frequency"
+        case .lEDZoneMode: return "LED Zone Mode"
+        case .pixelMode: return "Pixel Mode"
+        case .panMode: return "Pan Mode"
+        case .tiltMode: return "Tilt Mode"
+        case .panTiltMode: return "Pan/Tilt Mode"
+        case .positionModes: return "Position Modes"
+        
+        // Modes
+        case .goboWheelMode(let n): return "Gobo Wheel \(n) Mode"
+        case .goboWheelShortcutMode: return "Gobo Wheel Shortcut Mode"
+        case .animationWheelMode(let n): return "Animation Wheel \(n) Mode"
+        case .animationWheelShortcutMode: return "Animation Wheel Shortcut Mode"
+        case .colorMode(let n): return "Color Mode \(n)"
+        case .colorWheelShortcutMode: return "Color Wheel Shortcut Mode"
+        case .cyanMode: return "Cyan Mode"
+        case .magentaMode: return "Magenta Mode"
+        case .yellowMode: return "Yellow Mode"
+        case .colorMixMode: return "Color Mix Mode"
+        case .chromaticMode: return "Chromatic Mode"
+        case .colorCalibrationMode: return "Color Calibration Mode"
+        case .colorConsistency: return "Color Consistency"
+        case .colorControl: return "Color Control"
+        case .colorModelMode: return "Color Model Mode"
+        case .colorSettingsReset: return "Color Settings Reset"
+        case .colorUniformity: return "Color Uniformity"
+        case .cRIMode: return "CRI Mode"
+        case .customColor: return "Custom Color"
+        case .uVStability: return "UV Stability"
+        case .wavelengthCorrection: return "Wavelength Correction"
+        case .whiteCount: return "White Count"
+        case .strobeMode: return "Strobe Mode"
+        case .zoomMode: return "Zoom Mode"
+        case .focusMode: return "Focus Mode"
+        case .irisMode: return "Iris Mode"
+        case .fanMode(let n): return "Fan \(n) Mode"
+        case .followSpotMode: return "Follow Spot Mode"
+        case .beamEffectIndexRotateMode: return "Beam Effect Index Rotate Mode"
+        
+        // Speed
+        case .intensityMSpeed(let n): return "Intensity Speed \(n)"
+        case .positionMSpeed(let n): return "Position Speed \(n)"
+        case .colorMixMSpeed(let n): return "Color Mix Speed \(n)"
+        case .colorWheelSelectMSpeed(let n): return "Color Wheel Select Speed \(n)"
+        case .goboWheelMSpeed(let n): return "Gobo Wheel Speed \(n)"
+        case .irisMSpeed(let n): return "Iris Speed \(n)"
+        case .prismMSpeed(let n): return "Prism Speed \(n)"
+        case .focusMSpeed(let n): return "Focus Speed \(n)"
+        case .frostMSpeed(let n): return "Frost Speed \(n)"
+        case .zoomMSpeed(let n): return "Zoom Speed \(n)"
+        case .frameMSpeed(let n): return "Frame Speed \(n)"
+        case .globalMSpeed(let n): return "Global Speed \(n)"
+        
+        // Resets
+        case .reflectorAdjust: return "Reflector Adjust"
+        case .fixtureGlobalReset: return "Fixture Global Reset"
+        case .dimmerReset: return "Dimmer Reset"
+        case .shutterReset: return "Shutter Reset"
+        case .beamReset: return "Beam Reset"
+        case .colorMixReset: return "Color Mix Reset"
+        case .colorWheelReset: return "Color Wheel Reset"
+        case .focusReset: return "Focus Reset"
+        case .frameReset: return "Frame Reset"
+        case .goboWheelReset: return "Gobo Wheel Reset"
+        case .intensityReset: return "Intensity Reset"
+        case .irisReset: return "Iris Reset"
+        case .positionReset: return "Position Reset"
+        case .panReset: return "Pan Reset"
+        case .tiltReset: return "Tilt Reset"
+        case .zoomReset: return "Zoom Reset"
+        case .cTBReset: return "CTB Reset"
+        case .cTOReset: return "CTO Reset"
+        case .cTCReset: return "CTC Reset"
+        case .animationSystemReset: return "Animation System Reset"
+        case .fixtureCalibrationReset: return "Fixture Calibration Reset"
+        
+        // Misc
+        case .function: return "Function"
+        case .lampControl: return "Lamp Control"
+        case .displayIntensity: return "Display Intensity"
+        case .dMXInput: return "DMX Input"
+        case .noFeature: return "No Feature"
+        
+        // Environmental
+        case .blower(let n): return "Blower \(n)"
+        case .fan(let n): return "Fan \(n)"
+        case .fog(let n): return "Fog \(n)"
+        case .haze(let n): return "Haze \(n)"
+        case .lampPowerMode: return "Lamp Power Mode"
+        case .fans: return "Fans"
+        
+        // Blades & Shapers
+        case .bladeA(let n): return "Blade A\(n)"
+        case .bladeB(let n): return "Blade B\(n)"
+        case .bladeRot(let n): return "Blade \(n) Rotation"
+        case .shaperRot: return "Shaper Rotation"
+        case .shaperMacros: return "Shaper Macros"
+        case .shaperMacrosSpeed: return "Shaper Macros Speed"
+        case .bladeSoftA(let n): return "Blade Soft A\(n)"
+        case .bladeSoftB(let n): return "Blade Soft B\(n)"
+        case .keyStoneA(let n): return "Keystone A\(n)"
+        case .keyStoneB(let n): return "Keystone B\(n)"
+        
+        // Video
+        case .video: return "Video"
+        case .videoEffectType(let n): return "Video Effect \(n) Type"
+        case .videoEffectParameter(let n, let m): return "Video Effect \(n) Parameter \(m)"
+        case .videoCamera(let n): return "Video Camera \(n)"
+        case .videoSoundVolume(let n): return "Video Sound Volume \(n)"
+        case .videoBlendMode: return "Video Blend Mode"
+        case .inputSource: return "Input Source"
+        case .fieldOfView: return "Field of View"
+        
+        // Custom
+        case .custom(let name): return name
+        }
+    }
 }
 

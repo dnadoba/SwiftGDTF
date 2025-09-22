@@ -227,6 +227,119 @@ extension ColorCIE {
     }
 }
 
+#if canImport(SwiftUI)
+import SwiftUI
+
+extension ColorCIE {
+    /// Converts CIE xyY color to SwiftUI Color
+    /// This performs the conversion: CIE xyY → CIE XYZ → sRGB → SwiftUI Color
+    public var swiftUIColor: Color {
+        // Convert CIE xyY to CIE XYZ
+        let xyz = toXYZ()
+        
+        // Convert CIE XYZ to sRGB
+        let rgb = xyzToSRGB(xyz)
+        
+        // Clamp RGB values to [0, 1] range and create SwiftUI Color
+        let clampedRed = max(0, min(1, rgb.red))
+        let clampedGreen = max(0, min(1, rgb.green))
+        let clampedBlue = max(0, min(1, rgb.blue))
+        
+        return Color(red: clampedRed, green: clampedGreen, blue: clampedBlue)
+    }
+    
+    /// Converts CIE xyY to SwiftUI Color with custom white point
+    /// - Parameter whitePoint: The reference white point (default is D65)
+    /// - Returns: SwiftUI Color
+    func swiftUIColor(whitePoint: (x: Double, y: Double, Y: Double) = (x: 0.31271, y: 0.32902, Y: 1.0)) -> Color {
+        // Convert CIE xyY to CIE XYZ with custom white point
+        let xyz = toXYZ()
+        
+        // Apply chromatic adaptation if needed (simplified approach)
+        let adaptedXYZ = chromaticAdaptation(xyz: xyz, sourceWhite: whitePoint, targetWhite: (x: 0.31271, y: 0.32902, Y: 1.0))
+        
+        // Convert CIE XYZ to sRGB
+        let rgb = xyzToSRGB(adaptedXYZ)
+        
+        // Clamp RGB values to [0, 1] range and create SwiftUI Color
+        let clampedRed = max(0, min(1, rgb.red))
+        let clampedGreen = max(0, min(1, rgb.green))
+        let clampedBlue = max(0, min(1, rgb.blue))
+        
+        return Color(red: clampedRed, green: clampedGreen, blue: clampedBlue)
+    }
+    
+    /// Returns the RGB values as a tuple (useful for debugging or other color spaces)
+    var rgbValues: (red: Double, green: Double, blue: Double) {
+        let xyz = toXYZ()
+        let rgb = xyzToSRGB(xyz)
+        return (
+            red: max(0, min(1, rgb.red)),
+            green: max(0, min(1, rgb.green)),
+            blue: max(0, min(1, rgb.blue))
+        )
+    }
+    
+    /// Converts CIE xyY to CIE XYZ color space
+    private func toXYZ() -> (X: Double, Y: Double, Z: Double) {
+        // Handle the special case where y = 0 (avoid division by zero)
+        guard y != 0 else {
+            return (X: 0, Y: self.Y, Z: 0)
+        }
+        
+        let X = (x * self.Y) / y
+        let Y = self.Y
+        let Z = ((1 - x - y) * self.Y) / y
+        
+        return (X: X, Y: Y, Z: Z)
+    }
+    
+    /// Converts CIE XYZ to sRGB color space using the standard sRGB transformation matrix
+    private func xyzToSRGB(_ xyz: (X: Double, Y: Double, Z: Double)) -> (red: Double, green: Double, blue: Double) {
+        // sRGB transformation matrix (D65 illuminant)
+        // These values are from the official sRGB specification
+        let r = 3.2406 * xyz.X - 1.5372 * xyz.Y - 0.4986 * xyz.Z
+        let g = -0.9689 * xyz.X + 1.8758 * xyz.Y + 0.0415 * xyz.Z
+        let b = 0.0557 * xyz.X - 0.2040 * xyz.Y + 1.0570 * xyz.Z
+        
+        // Apply gamma correction
+        return (
+            red: applyGammaCorrection(r),
+            green: applyGammaCorrection(g),
+            blue: applyGammaCorrection(b)
+        )
+    }
+    
+    /// Applies sRGB gamma correction
+    private func applyGammaCorrection(_ value: Double) -> Double {
+        if value <= 0.0031308 {
+            return 12.92 * value
+        } else {
+            return 1.055 * pow(value, 1.0 / 2.4) - 0.055
+        }
+    }
+    
+    /// Simplified chromatic adaptation (von Kries method)
+    private func chromaticAdaptation(xyz: (X: Double, Y: Double, Z: Double), 
+                                   sourceWhite: (x: Double, y: Double, Y: Double),
+                                   targetWhite: (x: Double, y: Double, Y: Double)) -> (X: Double, Y: Double, Z: Double) {
+        // This is a simplified implementation - for production use, consider using CAT02 or Bradford adaptation
+        let sourceXYZ = ColorCIE(x: sourceWhite.x, y: sourceWhite.y, Y: sourceWhite.Y).toXYZ()
+        let targetXYZ = ColorCIE(x: targetWhite.x, y: targetWhite.y, Y: targetWhite.Y).toXYZ()
+        
+        let scaleX = targetXYZ.X / sourceXYZ.X
+        let scaleY = targetXYZ.Y / sourceXYZ.Y
+        let scaleZ = targetXYZ.Z / sourceXYZ.Z
+        
+        return (
+            X: xyz.X * scaleX,
+            Y: xyz.Y * scaleY,
+            Z: xyz.Z * scaleZ
+        )
+    }
+}
+#endif
+
 public struct Rotation: Codable {
     public var matrix: [[Double]]
 }

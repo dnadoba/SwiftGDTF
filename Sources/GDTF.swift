@@ -13,6 +13,25 @@ import SWXMLHash
 public typealias Node = String
 
 public struct GDTF: Codable {
+    public struct ID: Hashable, Codable, Sendable, Comparable, CustomStringConvertible {
+        public static func <(lhs: Self, rhs: Self) -> Bool {
+            lhs.revision < rhs.revision
+        }
+        public init(revision: Int) {
+            self.revision = revision
+        }
+        public init(from decoder: any Decoder) throws {
+            revision = try decoder.singleValueContainer().decode(Int.self)
+        }
+        public func encode(to encoder: any Encoder) throws {
+            var container = encoder.singleValueContainer()
+            try container.encode(revision)
+        }
+        public var revision: Int
+        public var description: String {
+            revision.description
+        }
+    }
     public var dataVersion: String
     public var fixtureType: FixtureType
 }

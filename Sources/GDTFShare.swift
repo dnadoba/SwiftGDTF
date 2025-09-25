@@ -30,7 +30,7 @@ public struct GDTFShare {
         }
     }
     
-    public struct FixtureEntry: Equatable, Codable, Sendable {
+    public struct FixtureEntry: Equatable, Codable, Sendable, Identifiable {
         public enum Uploader: Codable, CustomStringConvertible, Sendable, Equatable, Comparable {
             private static let userString = "User"
             private static let manufacturerString = "Manuf."
@@ -67,7 +67,10 @@ public struct GDTFShare {
                 }
             }
         }
-        public let revisionID: Int
+        public var id: GDTF.ID  {
+            self.revisionID
+        }
+        public let revisionID: GDTF.ID
         public let name: String
         public let manufacturer: String
         public let revisionName: String
@@ -154,11 +157,11 @@ public struct GDTFShare {
         return encoder
     }
 
-    public static func downloadURL(revisionID: Int) -> URL {
-        URL(string: "https://gdtf-share.com/apis/public/downloadFile.php?rid=\(revisionID)")!
+    public static func downloadURL(revisionID: GDTF.ID) -> URL {
+        URL(string: "https://gdtf-share.com/apis/public/downloadFile.php?rid=\(revisionID.revision)")!
     }
 
-    public static func download(revisionID: Int) async throws -> Data? {
+    public static func download(revisionID: GDTF.ID) async throws -> Data? {
         let url = downloadURL(revisionID: revisionID)
 
         let (data, response) = try await URLSession.shared.data(from: url)

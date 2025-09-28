@@ -158,7 +158,7 @@ public struct GDTFShare {
     }
 
     public static func downloadURL(revisionID: GDTF.ID) -> URL {
-        URL(string: "https://gdtf-share.com/apis/public/downloadFile.php?rid=\(revisionID.revision)")!
+        URL(string: "https://gdtf-share.com/apis/public/downloadFile.php?rid=\(revisionID.rawValue)")!
     }
 
     public static func download(revisionID: GDTF.ID) async throws -> Data? {

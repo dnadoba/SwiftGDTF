@@ -13,23 +13,23 @@ import SWXMLHash
 public typealias Node = String
 
 public struct GDTF: Codable {
-    public struct ID: Hashable, Codable, Sendable, Comparable, CustomStringConvertible {
+    public struct ID: Hashable, Codable, Sendable, Comparable, CustomStringConvertible, RawRepresentable {
         public static func <(lhs: Self, rhs: Self) -> Bool {
-            lhs.revision < rhs.revision
+            lhs.rawValue < rhs.rawValue
         }
-        public init(revision: Int) {
-            self.revision = revision
+        public init(rawValue: Int) {
+            self.rawValue = rawValue
         }
         public init(from decoder: any Decoder) throws {
-            revision = try decoder.singleValueContainer().decode(Int.self)
+            rawValue = try decoder.singleValueContainer().decode(Int.self)
         }
         public func encode(to encoder: any Encoder) throws {
             var container = encoder.singleValueContainer()
-            try container.encode(revision)
+            try container.encode(rawValue)
         }
-        public var revision: Int
+        public var rawValue: Int
         public var description: String {
-            revision.description
+            rawValue.description
         }
     }
     public var dataVersion: String
@@ -40,12 +40,24 @@ public struct FixtureType: Codable {
     public var name: String
     public var shortName: String
     public var longName: String
+    public var longNameOrFallback: String {
+        if longName.isEmpty {
+            if name.isEmpty {
+                return shortName
+            } else {
+                return name
+            }
+        } else {
+            return longName
+        }
+    }
     public var manufacturer: String
     public var description: String
     public var fixtureTypeID: UUID
     public var refFT: String?
     public var thumbnail: FileResource?
-    
+    public var thumbnailVector: FileResource?
+
     public var attributeDefinitions: AttributeDefinitions
     public var wheels: [Wheel]
     public var physicalDescriptions: PhysicalDescriptions?

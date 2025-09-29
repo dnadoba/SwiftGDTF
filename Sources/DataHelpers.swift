@@ -15,13 +15,9 @@ extension FixtureType {
 
 extension DMXMode {
     public var dmxFootprint: Int {
-        var total = 0
-        
-        for channel in self.channels {
-            total += channel.initialFunction?.dmxDefault.byteCount ?? 1
-        }
-        
-        return total
+        self.channels.lazy.flatMap {
+            $0.offset
+        }.max() ?? 0
     }
 
 }

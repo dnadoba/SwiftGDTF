@@ -479,10 +479,12 @@ final class GDTFStatistics {
                 for logicalChannel in channel.logicalChannels {
                     // Add the attribute type from the logical channel to the set of used attributes
                     usedAttributes.insert(logicalChannel.attribute.type)
-                    
+
+                    let bitWidth = channel.offset.count * 8
+                    dmxBitWidths.insert(bitWidth)
                     for channelFunction in logicalChannel.channelFunctions {
-                        let bitWidth = channelFunction.dmxFrom.byteCount * 8
-                        dmxBitWidths.insert(bitWidth)
+
+
                         
                         if let attributeType = channelFunction.attribute?.type {
                             attributeBitWidths[attributeType, default: []].insert(bitWidth)

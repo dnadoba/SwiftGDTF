@@ -18,7 +18,7 @@ private struct AttributeDescriptions: Decodable, Sendable {
 public struct AttributeDescription: Decodable, Identifiable, Sendable, Equatable {
     /// TODO: we should be able to optimize this to just an array and add some kind of integer value to AttributeType
     /// potentially the better solution is to just have this in memory anyway
-    static let attributes: [AttributeType: AttributeDescription] = {
+    public static let attributes: [AttributeType.Canonical: AttributeDescription] = {
         let attributesURL = Bundle.module.url(forResource: "gdtf_attributes_with_description", withExtension: "json")!
         let attributesData = try! Data(contentsOf: attributesURL)
         let decoder = JSONDecoder()
@@ -26,7 +26,7 @@ public struct AttributeDescription: Decodable, Identifiable, Sendable, Equatable
         return Dictionary(uniqueKeysWithValues: attributes.attributes.lazy.map { ($0.name, $0) })
     }()
 
-    public var id: AttributeType { name }
+    public var id: AttributeType.Canonical { name }
 
     public struct SubPhysicalUnit: Decodable, Sendable, Equatable {
         public var `default`: Bool
@@ -66,7 +66,7 @@ public struct AttributeDescription: Decodable, Identifiable, Sendable, Equatable
         case label = "_label"
     }
 
-    public var name: AttributeType
+    public var name: AttributeType.Canonical
     public var prettyName: String
     public var feature: String
     public var physicalUnit: String?
@@ -81,7 +81,7 @@ public struct AttributeDescription: Decodable, Identifiable, Sendable, Equatable
 
 extension AttributeType {
     public var attributeDescription: AttributeDescription? {
-        AttributeDescription.attributes[self]
+        AttributeDescription.attributes[canonical]
     }
 }
 

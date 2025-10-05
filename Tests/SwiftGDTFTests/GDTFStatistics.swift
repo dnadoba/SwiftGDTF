@@ -291,7 +291,7 @@ final class GDTFStatistics {
                         do {
                             let gdtf = try loadGDTF(url: fileURL)
                             let fixtureName = fileURL.lastPathComponent
-                            let stats = self.analyzeFixture(gdtf, name: fixtureName)
+                            let stats = Self.analyzeFixture(gdtf, name: fixtureName)
                             return stats
                         } catch {
                             print("Error processing \(fileURL.lastPathComponent): \(error)")
@@ -456,15 +456,15 @@ final class GDTFStatistics {
     }
 
     
-    private func analyzeFixture(_ gdtf: GDTF, name: String) -> FixtureStats {
+    static private func analyzeFixture(_ gdtf: GDTF, name: String) -> FixtureStats {
         var goboWheels: [WheelInfo] = []
         var colorWheels: [WheelInfo] = []
         var dmxBitWidths = Set<Int>()
         var attributeBitWidths: [AttributeType: Set<Int>] = [:]
         var usedAttributes = Set<AttributeType>()
     
-        let goboWheelMap = getGoboWheels(in: gdtf)
-        let colorWheelMap = getColorWheels(in: gdtf)
+        let goboWheelMap = Self.getGoboWheels(in: gdtf)
+        let colorWheelMap = Self.getColorWheels(in: gdtf)
         
         for (wheelName, wheel) in goboWheelMap {
             goboWheels.append(WheelInfo(name: wheelName, slotCount: wheel.slots.count))
@@ -506,7 +506,7 @@ final class GDTFStatistics {
         )
     }
     
-    private func getGoboWheels(in gdtf: GDTF) -> [String: Wheel] {
+    static private func getGoboWheels(in gdtf: GDTF) -> [String: Wheel] {
         var goboWheels: [String: Wheel] = [:]
         
         for mode in gdtf.fixtureType.dmxModes {
@@ -527,7 +527,7 @@ final class GDTFStatistics {
         return goboWheels
     }
     
-    private func getColorWheels(in gdtf: GDTF) -> [String: Wheel] {
+    static private func getColorWheels(in gdtf: GDTF) -> [String: Wheel] {
         var colorWheels: [String: Wheel] = [:]
         
         for mode in gdtf.fixtureType.dmxModes {

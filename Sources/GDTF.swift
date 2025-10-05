@@ -347,8 +347,8 @@ public struct MacroValue: Codable {
 // see Annex A: https://github.com/mvrdevelopment/spec/blob/main/gdtf-spec.md#annex-a-normative-attribute-definitions
 public enum AttributeType: Hashable, Codable, CustomStringConvertible, Sendable {
     
-    /// Canonical representation of AttributeType cases without associated values
-    public enum Canonical: Hashable, Codable, CustomStringConvertible, Sendable, CaseIterable {
+    /// Canonical representation of AttributeType cases without associated values (except custom)
+    public enum Canonical: Hashable, Codable, Sendable {
         case dimmer
         case pan
         case tilt
@@ -628,288 +628,292 @@ public enum AttributeType: Hashable, Codable, CustomStringConvertible, Sendable 
         case inputSource
         case fieldOfView
         case custom(name: String)
-        
-        public var description: String {
-            switch self {
-            case .dimmer: return "Dimmer"
-            case .pan: return "Pan"
-            case .tilt: return "Tilt"
-            case .panRotate: return "Pan Rotate"
-            case .tiltRotate: return "Tilt Rotate"
-            case .positionEffect: return "Position Effect"
-            case .positionEffectRate: return "Position Effect Rate"
-            case .positionEffectFade: return "Position Effect Fade"
-            case .xYZ_X: return "X Position"
-            case .xYZ_Y: return "Y Position"
-            case .xYZ_Z: return "Z Position"
-            case .rot_X: return "X Rotation"
-            case .rot_Y: return "Y Rotation"
-            case .rot_Z: return "Z Rotation"
-            case .scale_X: return "X Scale"
-            case .scale_Y: return "Y Scale"
-            case .scale_Z: return "Z Scale"
-            case .scale_XYZ: return "XYZ Scale"
-            case .gobo: return "Gobo"
-            case .goboSelectSpin: return "Gobo Select Spin"
-            case .goboSelectShake: return "Gobo Select Shake"
-            case .goboSelectEffects: return "Gobo Select Effects"
-            case .goboWheelIndex: return "Gobo Wheel Index"
-            case .goboWheelSpin: return "Gobo Wheel Spin"
-            case .goboWheelShake: return "Gobo Wheel Shake"
-            case .goboWheelRandom: return "Gobo Wheel Random"
-            case .goboWheelAudio: return "Gobo Wheel Audio"
-            case .goboPos: return "Gobo Position"
-            case .goboPosRotate: return "Gobo Position Rotate"
-            case .goboPosShake: return "Gobo Position Shake"
-            case .animationWheel: return "Animation Wheel"
-            case .animationWheelAudio: return "Animation Wheel Audio"
-            case .animationWheelMacro: return "Animation Wheel Macro"
-            case .animationWheelRandom: return "Animation Wheel Random"
-            case .animationWheelSelectEffects: return "Animation Wheel Select Effects"
-            case .animationWheelSelectShake: return "Animation Wheel Select Shake"
-            case .animationWheelSelectSpin: return "Animation Wheel Select Spin"
-            case .animationWheelPos: return "Animation Wheel Position"
-            case .animationWheelPosRotate: return "Animation Wheel Position Rotate"
-            case .animationWheelPosShake: return "Animation Wheel Position Shake"
-            case .animationSystem: return "Animation System"
-            case .animationSystemRamp: return "Animation System Ramp"
-            case .animationSystemShake: return "Animation System Shake"
-            case .animationSystemAudio: return "Animation System Audio"
-            case .animationSystemRandom: return "Animation System Random"
-            case .animationSystemPos: return "Animation System Position"
-            case .animationSystemPosRotate: return "Animation System Position Rotate"
-            case .animationSystemPosShake: return "Animation System Position Shake"
-            case .animationSystemPosRandom: return "Animation System Position Random"
-            case .animationSystemPosAudio: return "Animation System Position Audio"
-            case .animationSystemMacro: return "Animation System Macro"
-            case .mediaFolder: return "Media Folder"
-            case .mediaContent: return "Media Content"
-            case .modelFolder: return "Model Folder"
-            case .modelContent: return "Model Content"
-            case .playMode: return "Play Mode"
-            case .playBegin: return "Play Begin"
-            case .playEnd: return "Play End"
-            case .playSpeed: return "Play Speed"
-            case .colorEffects: return "Color Effects"
-            case .color: return "Color"
-            case .colorWheelIndex: return "Color Wheel Index"
-            case .colorWheelSpin: return "Color Wheel Spin"
-            case .colorWheelRandom: return "Color Wheel Random"
-            case .colorWheelAudio: return "Color Wheel Audio"
-            case .colorAdd_R: return "Color Add Red"
-            case .colorAdd_G: return "Color Add Green"
-            case .colorAdd_B: return "Color Add Blue"
-            case .colorAdd_C: return "Color Add Cyan"
-            case .colorAdd_M: return "Color Add Magenta"
-            case .colorAdd_Y: return "Color Add Yellow"
-            case .colorAdd_RY: return "Color Add Red-Yellow"
-            case .colorAdd_GY: return "Color Add Green-Yellow"
-            case .colorAdd_GC: return "Color Add Green-Cyan"
-            case .colorAdd_BC: return "Color Add Blue-Cyan"
-            case .colorAdd_BM: return "Color Add Blue-Magenta"
-            case .colorAdd_RM: return "Color Add Red-Magenta"
-            case .colorAdd_W: return "Color Add White"
-            case .colorAdd_WW: return "Color Add Warm White"
-            case .colorAdd_CW: return "Color Add Cool White"
-            case .colorAdd_UV: return "Color Add UV"
-            case .colorSub_R: return "Color Sub Red"
-            case .colorSub_G: return "Color Sub Green"
-            case .colorSub_B: return "Color Sub Blue"
-            case .colorSub_C: return "Color Sub Cyan"
-            case .colorSub_M: return "Color Sub Magenta"
-            case .colorSub_Y: return "Color Sub Yellow"
-            case .colorMacro: return "Color Macro"
-            case .colorMacroRate: return "Color Macro Rate"
-            case .cTO: return "CTO"
-            case .cTC: return "CTC"
-            case .cTB: return "CTB"
-            case .tint: return "Tint"
-            case .hSB_Hue: return "HSB Hue"
-            case .hSB_Saturation: return "HSB Saturation"
-            case .hSB_Brightness: return "HSB Brightness"
-            case .hSB_Quality: return "HSB Quality"
-            case .cIE_X: return "CIE X"
-            case .cIE_Y: return "CIE Y"
-            case .cIE_Brightness: return "CIE Brightness"
-            case .colorRGB_Red: return "RGB Red"
-            case .colorRGB_Green: return "RGB Green"
-            case .colorRGB_Blue: return "RGB Blue"
-            case .colorRGB_Cyan: return "RGB Cyan"
-            case .colorRGB_Magenta: return "RGB Magenta"
-            case .colorRGB_Yellow: return "RGB Yellow"
-            case .colorRGB_Quality: return "RGB Quality"
-            case .videoBoost_R: return "Video Boost Red"
-            case .videoBoost_G: return "Video Boost Green"
-            case .videoBoost_B: return "Video Boost Blue"
-            case .videoHueShift: return "Video Hue Shift"
-            case .videoSaturation: return "Video Saturation"
-            case .videoBrightness: return "Video Brightness"
-            case .videoContrast: return "Video Contrast"
-            case .videoKeyColor_R: return "Video Key Red"
-            case .videoKeyColor_G: return "Video Key Green"
-            case .videoKeyColor_B: return "Video Key Blue"
-            case .videoKeyIntensity: return "Video Key Intensity"
-            case .videoKeyTolerance: return "Video Key Tolerance"
-            case .strobeDuration: return "Strobe Duration"
-            case .strobeRate: return "Strobe Rate"
-            case .strobeFrequency: return "Strobe Frequency"
-            case .strobeModeShutter: return "Strobe Mode Shutter"
-            case .strobeModeStrobe: return "Strobe Mode Strobe"
-            case .strobeModePulse: return "Strobe Mode Pulse"
-            case .strobeModePulseOpen: return "Strobe Mode Pulse Open"
-            case .strobeModePulseClose: return "Strobe Mode Pulse Close"
-            case .strobeModeRandom: return "Strobe Mode Random"
-            case .strobeModeRandomPulse: return "Strobe Mode Random Pulse"
-            case .strobeModeRandomPulseOpen: return "Strobe Mode Random Pulse Open"
-            case .strobeModeRandomPulseClose: return "Strobe Mode Random Pulse Close"
-            case .strobeModeEffect: return "Strobe Mode Effect"
-            case .shutter: return "Shutter"
-            case .shutterStrobe: return "Shutter Strobe"
-            case .shutterStrobePulse: return "Shutter Strobe Pulse"
-            case .shutterStrobePulseClose: return "Shutter Strobe Pulse Close"
-            case .shutterStrobePulseOpen: return "Shutter Strobe Pulse Open"
-            case .shutterStrobeRandom: return "Shutter Strobe Random"
-            case .shutterStrobeRandomPulse: return "Shutter Strobe Random Pulse"
-            case .shutterStrobeRandomPulseClose: return "Shutter Strobe Random Pulse Close"
-            case .shutterStrobeRandomPulseOpen: return "Shutter Strobe Random Pulse Open"
-            case .shutterStrobeEffect: return "Shutter Strobe Effect"
-            case .iris: return "Iris"
-            case .irisStrobe: return "Iris Strobe"
-            case .irisStrobeRandom: return "Iris Strobe Random"
-            case .irisPulseClose: return "Iris Pulse Close"
-            case .irisPulseOpen: return "Iris Pulse Open"
-            case .irisRandomPulseClose: return "Iris Random Pulse Close"
-            case .irisRandomPulseOpen: return "Iris Random Pulse Open"
-            case .frost: return "Frost"
-            case .frostPulseOpen: return "Frost Pulse Open"
-            case .frostPulseClose: return "Frost Pulse Close"
-            case .frostRamp: return "Frost Ramp"
-            case .prism: return "Prism"
-            case .prismSelectSpin: return "Prism Select Spin"
-            case .prismMacro: return "Prism Macro"
-            case .prismPos: return "Prism Position"
-            case .prismPosRotate: return "Prism Position Rotate"
-            case .effects: return "Effects"
-            case .effectsRate: return "Effects Rate"
-            case .effectsFade: return "Effects Fade"
-            case .effectsAdjust: return "Effects Adjust"
-            case .effectsPos: return "Effects Position"
-            case .effectsPosRotate: return "Effects Position Rotate"
-            case .effectsSync: return "Effects Sync"
-            case .beamShaper: return "Beam Shaper"
-            case .beamShaperMacro: return "Beam Shaper Macro"
-            case .beamShaperPos: return "Beam Shaper Position"
-            case .beamShaperPosRotate: return "Beam Shaper Position Rotate"
-            case .zoom: return "Zoom"
-            case .zoomModeSpot: return "Zoom Mode Spot"
-            case .zoomModeBeam: return "Zoom Mode Beam"
-            case .digitalZoom: return "Digital Zoom"
-            case .focus: return "Focus"
-            case .focusAdjust: return "Focus Adjust"
-            case .focusDistance: return "Focus Distance"
-            case .control: return "Control"
-            case .dimmerMode: return "Dimmer Mode"
-            case .dimmerCurve: return "Dimmer Curve"
-            case .blackoutMode: return "Blackout Mode"
-            case .lEDFrequency: return "LED Frequency"
-            case .lEDZoneMode: return "LED Zone Mode"
-            case .pixelMode: return "Pixel Mode"
-            case .panMode: return "Pan Mode"
-            case .tiltMode: return "Tilt Mode"
-            case .panTiltMode: return "Pan/Tilt Mode"
-            case .positionModes: return "Position Modes"
-            case .goboWheelMode: return "Gobo Wheel Mode"
-            case .goboWheelShortcutMode: return "Gobo Wheel Shortcut Mode"
-            case .animationWheelMode: return "Animation Wheel Mode"
-            case .animationWheelShortcutMode: return "Animation Wheel Shortcut Mode"
-            case .colorMode: return "Color Mode"
-            case .colorWheelShortcutMode: return "Color Wheel Shortcut Mode"
-            case .cyanMode: return "Cyan Mode"
-            case .magentaMode: return "Magenta Mode"
-            case .yellowMode: return "Yellow Mode"
-            case .colorMixMode: return "Color Mix Mode"
-            case .chromaticMode: return "Chromatic Mode"
-            case .colorCalibrationMode: return "Color Calibration Mode"
-            case .colorConsistency: return "Color Consistency"
-            case .colorControl: return "Color Control"
-            case .colorModelMode: return "Color Model Mode"
-            case .colorSettingsReset: return "Color Settings Reset"
-            case .colorUniformity: return "Color Uniformity"
-            case .cRIMode: return "CRI Mode"
-            case .customColor: return "Custom Color"
-            case .uVStability: return "UV Stability"
-            case .wavelengthCorrection: return "Wavelength Correction"
-            case .whiteCount: return "White Count"
-            case .strobeMode: return "Strobe Mode"
-            case .zoomMode: return "Zoom Mode"
-            case .focusMode: return "Focus Mode"
-            case .irisMode: return "Iris Mode"
-            case .fanMode: return "Fan Mode"
-            case .followSpotMode: return "Follow Spot Mode"
-            case .beamEffectIndexRotateMode: return "Beam Effect Index Rotate Mode"
-            case .intensityMSpeed: return "Intensity Speed"
-            case .positionMSpeed: return "Position Speed"
-            case .colorMixMSpeed: return "Color Mix Speed"
-            case .colorWheelSelectMSpeed: return "Color Wheel Select Speed"
-            case .goboWheelMSpeed: return "Gobo Wheel Speed"
-            case .irisMSpeed: return "Iris Speed"
-            case .prismMSpeed: return "Prism Speed"
-            case .focusMSpeed: return "Focus Speed"
-            case .frostMSpeed: return "Frost Speed"
-            case .zoomMSpeed: return "Zoom Speed"
-            case .frameMSpeed: return "Frame Speed"
-            case .globalMSpeed: return "Global Speed"
-            case .reflectorAdjust: return "Reflector Adjust"
-            case .fixtureGlobalReset: return "Fixture Global Reset"
-            case .dimmerReset: return "Dimmer Reset"
-            case .shutterReset: return "Shutter Reset"
-            case .beamReset: return "Beam Reset"
-            case .colorMixReset: return "Color Mix Reset"
-            case .colorWheelReset: return "Color Wheel Reset"
-            case .focusReset: return "Focus Reset"
-            case .frameReset: return "Frame Reset"
-            case .goboWheelReset: return "Gobo Wheel Reset"
-            case .intensityReset: return "Intensity Reset"
-            case .irisReset: return "Iris Reset"
-            case .positionReset: return "Position Reset"
-            case .panReset: return "Pan Reset"
-            case .tiltReset: return "Tilt Reset"
-            case .zoomReset: return "Zoom Reset"
-            case .cTBReset: return "CTB Reset"
-            case .cTOReset: return "CTO Reset"
-            case .cTCReset: return "CTC Reset"
-            case .animationSystemReset: return "Animation System Reset"
-            case .fixtureCalibrationReset: return "Fixture Calibration Reset"
-            case .function: return "Function"
-            case .lampControl: return "Lamp Control"
-            case .displayIntensity: return "Display Intensity"
-            case .dMXInput: return "DMX Input"
-            case .noFeature: return "No Feature"
-            case .blower: return "Blower"
-            case .fan: return "Fan"
-            case .fog: return "Fog"
-            case .haze: return "Haze"
-            case .lampPowerMode: return "Lamp Power Mode"
-            case .fans: return "Fans"
-            case .bladeA: return "Blade A"
-            case .bladeB: return "Blade B"
-            case .bladeRot: return "Blade Rotation"
-            case .shaperRot: return "Shaper Rotation"
-            case .shaperMacros: return "Shaper Macros"
-            case .shaperMacrosSpeed: return "Shaper Macros Speed"
-            case .bladeSoftA: return "Blade Soft A"
-            case .bladeSoftB: return "Blade Soft B"
-            case .keyStoneA: return "Keystone A"
-            case .keyStoneB: return "Keystone B"
-            case .video: return "Video"
-            case .videoEffectType: return "Video Effect Type"
-            case .videoEffectParameter: return "Video Effect Parameter"
-            case .videoCamera: return "Video Camera"
-            case .videoSoundVolume: return "Video Sound Volume"
-            case .videoBlendMode: return "Video Blend Mode"
-            case .inputSource: return "Input Source"
-            case .fieldOfView: return "Field of View"
-            case .custom(let name): return name
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            let name = try container.decode(String.self)
+
+            switch name {
+            case "Dimmer": self = .dimmer
+            case "Pan": self = .pan
+            case "Tilt": self = .tilt
+            case "PanRotate": self = .panRotate
+            case "TiltRotate": self = .tiltRotate
+            case "PositionEffect": self = .positionEffect
+            case "PositionEffectRate": self = .positionEffectRate
+            case "PositionEffectFade": self = .positionEffectFade
+            case "XYZ_X": self = .xYZ_X
+            case "XYZ_Y": self = .xYZ_Y
+            case "XYZ_Z": self = .xYZ_Z
+            case "Rot_X": self = .rot_X
+            case "Rot_Y": self = .rot_Y
+            case "Rot_Z": self = .rot_Z
+            case "Scale_X": self = .scale_X
+            case "Scale_Y": self = .scale_Y
+            case "Scale_Z": self = .scale_Z
+            case "Scale_XYZ": self = .scale_XYZ
+            case "Gobo(n)": self = .gobo
+            case "GoboSelectSpin(n)": self = .goboSelectSpin
+            case "GoboSelectShake(n)": self = .goboSelectShake
+            case "GoboSelectEffects(n)": self = .goboSelectEffects
+            case "GoboWheelIndex(n)": self = .goboWheelIndex
+            case "GoboWheelSpin(n)": self = .goboWheelSpin
+            case "GoboWheelShake(n)": self = .goboWheelShake
+            case "GoboWheelRandom(n)": self = .goboWheelRandom
+            case "GoboWheelAudio(n)": self = .goboWheelAudio
+            case "GoboPos(n)": self = .goboPos
+            case "GoboPosRotate(n)": self = .goboPosRotate
+            case "GoboPosShake(n)": self = .goboPosShake
+            case "AnimationWheel(n)": self = .animationWheel
+            case "AnimationWheelAudio(n)": self = .animationWheelAudio
+            case "AnimationWheelMacro(n)": self = .animationWheelMacro
+            case "AnimationWheelRandom(n)": self = .animationWheelRandom
+            case "AnimationWheelSelectEffects(n)": self = .animationWheelSelectEffects
+            case "AnimationWheelSelectShake(n)": self = .animationWheelSelectShake
+            case "AnimationWheelSelectSpin(n)": self = .animationWheelSelectSpin
+            case "AnimationWheelPos(n)": self = .animationWheelPos
+            case "AnimationWheelPosRotate(n)": self = .animationWheelPosRotate
+            case "AnimationWheelPosShake(n)": self = .animationWheelPosShake
+            case "AnimationSystem(n)": self = .animationSystem
+            case "AnimationSystemRamp(n)": self = .animationSystemRamp
+            case "AnimationSystemShake(n)": self = .animationSystemShake
+            case "AnimationSystemAudio(n)": self = .animationSystemAudio
+            case "AnimationSystemRandom(n)": self = .animationSystemRandom
+            case "AnimationSystemPos(n)": self = .animationSystemPos
+            case "AnimationSystemPosRotate(n)": self = .animationSystemPosRotate
+            case "AnimationSystemPosShake(n)": self = .animationSystemPosShake
+            case "AnimationSystemPosRandom(n)": self = .animationSystemPosRandom
+            case "AnimationSystemPosAudio(n)": self = .animationSystemPosAudio
+            case "AnimationSystemMacro(n)": self = .animationSystemMacro
+            case "MediaFolder(n)": self = .mediaFolder
+            case "MediaContent(n)": self = .mediaContent
+            case "ModelFolder(n)": self = .modelFolder
+            case "ModelContent(n)": self = .modelContent
+            case "PlayMode": self = .playMode
+            case "PlayBegin": self = .playBegin
+            case "PlayEnd": self = .playEnd
+            case "PlaySpeed": self = .playSpeed
+            case "ColorEffects(n)": self = .colorEffects
+            case "Color(n)": self = .color
+            case "ColorWheelIndex(n)": self = .colorWheelIndex
+            case "ColorWheelSpin(n)": self = .colorWheelSpin
+            case "ColorWheelRandom(n)": self = .colorWheelRandom
+            case "ColorWheelAudio(n)": self = .colorWheelAudio
+            case "ColorAdd_R": self = .colorAdd_R
+            case "ColorAdd_G": self = .colorAdd_G
+            case "ColorAdd_B": self = .colorAdd_B
+            case "ColorAdd_C": self = .colorAdd_C
+            case "ColorAdd_M": self = .colorAdd_M
+            case "ColorAdd_Y": self = .colorAdd_Y
+            case "ColorAdd_RY": self = .colorAdd_RY
+            case "ColorAdd_GY": self = .colorAdd_GY
+            case "ColorAdd_GC": self = .colorAdd_GC
+            case "ColorAdd_BC": self = .colorAdd_BC
+            case "ColorAdd_BM": self = .colorAdd_BM
+            case "ColorAdd_RM": self = .colorAdd_RM
+            case "ColorAdd_W": self = .colorAdd_W
+            case "ColorAdd_WW": self = .colorAdd_WW
+            case "ColorAdd_CW": self = .colorAdd_CW
+            case "ColorAdd_UV": self = .colorAdd_UV
+            case "ColorSub_R": self = .colorSub_R
+            case "ColorSub_G": self = .colorSub_G
+            case "ColorSub_B": self = .colorSub_B
+            case "ColorSub_C": self = .colorSub_C
+            case "ColorSub_M": self = .colorSub_M
+            case "ColorSub_Y": self = .colorSub_Y
+            case "ColorMacro(n)": self = .colorMacro
+            case "ColorMacroRate(n)": self = .colorMacroRate
+            case "CTO": self = .cTO
+            case "CTC": self = .cTC
+            case "CTB": self = .cTB
+            case "Tint": self = .tint
+            case "HSB_Hue": self = .hSB_Hue
+            case "HSB_Saturation": self = .hSB_Saturation
+            case "HSB_Brightness": self = .hSB_Brightness
+            case "HSB_Quality": self = .hSB_Quality
+            case "CIE_X": self = .cIE_X
+            case "CIE_Y": self = .cIE_Y
+            case "CIE_Brightness": self = .cIE_Brightness
+            case "ColorRGB_Red": self = .colorRGB_Red
+            case "ColorRGB_Green": self = .colorRGB_Green
+            case "ColorRGB_Blue": self = .colorRGB_Blue
+            case "ColorRGB_Cyan": self = .colorRGB_Cyan
+            case "ColorRGB_Magenta": self = .colorRGB_Magenta
+            case "ColorRGB_Yellow": self = .colorRGB_Yellow
+            case "ColorRGB_Quality": self = .colorRGB_Quality
+            case "VideoBoost_R": self = .videoBoost_R
+            case "VideoBoost_G": self = .videoBoost_G
+            case "VideoBoost_B": self = .videoBoost_B
+            case "VideoHueShift": self = .videoHueShift
+            case "VideoSaturation": self = .videoSaturation
+            case "VideoBrightness": self = .videoBrightness
+            case "VideoContrast": self = .videoContrast
+            case "VideoKeyColor_R": self = .videoKeyColor_R
+            case "VideoKeyColor_G": self = .videoKeyColor_G
+            case "VideoKeyColor_B": self = .videoKeyColor_B
+            case "VideoKeyIntensity": self = .videoKeyIntensity
+            case "VideoKeyTolerance": self = .videoKeyTolerance
+            case "StrobeDuration": self = .strobeDuration
+            case "StrobeRate": self = .strobeRate
+            case "StrobeFrequency": self = .strobeFrequency
+            case "StrobeModeShutter": self = .strobeModeShutter
+            case "StrobeModeStrobe": self = .strobeModeStrobe
+            case "StrobeModePulse": self = .strobeModePulse
+            case "StrobeModePulseOpen": self = .strobeModePulseOpen
+            case "StrobeModePulseClose": self = .strobeModePulseClose
+            case "StrobeModeRandom": self = .strobeModeRandom
+            case "StrobeModeRandomPulse": self = .strobeModeRandomPulse
+            case "StrobeModeRandomPulseOpen": self = .strobeModeRandomPulseOpen
+            case "StrobeModeRandomPulseClose": self = .strobeModeRandomPulseClose
+            case "StrobeModeEffect": self = .strobeModeEffect
+            case "Shutter(n)": self = .shutter
+            case "ShutterStrobe(n)": self = .shutterStrobe
+            case "ShutterStrobePulse(n)": self = .shutterStrobePulse
+            case "ShutterStrobePulseClose(n)": self = .shutterStrobePulseClose
+            case "ShutterStrobePulseOpen(n)": self = .shutterStrobePulseOpen
+            case "ShutterStrobeRandom(n)": self = .shutterStrobeRandom
+            case "ShutterStrobeRandomPulse(n)": self = .shutterStrobeRandomPulse
+            case "ShutterStrobeRandomPulseClose(n)": self = .shutterStrobeRandomPulseClose
+            case "ShutterStrobeRandomPulseOpen(n)": self = .shutterStrobeRandomPulseOpen
+            case "ShutterStrobeEffect(n)": self = .shutterStrobeEffect
+            case "Iris": self = .iris
+            case "IrisStrobe": self = .irisStrobe
+            case "IrisStrobeRandom": self = .irisStrobeRandom
+            case "IrisPulseClose": self = .irisPulseClose
+            case "IrisPulseOpen": self = .irisPulseOpen
+            case "IrisRandomPulseClose": self = .irisRandomPulseClose
+            case "IrisRandomPulseOpen": self = .irisRandomPulseOpen
+            case "Frost(n)": self = .frost
+            case "FrostPulseOpen(n)": self = .frostPulseOpen
+            case "FrostPulseClose(n)": self = .frostPulseClose
+            case "FrostRamp(n)": self = .frostRamp
+            case "Prism(n)": self = .prism
+            case "PrismSelectSpin(n)": self = .prismSelectSpin
+            case "PrismMacro(n)": self = .prismMacro
+            case "PrismPos(n)": self = .prismPos
+            case "PrismPosRotate(n)": self = .prismPosRotate
+            case "Effects(n)": self = .effects
+            case "EffectsRate(n)": self = .effectsRate
+            case "EffectsFade(n)": self = .effectsFade
+            case "EffectsAdjust(n,m)": self = .effectsAdjust
+            case "EffectsPos(n)": self = .effectsPos
+            case "EffectsPosRotate(n)": self = .effectsPosRotate
+            case "EffectsSync": self = .effectsSync
+            case "BeamShaper": self = .beamShaper
+            case "BeamShaperMacro": self = .beamShaperMacro
+            case "BeamShaperPos": self = .beamShaperPos
+            case "BeamShaperPosRotate": self = .beamShaperPosRotate
+            case "Zoom": self = .zoom
+            case "ZoomModeSpot": self = .zoomModeSpot
+            case "ZoomModeBeam": self = .zoomModeBeam
+            case "DigitalZoom": self = .digitalZoom
+            case "Focus(n)": self = .focus
+            case "FocusAdjust(n)": self = .focusAdjust
+            case "FocusDistance(n)": self = .focusDistance
+            case "Control(n)": self = .control
+            case "DimmerMode": self = .dimmerMode
+            case "DimmerCurve": self = .dimmerCurve
+            case "BlackoutMode": self = .blackoutMode
+            case "LEDFrequency": self = .lEDFrequency
+            case "LEDZoneMode": self = .lEDZoneMode
+            case "PixelMode": self = .pixelMode
+            case "PanMode": self = .panMode
+            case "TiltMode": self = .tiltMode
+            case "PanTiltMode": self = .panTiltMode
+            case "PositionModes": self = .positionModes
+            case "GoboWheelMode(n)": self = .goboWheelMode
+            case "GoboWheelShortcutMode": self = .goboWheelShortcutMode
+            case "AnimationWheelMode(n)": self = .animationWheelMode
+            case "AnimationWheelShortcutMode": self = .animationWheelShortcutMode
+            case "ColorMode(n)": self = .colorMode
+            case "ColorWheelShortcutMode": self = .colorWheelShortcutMode
+            case "CyanMode": self = .cyanMode
+            case "MagentaMode": self = .magentaMode
+            case "YellowMode": self = .yellowMode
+            case "ColorMixMode": self = .colorMixMode
+            case "ChromaticMode": self = .chromaticMode
+            case "ColorCalibrationMode": self = .colorCalibrationMode
+            case "ColorConsistency": self = .colorConsistency
+            case "ColorControl": self = .colorControl
+            case "ColorModelMode": self = .colorModelMode
+            case "ColorSettingsReset": self = .colorSettingsReset
+            case "ColorUniformity": self = .colorUniformity
+            case "CRIMode": self = .cRIMode
+            case "CustomColor": self = .customColor
+            case "UVStability": self = .uVStability
+            case "WavelengthCorrection": self = .wavelengthCorrection
+            case "WhiteCount": self = .whiteCount
+            case "StrobeMode": self = .strobeMode
+            case "ZoomMode": self = .zoomMode
+            case "FocusMode": self = .focusMode
+            case "IrisMode": self = .irisMode
+            case "FanMode(n)": self = .fanMode
+            case "FollowSpotMode": self = .followSpotMode
+            case "BeamEffectIndexRotateMode": self = .beamEffectIndexRotateMode
+            case "IntensityMSpeed(n)": self = .intensityMSpeed
+            case "PositionMSpeed(n)": self = .positionMSpeed
+            case "ColorMixMSpeed(n)": self = .colorMixMSpeed
+            case "ColorWheelSelectMSpeed(n)": self = .colorWheelSelectMSpeed
+            case "GoboWheelMSpeed(n)": self = .goboWheelMSpeed
+            case "IrisMSpeed(n)": self = .irisMSpeed
+            case "PrismMSpeed(n)": self = .prismMSpeed
+            case "FocusMSpeed(n)": self = .focusMSpeed
+            case "FrostMSpeed(n)": self = .frostMSpeed
+            case "ZoomMSpeed(n)": self = .zoomMSpeed
+            case "FrameMSpeed(n)": self = .frameMSpeed
+            case "GlobalMSpeed(n)": self = .globalMSpeed
+            case "ReflectorAdjust": self = .reflectorAdjust
+            case "FixtureGlobalReset": self = .fixtureGlobalReset
+            case "DimmerReset": self = .dimmerReset
+            case "ShutterReset": self = .shutterReset
+            case "BeamReset": self = .beamReset
+            case "ColorMixReset": self = .colorMixReset
+            case "ColorWheelReset": self = .colorWheelReset
+            case "FocusReset": self = .focusReset
+            case "FrameReset": self = .frameReset
+            case "GoboWheelReset": self = .goboWheelReset
+            case "IntensityReset": self = .intensityReset
+            case "IrisReset": self = .irisReset
+            case "PositionReset": self = .positionReset
+            case "PanReset": self = .panReset
+            case "TiltReset": self = .tiltReset
+            case "ZoomReset": self = .zoomReset
+            case "CTBReset": self = .cTBReset
+            case "CTOReset": self = .cTOReset
+            case "CTCReset": self = .cTCReset
+            case "AnimationSystemReset": self = .animationSystemReset
+            case "FixtureCalibrationReset": self = .fixtureCalibrationReset
+            case "Function": self = .function
+            case "LampControl": self = .lampControl
+            case "DisplayIntensity": self = .displayIntensity
+            case "DMXInput": self = .dMXInput
+            case "NoFeature": self = .noFeature
+            case "Blower(n)": self = .blower
+            case "Fan(n)": self = .fan
+            case "Fog(n)": self = .fog
+            case "Haze(n)": self = .haze
+            case "LampPowerMode": self = .lampPowerMode
+            case "Fans": self = .fans
+            case "BladeA(n)": self = .bladeA
+            case "BladeB(n)": self = .bladeB
+            case "BladeRot(n)": self = .bladeRot
+            case "ShaperRot": self = .shaperRot
+            case "ShaperMacros": self = .shaperMacros
+            case "ShaperMacrosSpeed": self = .shaperMacrosSpeed
+            case "BladeSoftA(n)": self = .bladeSoftA
+            case "BladeSoftB(n)": self = .bladeSoftB
+            case "KeyStoneA(n)": self = .keyStoneA
+            case "KeyStoneB(n)": self = .keyStoneB
+            case "Video": self = .video
+            case "VideoEffectType(n)": self = .videoEffectType
+            case "VideoEffectParameter(n,m)": self = .videoEffectParameter
+            case "VideoCamera(n)": self = .videoCamera
+            case "VideoSoundVolume(n)": self = .videoSoundVolume
+            case "VideoBlendMode": self = .videoBlendMode
+            case "InputSource": self = .inputSource
+            case "FieldOfView": self = .fieldOfView
+            default:
+                self = .custom(name: name)
             }
         }
     }
@@ -1825,292 +1829,6 @@ public enum AttributeType: Hashable, Codable, CustomStringConvertible, Sendable 
         }
     }
 
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let name = try container.decode(String.self)
 
-        switch name {
-        case "Dimmer": self = .dimmer
-        case "Pan": self = .pan
-        case "Tilt": self = .tilt
-        case "PanRotate": self = .panRotate
-        case "TiltRotate": self = .tiltRotate
-        case "PositionEffect": self = .positionEffect
-        case "PositionEffectRate": self = .positionEffectRate
-        case "PositionEffectFade": self = .positionEffectFade
-        case "XYZ_X": self = .xYZ_X
-        case "XYZ_Y": self = .xYZ_Y
-        case "XYZ_Z": self = .xYZ_Z
-        case "Rot_X": self = .rot_X
-        case "Rot_Y": self = .rot_Y
-        case "Rot_Z": self = .rot_Z
-        case "Scale_X": self = .scale_X
-        case "Scale_Y": self = .scale_Y
-        case "Scale_Z": self = .scale_Z
-        case "Scale_XYZ": self = .scale_XYZ
-        case "Gobo(n)": self = .gobo(n: 1)
-        case "GoboSelectSpin(n)": self = .goboSelectSpin(n: 1)
-        case "GoboSelectShake(n)": self = .goboSelectShake(n: 1)
-        case "GoboSelectEffects(n)": self = .goboSelectEffects(n: 1)
-        case "GoboWheelIndex(n)": self = .goboWheelIndex(n: 1)
-        case "GoboWheelSpin(n)": self = .goboWheelSpin(n: 1)
-        case "GoboWheelShake(n)": self = .goboWheelShake(n: 1)
-        case "GoboWheelRandom(n)": self = .goboWheelRandom(n: 1)
-        case "GoboWheelAudio(n)": self = .goboWheelAudio(n: 1)
-        case "GoboPos(n)": self = .goboPos(n: 1)
-        case "GoboPosRotate(n)": self = .goboPosRotate(n: 1)
-        case "GoboPosShake(n)": self = .goboPosShake(n: 1)
-        case "AnimationWheel(n)": self = .animationWheel(n: 1)
-        case "AnimationWheelAudio(n)": self = .animationWheelAudio(n: 1)
-        case "AnimationWheelMacro(n)": self = .animationWheelMacro(n: 1)
-        case "AnimationWheelRandom(n)": self = .animationWheelRandom(n: 1)
-        case "AnimationWheelSelectEffects(n)": self = .animationWheelSelectEffects(n: 1)
-        case "AnimationWheelSelectShake(n)": self = .animationWheelSelectShake(n: 1)
-        case "AnimationWheelSelectSpin(n)": self = .animationWheelSelectSpin(n: 1)
-        case "AnimationWheelPos(n)": self = .animationWheelPos(n: 1)
-        case "AnimationWheelPosRotate(n)": self = .animationWheelPosRotate(n: 1)
-        case "AnimationWheelPosShake(n)": self = .animationWheelPosShake(n: 1)
-        case "AnimationSystem(n)": self = .animationSystem(n: 1)
-        case "AnimationSystemRamp(n)": self = .animationSystemRamp(n: 1)
-        case "AnimationSystemShake(n)": self = .animationSystemShake(n: 1)
-        case "AnimationSystemAudio(n)": self = .animationSystemAudio(n: 1)
-        case "AnimationSystemRandom(n)": self = .animationSystemRandom(n: 1)
-        case "AnimationSystemPos(n)": self = .animationSystemPos(n: 1)
-        case "AnimationSystemPosRotate(n)": self = .animationSystemPosRotate(n: 1)
-        case "AnimationSystemPosShake(n)": self = .animationSystemPosShake(n: 1)
-        case "AnimationSystemPosRandom(n)": self = .animationSystemPosRandom(n: 1)
-        case "AnimationSystemPosAudio(n)": self = .animationSystemPosAudio(n: 1)
-        case "AnimationSystemMacro(n)": self = .animationSystemMacro(n: 1)
-        case "MediaFolder(n)": self = .mediaFolder(n: 1)
-        case "MediaContent(n)": self = .mediaContent(n: 1)
-        case "ModelFolder(n)": self = .modelFolder(n: 1)
-        case "ModelContent(n)": self = .modelContent(n: 1)
-        case "PlayMode": self = .playMode
-        case "PlayBegin": self = .playBegin
-        case "PlayEnd": self = .playEnd
-        case "PlaySpeed": self = .playSpeed
-        case "ColorEffects(n)": self = .colorEffects(n: 1)
-        case "Color(n)": self = .color(n: 1)
-        case "ColorWheelIndex(n)": self = .colorWheelIndex(n: 1)
-        case "ColorWheelSpin(n)": self = .colorWheelSpin(n: 1)
-        case "ColorWheelRandom(n)": self = .colorWheelRandom(n: 1)
-        case "ColorWheelAudio(n)": self = .colorWheelAudio(n: 1)
-        case "ColorAdd_R": self = .colorAdd_R
-        case "ColorAdd_G": self = .colorAdd_G
-        case "ColorAdd_B": self = .colorAdd_B
-        case "ColorAdd_C": self = .colorAdd_C
-        case "ColorAdd_M": self = .colorAdd_M
-        case "ColorAdd_Y": self = .colorAdd_Y
-        case "ColorAdd_RY": self = .colorAdd_RY
-        case "ColorAdd_GY": self = .colorAdd_GY
-        case "ColorAdd_GC": self = .colorAdd_GC
-        case "ColorAdd_BC": self = .colorAdd_BC
-        case "ColorAdd_BM": self = .colorAdd_BM
-        case "ColorAdd_RM": self = .colorAdd_RM
-        case "ColorAdd_W": self = .colorAdd_W
-        case "ColorAdd_WW": self = .colorAdd_WW
-        case "ColorAdd_CW": self = .colorAdd_CW
-        case "ColorAdd_UV": self = .colorAdd_UV
-        case "ColorSub_R": self = .colorSub_R
-        case "ColorSub_G": self = .colorSub_G
-        case "ColorSub_B": self = .colorSub_B
-        case "ColorSub_C": self = .colorSub_C
-        case "ColorSub_M": self = .colorSub_M
-        case "ColorSub_Y": self = .colorSub_Y
-        case "ColorMacro(n)": self = .colorMacro(n: 1)
-        case "ColorMacroRate(n)": self = .colorMacroRate(n: 1)
-        case "CTO": self = .cTO
-        case "CTC": self = .cTC
-        case "CTB": self = .cTB
-        case "Tint": self = .tint
-        case "HSB_Hue": self = .hSB_Hue
-        case "HSB_Saturation": self = .hSB_Saturation
-        case "HSB_Brightness": self = .hSB_Brightness
-        case "HSB_Quality": self = .hSB_Quality
-        case "CIE_X": self = .cIE_X
-        case "CIE_Y": self = .cIE_Y
-        case "CIE_Brightness": self = .cIE_Brightness
-        case "ColorRGB_Red": self = .colorRGB_Red
-        case "ColorRGB_Green": self = .colorRGB_Green
-        case "ColorRGB_Blue": self = .colorRGB_Blue
-        case "ColorRGB_Cyan": self = .colorRGB_Cyan
-        case "ColorRGB_Magenta": self = .colorRGB_Magenta
-        case "ColorRGB_Yellow": self = .colorRGB_Yellow
-        case "ColorRGB_Quality": self = .colorRGB_Quality
-        case "VideoBoost_R": self = .videoBoost_R
-        case "VideoBoost_G": self = .videoBoost_G
-        case "VideoBoost_B": self = .videoBoost_B
-        case "VideoHueShift": self = .videoHueShift
-        case "VideoSaturation": self = .videoSaturation
-        case "VideoBrightness": self = .videoBrightness
-        case "VideoContrast": self = .videoContrast
-        case "VideoKeyColor_R": self = .videoKeyColor_R
-        case "VideoKeyColor_G": self = .videoKeyColor_G
-        case "VideoKeyColor_B": self = .videoKeyColor_B
-        case "VideoKeyIntensity": self = .videoKeyIntensity
-        case "VideoKeyTolerance": self = .videoKeyTolerance
-        case "StrobeDuration": self = .strobeDuration
-        case "StrobeRate": self = .strobeRate
-        case "StrobeFrequency": self = .strobeFrequency
-        case "StrobeModeShutter": self = .strobeModeShutter
-        case "StrobeModeStrobe": self = .strobeModeStrobe
-        case "StrobeModePulse": self = .strobeModePulse
-        case "StrobeModePulseOpen": self = .strobeModePulseOpen
-        case "StrobeModePulseClose": self = .strobeModePulseClose
-        case "StrobeModeRandom": self = .strobeModeRandom
-        case "StrobeModeRandomPulse": self = .strobeModeRandomPulse
-        case "StrobeModeRandomPulseOpen": self = .strobeModeRandomPulseOpen
-        case "StrobeModeRandomPulseClose": self = .strobeModeRandomPulseClose
-        case "StrobeModeEffect": self = .strobeModeEffect
-        case "Shutter(n)": self = .shutter(n: 1)
-        case "ShutterStrobe(n)": self = .shutterStrobe(n: 1)
-        case "ShutterStrobePulse(n)": self = .shutterStrobePulse(n: 1)
-        case "ShutterStrobePulseClose(n)": self = .shutterStrobePulseClose(n: 1)
-        case "ShutterStrobePulseOpen(n)": self = .shutterStrobePulseOpen(n: 1)
-        case "ShutterStrobeRandom(n)": self = .shutterStrobeRandom(n: 1)
-        case "ShutterStrobeRandomPulse(n)": self = .shutterStrobeRandomPulse(n: 1)
-        case "ShutterStrobeRandomPulseClose(n)": self = .shutterStrobeRandomPulseClose(n: 1)
-        case "ShutterStrobeRandomPulseOpen(n)": self = .shutterStrobeRandomPulseOpen(n: 1)
-        case "ShutterStrobeEffect(n)": self = .shutterStrobeEffect(n: 1)
-        case "Iris": self = .iris
-        case "IrisStrobe": self = .irisStrobe
-        case "IrisStrobeRandom": self = .irisStrobeRandom
-        case "IrisPulseClose": self = .irisPulseClose
-        case "IrisPulseOpen": self = .irisPulseOpen
-        case "IrisRandomPulseClose": self = .irisRandomPulseClose
-        case "IrisRandomPulseOpen": self = .irisRandomPulseOpen
-        case "Frost(n)": self = .frost(n: 1)
-        case "FrostPulseOpen(n)": self = .frostPulseOpen(n: 1)
-        case "FrostPulseClose(n)": self = .frostPulseClose(n: 1)
-        case "FrostRamp(n)": self = .frostRamp(n: 1)
-        case "Prism(n)": self = .prism(n: 1)
-        case "PrismSelectSpin(n)": self = .prismSelectSpin(n: 1)
-        case "PrismMacro(n)": self = .prismMacro(n: 1)
-        case "PrismPos(n)": self = .prismPos(n: 1)
-        case "PrismPosRotate(n)": self = .prismPosRotate(n: 1)
-        case "Effects(n)": self = .effects(n: 1)
-        case "EffectsRate(n)": self = .effectsRate(n: 1)
-        case "EffectsFade(n)": self = .effectsFade(n: 1)
-        case "EffectsAdjust(n,m)": self = .effectsAdjust(n: 1, m: 1)
-        case "EffectsPos(n)": self = .effectsPos(n: 1)
-        case "EffectsPosRotate(n)": self = .effectsPosRotate(n: 1)
-        case "EffectsSync": self = .effectsSync
-        case "BeamShaper": self = .beamShaper
-        case "BeamShaperMacro": self = .beamShaperMacro
-        case "BeamShaperPos": self = .beamShaperPos
-        case "BeamShaperPosRotate": self = .beamShaperPosRotate
-        case "Zoom": self = .zoom
-        case "ZoomModeSpot": self = .zoomModeSpot
-        case "ZoomModeBeam": self = .zoomModeBeam
-        case "DigitalZoom": self = .digitalZoom
-        case "Focus(n)": self = .focus(n: 1)
-        case "FocusAdjust(n)": self = .focusAdjust(n: 1)
-        case "FocusDistance(n)": self = .focusDistance(n: 1)
-        case "Control(n)": self = .control(n: 1)
-        case "DimmerMode": self = .dimmerMode
-        case "DimmerCurve": self = .dimmerCurve
-        case "BlackoutMode": self = .blackoutMode
-        case "LEDFrequency": self = .lEDFrequency
-        case "LEDZoneMode": self = .lEDZoneMode
-        case "PixelMode": self = .pixelMode
-        case "PanMode": self = .panMode
-        case "TiltMode": self = .tiltMode
-        case "PanTiltMode": self = .panTiltMode
-        case "PositionModes": self = .positionModes
-        case "GoboWheelMode(n)": self = .goboWheelMode(n: 1)
-        case "GoboWheelShortcutMode": self = .goboWheelShortcutMode
-        case "AnimationWheelMode(n)": self = .animationWheelMode(n: 1)
-        case "AnimationWheelShortcutMode": self = .animationWheelShortcutMode
-        case "ColorMode(n)": self = .colorMode(n: 1)
-        case "ColorWheelShortcutMode": self = .colorWheelShortcutMode
-        case "CyanMode": self = .cyanMode
-        case "MagentaMode": self = .magentaMode
-        case "YellowMode": self = .yellowMode
-        case "ColorMixMode": self = .colorMixMode
-        case "ChromaticMode": self = .chromaticMode
-        case "ColorCalibrationMode": self = .colorCalibrationMode
-        case "ColorConsistency": self = .colorConsistency
-        case "ColorControl": self = .colorControl
-        case "ColorModelMode": self = .colorModelMode
-        case "ColorSettingsReset": self = .colorSettingsReset
-        case "ColorUniformity": self = .colorUniformity
-        case "CRIMode": self = .cRIMode
-        case "CustomColor": self = .customColor
-        case "UVStability": self = .uVStability
-        case "WavelengthCorrection": self = .wavelengthCorrection
-        case "WhiteCount": self = .whiteCount
-        case "StrobeMode": self = .strobeMode
-        case "ZoomMode": self = .zoomMode
-        case "FocusMode": self = .focusMode
-        case "IrisMode": self = .irisMode
-        case "FanMode(n)": self = .fanMode(n: 1)
-        case "FollowSpotMode": self = .followSpotMode
-        case "BeamEffectIndexRotateMode": self = .beamEffectIndexRotateMode
-        case "IntensityMSpeed(n)": self = .intensityMSpeed(n: 1)
-        case "PositionMSpeed(n)": self = .positionMSpeed(n: 1)
-        case "ColorMixMSpeed(n)": self = .colorMixMSpeed(n: 1)
-        case "ColorWheelSelectMSpeed(n)": self = .colorWheelSelectMSpeed(n: 1)
-        case "GoboWheelMSpeed(n)": self = .goboWheelMSpeed(n: 1)
-        case "IrisMSpeed(n)": self = .irisMSpeed(n: 1)
-        case "PrismMSpeed(n)": self = .prismMSpeed(n: 1)
-        case "FocusMSpeed(n)": self = .focusMSpeed(n: 1)
-        case "FrostMSpeed(n)": self = .frostMSpeed(n: 1)
-        case "ZoomMSpeed(n)": self = .zoomMSpeed(n: 1)
-        case "FrameMSpeed(n)": self = .frameMSpeed(n: 1)
-        case "GlobalMSpeed(n)": self = .globalMSpeed(n: 1)
-        case "ReflectorAdjust": self = .reflectorAdjust
-        case "FixtureGlobalReset": self = .fixtureGlobalReset
-        case "DimmerReset": self = .dimmerReset
-        case "ShutterReset": self = .shutterReset
-        case "BeamReset": self = .beamReset
-        case "ColorMixReset": self = .colorMixReset
-        case "ColorWheelReset": self = .colorWheelReset
-        case "FocusReset": self = .focusReset
-        case "FrameReset": self = .frameReset
-        case "GoboWheelReset": self = .goboWheelReset
-        case "IntensityReset": self = .intensityReset
-        case "IrisReset": self = .irisReset
-        case "PositionReset": self = .positionReset
-        case "PanReset": self = .panReset
-        case "TiltReset": self = .tiltReset
-        case "ZoomReset": self = .zoomReset
-        case "CTBReset": self = .cTBReset
-        case "CTOReset": self = .cTOReset
-        case "CTCReset": self = .cTCReset
-        case "AnimationSystemReset": self = .animationSystemReset
-        case "FixtureCalibrationReset": self = .fixtureCalibrationReset
-        case "Function": self = .function
-        case "LampControl": self = .lampControl
-        case "DisplayIntensity": self = .displayIntensity
-        case "DMXInput": self = .dMXInput
-        case "NoFeature": self = .noFeature
-        case "Blower(n)": self = .blower(n: 1)
-        case "Fan(n)": self = .fan(n: 1)
-        case "Fog(n)": self = .fog(n: 1)
-        case "Haze(n)": self = .haze(n: 1)
-        case "LampPowerMode": self = .lampPowerMode
-        case "Fans": self = .fans
-        case "BladeA(n)": self = .bladeA(n: 1)
-        case "BladeB(n)": self = .bladeB(n: 1)
-        case "BladeRot(n)": self = .bladeRot(n: 1)
-        case "ShaperRot": self = .shaperRot
-        case "ShaperMacros": self = .shaperMacros
-        case "ShaperMacrosSpeed": self = .shaperMacrosSpeed
-        case "BladeSoftA(n)": self = .bladeSoftA(n: 1)
-        case "BladeSoftB(n)": self = .bladeSoftB(n: 1)
-        case "KeyStoneA(n)": self = .keyStoneA(n: 1)
-        case "KeyStoneB(n)": self = .keyStoneB(n: 1)
-        case "Video": self = .video
-        case "VideoEffectType(n)": self = .videoEffectType(n: 1)
-        case "VideoEffectParameter(n,m)": self = .videoEffectParameter(n: 1, m: 1)
-        case "VideoCamera(n)": self = .videoCamera(n: 1)
-        case "VideoSoundVolume(n)": self = .videoSoundVolume(n: 1)
-        case "VideoBlendMode": self = .videoBlendMode
-        case "InputSource": self = .inputSource
-        case "FieldOfView": self = .fieldOfView
-        default:
-            self = .custom(name: name)
-        }
-    }
 }
 

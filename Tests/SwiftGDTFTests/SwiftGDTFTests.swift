@@ -85,7 +85,7 @@ actor SessionManager {
 
 // MARK: - GDTF Downloader
 
-class GDTFDownloader {
+actor GDTFDownloader {
     private let sessionManager: SessionManager
     private let downloadDirectory: URL
     private var fixtures: [Fixture] = []
@@ -150,14 +150,12 @@ class GDTFDownloader {
     private func downloadFixtures() async throws {
         try FileManager.default.createDirectory(at: downloadDirectory, withIntermediateDirectories: true, attributes: nil)
         print("downloading to \(downloadDirectory)")
-        var downloadedCount = 0
 
         await withTaskGroup(of: Void.self) { group in
             func addTask(_ fixture: Fixture) {
                 group.addTask {
                     do {
                         try await self.downloadFixture(fixture)
-                        downloadedCount += 1
                     } catch {
                         print("Failed to download fixture \(fixture.uuid): \(error)")
                     }

@@ -580,7 +580,7 @@ extension AttributeType {
     
     static let enumerationRegex = compile(regex: "[0-9]+")
     
-    static let regexes: [NSRegularExpression : ([Int]) -> AttributeType] = [
+    nonisolated(unsafe) static let regexes: [NSRegularExpression : ([Int]) -> AttributeType] = [
         compile(regex: "^Dimmer$") : { _ in .dimmer },
         compile(regex: "^Pan$") : { _ in .pan },
         compile(regex: "^Tilt$") : { _ in .tilt },

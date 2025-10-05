@@ -1,4 +1,4 @@
-// swift-tools-version: 5.10
+// swift-tools-version: 6.2
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -6,7 +6,8 @@ import PackageDescription
 let package = Package(
     name: "SwiftGDTF",
     platforms: [
-        .macOS(.v12), .iOS(.v17)
+        .macOS(.v12),
+ .iOS(.v17)
     ],
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
@@ -27,7 +28,11 @@ let package = Package(
             dependencies: [
                 .product(name: "SWXMLHash", package: "SWXMLHash"),
                 .product(name: "ZIPFoundation", package: "ZIPFoundation")
-            ]),
+            ],
+            resources: [
+                .process("Resources"),
+            ]
+        ),
         .testTarget(
             name: "SwiftGDTFTests",
             dependencies: ["SwiftGDTF"]),

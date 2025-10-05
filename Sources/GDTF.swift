@@ -603,6 +603,7 @@ public enum AttributeType: Hashable, Codable, CustomStringConvertible, Sendable 
         case displayIntensity
         case dMXInput
         case noFeature
+        case dummy
         case blower
         case fan
         case fog
@@ -653,52 +654,53 @@ public enum AttributeType: Hashable, Codable, CustomStringConvertible, Sendable 
             case "Scale_Z": self = .scale_Z
             case "Scale_XYZ": self = .scale_XYZ
             case "Gobo(n)": self = .gobo
-            case "GoboSelectSpin(n)": self = .goboSelectSpin
-            case "GoboSelectShake(n)": self = .goboSelectShake
-            case "GoboSelectEffects(n)": self = .goboSelectEffects
-            case "GoboWheelIndex(n)": self = .goboWheelIndex
-            case "GoboWheelSpin(n)": self = .goboWheelSpin
-            case "GoboWheelShake(n)": self = .goboWheelShake
-            case "GoboWheelRandom(n)": self = .goboWheelRandom
-            case "GoboWheelAudio(n)": self = .goboWheelAudio
-            case "GoboPos(n)": self = .goboPos
-            case "GoboPosRotate(n)": self = .goboPosRotate
-            case "GoboPosShake(n)": self = .goboPosShake
+            case "Gobo(n)SelectSpin": self = .goboSelectSpin
+            case "Gobo(n)SelectShake": self = .goboSelectShake
+            case "Gobo(n)SelectEffects": self = .goboSelectEffects
+            case "Gobo(n)WheelIndex": self = .goboWheelIndex
+            case "Gobo(n)WheelSpin": self = .goboWheelSpin
+            case "Gobo(n)WheelShake": self = .goboWheelShake
+            case "Gobo(n)WheelRandom": self = .goboWheelRandom
+            case "Gobo(n)WheelAudio": self = .goboWheelAudio
+            case "Gobo(n)Pos": self = .goboPos
+            case "Gobo(n)PosRotate": self = .goboPosRotate
+            case "Gobo(n)PosShake": self = .goboPosShake
             case "AnimationWheel(n)": self = .animationWheel
-            case "AnimationWheelAudio(n)": self = .animationWheelAudio
-            case "AnimationWheelMacro(n)": self = .animationWheelMacro
-            case "AnimationWheelRandom(n)": self = .animationWheelRandom
-            case "AnimationWheelSelectEffects(n)": self = .animationWheelSelectEffects
-            case "AnimationWheelSelectShake(n)": self = .animationWheelSelectShake
-            case "AnimationWheelSelectSpin(n)": self = .animationWheelSelectSpin
-            case "AnimationWheelPos(n)": self = .animationWheelPos
-            case "AnimationWheelPosRotate(n)": self = .animationWheelPosRotate
-            case "AnimationWheelPosShake(n)": self = .animationWheelPosShake
+            case "AnimationWheel(n)Audio": self = .animationWheelAudio
+            case "AnimationWheel(n)Macro": self = .animationWheelMacro
+            case "AnimationWheel(n)Random": self = .animationWheelRandom
+            case "AnimationWheel(n)SelectEffects": self = .animationWheelSelectEffects
+            case "AnimationWheel(n)SelectShake": self = .animationWheelSelectShake
+            case "AnimationWheel(n)SelectSpin": self = .animationWheelSelectSpin
+            case "AnimationWheel(n)Pos": self = .animationWheelPos
+            case "AnimationWheel(n)PosRotate": self = .animationWheelPosRotate
+            case "AnimationWheel(n)PosShake": self = .animationWheelPosShake
             case "AnimationSystem(n)": self = .animationSystem
-            case "AnimationSystemRamp(n)": self = .animationSystemRamp
-            case "AnimationSystemShake(n)": self = .animationSystemShake
-            case "AnimationSystemAudio(n)": self = .animationSystemAudio
-            case "AnimationSystemRandom(n)": self = .animationSystemRandom
-            case "AnimationSystemPos(n)": self = .animationSystemPos
-            case "AnimationSystemPosRotate(n)": self = .animationSystemPosRotate
-            case "AnimationSystemPosShake(n)": self = .animationSystemPosShake
-            case "AnimationSystemPosRandom(n)": self = .animationSystemPosRandom
-            case "AnimationSystemPosAudio(n)": self = .animationSystemPosAudio
-            case "AnimationSystemMacro(n)": self = .animationSystemMacro
+            case "AnimationSystem(n)Ramp": self = .animationSystemRamp
+            case "AnimationSystem(n)Shake": self = .animationSystemShake
+            case "AnimationSystem(n)Audio": self = .animationSystemAudio
+            case "AnimationSystem(n)Random": self = .animationSystemRandom
+            case "AnimationSystem(n)Pos": self = .animationSystemPos
+            case "AnimationSystem(n)PosRotate": self = .animationSystemPosRotate
+            case "AnimationSystem(n)PosShake": self = .animationSystemPosShake
+            case "AnimationSystem(n)PosRandom": self = .animationSystemPosRandom
+            case "AnimationSystem(n)PosAudio": self = .animationSystemPosAudio
+            case "AnimationSystem(n)Macro": self = .animationSystemMacro
             case "MediaFolder(n)": self = .mediaFolder
             case "MediaContent(n)": self = .mediaContent
             case "ModelFolder(n)": self = .modelFolder
             case "ModelContent(n)": self = .modelContent
             case "PlayMode": self = .playMode
+            case "Playmode": self = .playMode
             case "PlayBegin": self = .playBegin
             case "PlayEnd": self = .playEnd
             case "PlaySpeed": self = .playSpeed
             case "ColorEffects(n)": self = .colorEffects
             case "Color(n)": self = .color
-            case "ColorWheelIndex(n)": self = .colorWheelIndex
-            case "ColorWheelSpin(n)": self = .colorWheelSpin
-            case "ColorWheelRandom(n)": self = .colorWheelRandom
-            case "ColorWheelAudio(n)": self = .colorWheelAudio
+            case "Color(n)WheelIndex": self = .colorWheelIndex
+            case "Color(n)WheelSpin": self = .colorWheelSpin
+            case "Color(n)WheelRandom": self = .colorWheelRandom
+            case "Color(n)WheelAudio": self = .colorWheelAudio
             case "ColorAdd_R": self = .colorAdd_R
             case "ColorAdd_G": self = .colorAdd_G
             case "ColorAdd_B": self = .colorAdd_B
@@ -722,7 +724,7 @@ public enum AttributeType: Hashable, Codable, CustomStringConvertible, Sendable 
             case "ColorSub_M": self = .colorSub_M
             case "ColorSub_Y": self = .colorSub_Y
             case "ColorMacro(n)": self = .colorMacro
-            case "ColorMacroRate(n)": self = .colorMacroRate
+            case "ColorMacro(n)Rate": self = .colorMacroRate
             case "CTO": self = .cTO
             case "CTC": self = .cTC
             case "CTB": self = .cTB
@@ -750,7 +752,7 @@ public enum AttributeType: Hashable, Codable, CustomStringConvertible, Sendable 
             case "VideoContrast": self = .videoContrast
             case "VideoKeyColor_R": self = .videoKeyColor_R
             case "VideoKeyColor_G": self = .videoKeyColor_G
-            case "VideoKeyColor_B": self = .videoKeyColor_B
+            case "VideoColorKey_B": self = .videoKeyColor_B
             case "VideoKeyIntensity": self = .videoKeyIntensity
             case "VideoKeyTolerance": self = .videoKeyTolerance
             case "StrobeDuration": self = .strobeDuration
@@ -767,15 +769,15 @@ public enum AttributeType: Hashable, Codable, CustomStringConvertible, Sendable 
             case "StrobeModeRandomPulseClose": self = .strobeModeRandomPulseClose
             case "StrobeModeEffect": self = .strobeModeEffect
             case "Shutter(n)": self = .shutter
-            case "ShutterStrobe(n)": self = .shutterStrobe
-            case "ShutterStrobePulse(n)": self = .shutterStrobePulse
-            case "ShutterStrobePulseClose(n)": self = .shutterStrobePulseClose
-            case "ShutterStrobePulseOpen(n)": self = .shutterStrobePulseOpen
-            case "ShutterStrobeRandom(n)": self = .shutterStrobeRandom
-            case "ShutterStrobeRandomPulse(n)": self = .shutterStrobeRandomPulse
-            case "ShutterStrobeRandomPulseClose(n)": self = .shutterStrobeRandomPulseClose
-            case "ShutterStrobeRandomPulseOpen(n)": self = .shutterStrobeRandomPulseOpen
-            case "ShutterStrobeEffect(n)": self = .shutterStrobeEffect
+            case "Shutter(n)Strobe": self = .shutterStrobe
+            case "Shutter(n)StrobePulse": self = .shutterStrobePulse
+            case "Shutter(n)StrobePulseClose": self = .shutterStrobePulseClose
+            case "Shutter(n)StrobePulseOpen": self = .shutterStrobePulseOpen
+            case "Shutter(n)StrobeRandom": self = .shutterStrobeRandom
+            case "Shutter(n)StrobeRandomPulse": self = .shutterStrobeRandomPulse
+            case "Shutter(n)StrobeRandomPulseClose": self = .shutterStrobeRandomPulseClose
+            case "Shutter(n)StrobeRandomPulseOpen": self = .shutterStrobeRandomPulseOpen
+            case "Shutter(n)StrobeEffect": self = .shutterStrobeEffect
             case "Iris": self = .iris
             case "IrisStrobe": self = .irisStrobe
             case "IrisStrobeRandom": self = .irisStrobeRandom
@@ -784,20 +786,20 @@ public enum AttributeType: Hashable, Codable, CustomStringConvertible, Sendable 
             case "IrisRandomPulseClose": self = .irisRandomPulseClose
             case "IrisRandomPulseOpen": self = .irisRandomPulseOpen
             case "Frost(n)": self = .frost
-            case "FrostPulseOpen(n)": self = .frostPulseOpen
-            case "FrostPulseClose(n)": self = .frostPulseClose
-            case "FrostRamp(n)": self = .frostRamp
+            case "Frost(n)PulseOpen": self = .frostPulseOpen
+            case "Frost(n)PulseClose": self = .frostPulseClose
+            case "Frost(n)Ramp": self = .frostRamp
             case "Prism(n)": self = .prism
-            case "PrismSelectSpin(n)": self = .prismSelectSpin
-            case "PrismMacro(n)": self = .prismMacro
-            case "PrismPos(n)": self = .prismPos
-            case "PrismPosRotate(n)": self = .prismPosRotate
+            case "Prism(n)SelectSpin": self = .prismSelectSpin
+            case "Prism(n)Macro": self = .prismMacro
+            case "Prism(n)Pos": self = .prismPos
+            case "Prism(n)PosRotate": self = .prismPosRotate
             case "Effects(n)": self = .effects
-            case "EffectsRate(n)": self = .effectsRate
-            case "EffectsFade(n)": self = .effectsFade
-            case "EffectsAdjust(n,m)": self = .effectsAdjust
-            case "EffectsPos(n)": self = .effectsPos
-            case "EffectsPosRotate(n)": self = .effectsPosRotate
+            case "Effects(n)Rate": self = .effectsRate
+            case "Effects(n)Fade": self = .effectsFade
+            case "Effects(n)Adjust(m)": self = .effectsAdjust
+            case "Effects(n)Pos": self = .effectsPos
+            case "Effects(n)PosRotate": self = .effectsPosRotate
             case "EffectsSync": self = .effectsSync
             case "BeamShaper": self = .beamShaper
             case "BeamShaperMacro": self = .beamShaperMacro
@@ -808,8 +810,8 @@ public enum AttributeType: Hashable, Codable, CustomStringConvertible, Sendable 
             case "ZoomModeBeam": self = .zoomModeBeam
             case "DigitalZoom": self = .digitalZoom
             case "Focus(n)": self = .focus
-            case "FocusAdjust(n)": self = .focusAdjust
-            case "FocusDistance(n)": self = .focusDistance
+            case "Focus(n)Adjust": self = .focusAdjust
+            case "Focus(n)Distance": self = .focusDistance
             case "Control(n)": self = .control
             case "DimmerMode": self = .dimmerMode
             case "DimmerCurve": self = .dimmerCurve
@@ -821,11 +823,11 @@ public enum AttributeType: Hashable, Codable, CustomStringConvertible, Sendable 
             case "TiltMode": self = .tiltMode
             case "PanTiltMode": self = .panTiltMode
             case "PositionModes": self = .positionModes
-            case "GoboWheelMode(n)": self = .goboWheelMode
+            case "Gobo(n)WheelMode": self = .goboWheelMode
             case "GoboWheelShortcutMode": self = .goboWheelShortcutMode
-            case "AnimationWheelMode(n)": self = .animationWheelMode
+            case "AnimationWheel(n)Mode": self = .animationWheelMode
             case "AnimationWheelShortcutMode": self = .animationWheelShortcutMode
-            case "ColorMode(n)": self = .colorMode
+            case "Color(n)Mode": self = .colorMode
             case "ColorWheelShortcutMode": self = .colorWheelShortcutMode
             case "CyanMode": self = .cyanMode
             case "MagentaMode": self = .magentaMode
@@ -841,27 +843,27 @@ public enum AttributeType: Hashable, Codable, CustomStringConvertible, Sendable 
             case "CRIMode": self = .cRIMode
             case "CustomColor": self = .customColor
             case "UVStability": self = .uVStability
-            case "WavelengthCorrection": self = .wavelengthCorrection
+            case "WaveLengthCorrection": self = .wavelengthCorrection
             case "WhiteCount": self = .whiteCount
             case "StrobeMode": self = .strobeMode
             case "ZoomMode": self = .zoomMode
             case "FocusMode": self = .focusMode
             case "IrisMode": self = .irisMode
-            case "FanMode(n)": self = .fanMode
+            case "FanMode": self = .fanMode
             case "FollowSpotMode": self = .followSpotMode
             case "BeamEffectIndexRotateMode": self = .beamEffectIndexRotateMode
-            case "IntensityMSpeed(n)": self = .intensityMSpeed
-            case "PositionMSpeed(n)": self = .positionMSpeed
-            case "ColorMixMSpeed(n)": self = .colorMixMSpeed
-            case "ColorWheelSelectMSpeed(n)": self = .colorWheelSelectMSpeed
-            case "GoboWheelMSpeed(n)": self = .goboWheelMSpeed
-            case "IrisMSpeed(n)": self = .irisMSpeed
-            case "PrismMSpeed(n)": self = .prismMSpeed
-            case "FocusMSpeed(n)": self = .focusMSpeed
-            case "FrostMSpeed(n)": self = .frostMSpeed
-            case "ZoomMSpeed(n)": self = .zoomMSpeed
-            case "FrameMSpeed(n)": self = .frameMSpeed
-            case "GlobalMSpeed(n)": self = .globalMSpeed
+            case "IntensityMSpeed": self = .intensityMSpeed
+            case "PositionMSpeed": self = .positionMSpeed
+            case "ColorMixMSpeed": self = .colorMixMSpeed
+            case "ColorWheelSelectMSpeed": self = .colorWheelSelectMSpeed
+            case "GoboWheel(n)MSpeed": self = .goboWheelMSpeed
+            case "IrisMSpeed": self = .irisMSpeed
+            case "Prism(n)MSpeed": self = .prismMSpeed
+            case "FocusMSpeed": self = .focusMSpeed
+            case "Frost(n)MSpeed": self = .frostMSpeed
+            case "ZoomMSpeed": self = .zoomMSpeed
+            case "FrameMSpeed": self = .frameMSpeed
+            case "GlobalMSpeed": self = .globalMSpeed
             case "ReflectorAdjust": self = .reflectorAdjust
             case "FixtureGlobalReset": self = .fixtureGlobalReset
             case "DimmerReset": self = .dimmerReset
@@ -888,25 +890,26 @@ public enum AttributeType: Hashable, Codable, CustomStringConvertible, Sendable 
             case "DisplayIntensity": self = .displayIntensity
             case "DMXInput": self = .dMXInput
             case "NoFeature": self = .noFeature
+            case "Dummy": self = .dummy
             case "Blower(n)": self = .blower
             case "Fan(n)": self = .fan
             case "Fog(n)": self = .fog
             case "Haze(n)": self = .haze
             case "LampPowerMode": self = .lampPowerMode
             case "Fans": self = .fans
-            case "BladeA(n)": self = .bladeA
-            case "BladeB(n)": self = .bladeB
-            case "BladeRot(n)": self = .bladeRot
+            case "Blade(n)A": self = .bladeA
+            case "Blade(n)B": self = .bladeB
+            case "Blade(n)Rot": self = .bladeRot
             case "ShaperRot": self = .shaperRot
             case "ShaperMacros": self = .shaperMacros
             case "ShaperMacrosSpeed": self = .shaperMacrosSpeed
-            case "BladeSoftA(n)": self = .bladeSoftA
-            case "BladeSoftB(n)": self = .bladeSoftB
-            case "KeyStoneA(n)": self = .keyStoneA
-            case "KeyStoneB(n)": self = .keyStoneB
+            case "BladeSoft(n)A": self = .bladeSoftA
+            case "BladeSoft(n)B": self = .bladeSoftB
+            case "KeyStone(n)A": self = .keyStoneA
+            case "KeyStone(n)B": self = .keyStoneB
             case "Video": self = .video
-            case "VideoEffectType(n)": self = .videoEffectType
-            case "VideoEffectParameter(n,m)": self = .videoEffectParameter
+            case "VideoEffect(n)Type": self = .videoEffectType
+            case "VideoEffect(n)Parameter(m)": self = .videoEffectParameter
             case "VideoCamera(n)": self = .videoCamera
             case "VideoSoundVolume(n)": self = .videoSoundVolume
             case "VideoBlendMode": self = .videoBlendMode
@@ -1173,6 +1176,7 @@ public enum AttributeType: Hashable, Codable, CustomStringConvertible, Sendable 
     case displayIntensity
     case dMXInput
     case noFeature
+    case dummy
     case blower(n: Int)
     case fan(n: Int)
     case fog(n: Int)
@@ -1508,6 +1512,7 @@ public enum AttributeType: Hashable, Codable, CustomStringConvertible, Sendable 
         case .displayIntensity: return "Display Intensity"
         case .dMXInput: return "DMX Input"
         case .noFeature: return "No Feature"
+        case .dummy: return "Dummy"
         
         // Environmental
         case .blower(let n): return "Blower \(n)"
@@ -1801,6 +1806,7 @@ public enum AttributeType: Hashable, Codable, CustomStringConvertible, Sendable 
         case .displayIntensity: return .displayIntensity
         case .dMXInput: return .dMXInput
         case .noFeature: return .noFeature
+        case .dummy: return .dummy
         case .blower: return .blower
         case .fan: return .fan
         case .fog: return .fog

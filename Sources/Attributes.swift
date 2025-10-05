@@ -81,10 +81,15 @@ public struct AttributeDescription: Decodable, Identifiable, Sendable, Equatable
 
 extension AttributeType {
     public var attributeDescription: AttributeDescription? {
-        AttributeDescription.attributes[canonical]
+        canonical.attributeDescription
     }
 }
 
+extension AttributeType.Canonical {
+    public var attributeDescription: AttributeDescription? {
+        AttributeDescription.attributes[self]
+    }
+}
 
 // Seems like the json includes a string e.g. "0.025" but we need to treat that as a double
 struct LosslessDouble: Decodable, Sendable, Equatable {
@@ -111,3 +116,48 @@ struct LosslessDouble: Decodable, Sendable, Equatable {
 
 
 
+public struct AttributeIcon: Codable, Sendable {
+    public static let attributes: [AttributeType.Canonical: AttributeIcon] = {
+        let attributesURL = Bundle.module.url(forResource: "gdtf_attributes_symbols", withExtension: "json")!
+        let attributesData = try! Data(contentsOf: attributesURL)
+        let decoder = JSONDecoder()
+        return try! decoder.decode([AttributeType.Canonical: AttributeIcon].self, from: attributesData)
+    }()
+    public var symbol: String
+    public var category: String
+    public var style: String?
+    public var color: String?
+}
+
+#if canImport(SwiftUI)
+import SwiftUI
+extension AttributeIcon {
+    public var swiftUIColor: Color? {
+        guard let color = color else { return nil }
+        switch color.lowercased() {
+        case "red": return .red
+        case "green": return .green
+        case "blue": return .blue
+        case "yellow": return .yellow
+        case "orange", "amber": return .orange
+        case "cyan", "teal", "lightblue": return .teal
+        case "magenta", "pink": return .pink
+        case "purple": return .purple
+        case "white", "warmwhite", "coolwhite": return .white
+        default: return .primary
+        }
+    }
+}
+#endif
+
+extension AttributeType.Canonical {
+    public var iconDescription: AttributeIcon? {
+        AttributeIcon.attributes[self]
+    }
+}
+
+extension AttributeType {
+    public var iconDescription: AttributeIcon? {
+        canonical.iconDescription
+    }
+}

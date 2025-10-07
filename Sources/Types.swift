@@ -443,8 +443,12 @@ public struct FileResource: Codable {
         case doesNotExist(filename: String)
     }
     public func extract(from gdtf: URL, to destination: URL) throws {
-        let zipArchive = try Archive(url: gdtf, accessMode: .read)
-
+        try extract(from: try Archive(url: gdtf, accessMode: .read), to: destination)
+    }
+    public func extract(from gdtf: Data, to destination: URL) throws {
+        try extract(from: try Archive(data: gdtf, accessMode: .read), to: destination)
+    }
+    private func extract(from zipArchive: Archive, to destination: URL) throws {
         /// Verify a description.xml file was found, otherwise invalid GDTF
         guard let entry = zipArchive[filename] else {
             throw ExtractError.doesNotExist(filename: filename)

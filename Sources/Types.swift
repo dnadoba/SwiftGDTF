@@ -166,7 +166,7 @@ extension DMXAddress {
     }
 }
 
-public struct DMXValue: Codable {
+public struct DMXValue: Codable, Hashable {
     public var value: Int
     public var byteCount: Int
     

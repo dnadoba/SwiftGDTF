@@ -177,5 +177,9 @@ public struct GDTFShare {
 
         return nil
     }
+    
+    public static func editorURL(revisionID: GDTF.ID) -> URL {
+        URL(string: "https://fixturebuilder.gdtf-share.com/load/?rid=\(revisionID.rawValue)")!
+    }
 }
 

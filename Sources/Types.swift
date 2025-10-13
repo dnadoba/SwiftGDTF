@@ -170,6 +170,11 @@ public struct DMXValue: Codable, Hashable {
     public var value: Int
     public var byteCount: Int
     
+    public init(value: Int, byteCount: Int) {
+        self.value = value
+        self.byteCount = byteCount
+    }
+    
     public var maxValue: Int {
         return Int(powl(2, 8*Double(byteCount))) - 1
     }

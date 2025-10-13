@@ -244,6 +244,13 @@ public struct DMXMode: Codable {
     public var channels: [DMXChannel]
     public var relations: [Relation]
     public var macros: [Macro]
+    public init(name: String, description: String, channels: [DMXChannel], relations: [Relation], macros: [Macro]) {
+        self.name = name
+        self.description = description
+        self.channels = channels
+        self.relations = relations
+        self.macros = macros
+    }
 
     public func maxOffset() -> Int? {
         channels.lazy.map { $0.offset.max() ?? 0 }.max()

@@ -925,6 +925,14 @@ public enum AttributeType: Hashable, Codable, CustomStringConvertible, Sendable 
         case inputSource
         case fieldOfView
         case custom(name: String)
+        
+        public var isCustom: Bool {
+            if case .custom = self {
+                true
+            } else {
+                false
+            }
+        }
 
         public init(from decoder: Decoder) throws {
             let container = try decoder.singleValueContainer()

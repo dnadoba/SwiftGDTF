@@ -226,3 +226,23 @@ public func loadFixtureDetails(gdtf: Data) throws -> FixtureDetails {
     
     return FixtureDetails(info: fixtureInfo, modes: modes)
 }
+
+extension GDTF {
+    fileprivate struct ThumbnailError: Error {
+        var description: String
+    }
+    public static func extractThumbnail(url: URL) throws -> URL {
+        // TODO: just extract the thumbnail without parsing any other infomration
+        let gdtf = try loadGDTF(url: url)
+        
+        guard let thumbnail = gdtf.fixtureType.thumbnail else {
+            throw ThumbnailError(description: "GDTF does not have a thumbnail")
+        }
+        let thumbnailExportURL = FileManager.default.temporaryDirectory
+            .appending(path: "\(UUID().uuidString)-\(thumbnail.filename)")
+            .appendingPathExtension(thumbnail.fileExtension)
+
+        try thumbnail.extract(from: url, to: thumbnailExportURL)
+        return thumbnailExportURL
+    }
+}

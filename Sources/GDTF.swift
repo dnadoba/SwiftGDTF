@@ -74,6 +74,7 @@ public struct FixtureInfo: Codable {
     public var fixtureTypeID: String
     public var refFT: String?
     public var thumbnail: FileResource?
+    public var thumbnailVector: FileResource?
 }
 
 ///

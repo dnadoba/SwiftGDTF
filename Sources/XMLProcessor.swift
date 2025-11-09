@@ -62,7 +62,9 @@ extension FixtureInfo: XMLDecodable {
         self.description = try element.attribute(named: "Description").text
         self.fixtureTypeID = try element.attribute(named: "FixtureTypeID").text
         self.refFT = element.attribute(by: "RefFT")?.text
-        self.thumbnail = FileResource(name: element.attribute(by: "Thumbnail")?.text, fileExtension: "png")
+        let thumbnailName = element.attribute(by: "Thumbnail")?.text
+        self.thumbnail = FileResource(name: thumbnailName, fileExtension: "png")
+        self.thumbnailVector = FileResource(name: thumbnailName, fileExtension: "svg")
     }
 }
 

@@ -8,7 +8,7 @@
 import Foundation
 import ZIPFoundation
 
-public enum PhysicalUnit: String, Codable {
+public enum PhysicalUnit: String, Codable, Sendable {
     case none = "None"
     case percent = "Percent"
     case length = "Length"
@@ -33,7 +33,59 @@ public enum PhysicalUnit: String, Codable {
     case colorComponent = "ColorComponent"
 }
 
-public enum SubPhysicalType: String, Codable {
+extension PhysicalUnit {
+    public var shouldDisplay: Bool {
+        self != .none && self != .colorComponent
+    }
+    public func format(_ value: Double) -> String {
+        switch self {
+        case .none, .colorComponent:
+            value.formatted()
+        case .percent:
+            value.formatted(.percent)
+        case .length:
+            Measurement(value: value, unit: UnitLength.meters).formatted()
+        case .mass:
+            Measurement(value: value, unit: UnitMass.kilograms).formatted()
+        case .time:
+            Measurement(value: value, unit: UnitDuration.seconds).formatted()
+        case .temperature:
+            Measurement(value: value, unit: UnitTemperature.kelvin).formatted()
+        case .luminousIntensity:
+            value.formatted() + "cd"
+        case .angle:
+            Measurement(value: value, unit: UnitAngle.degrees).formatted()
+        case .force:
+            value.formatted() + "N"
+        case .frequency:
+            Measurement(value: value, unit: UnitFrequency.hertz).formatted()
+        case .current:
+            Measurement(value: value, unit: UnitElectricCurrent.amperes).formatted()
+        case .voltage:
+            Measurement(value: value, unit: UnitElectricPotentialDifference.volts).formatted()
+        case .power:
+            Measurement(value: value, unit: UnitPower.watts).formatted()
+        case .energy:
+            Measurement(value: value, unit: UnitEnergy.joules).formatted()
+        case .area:
+            Measurement(value: value, unit: UnitArea.squareMeters).formatted()
+        case .volume:
+            Measurement(value: value, unit: UnitVolume.cubicMeters).formatted()
+        case .speed:
+            Measurement(value: value, unit: UnitSpeed.metersPerSecond).formatted()
+        case .acceleration:
+            Measurement(value: value, unit: UnitAcceleration.metersPerSecondSquared).formatted()
+        case .angularSpeed:
+            value.formatted() + "º/s"
+        case .angularAcc:
+            value.formatted() + "º/s²"
+        case .waveLength:
+            value.formatted() + "nm"
+        }
+    }
+}
+
+public enum SubPhysicalType: String, Codable, Sendable {
     case placementOffset = "PlacementOffset"
     case amplitude = "Amplitude"
     case amplitudeMin = "AmplitudeMin"
@@ -47,20 +99,20 @@ public enum SubPhysicalType: String, Codable {
     case ratioVertical = "RatioVertical"
 }
 
-public enum InterpolationTo: String, Codable {
+public enum InterpolationTo: String, Codable, Sendable {
     case linear = "Linear"
     case step = "Step"
     case log = "Log"
 }
 
-public enum ColorSpaceMode: String, Codable {
+public enum ColorSpaceMode: String, Codable, Sendable {
     case custom = "Custom"
     case srgb = "sRGB"
     case proPhoto = "ProPhoto"
     case ansi = "ANSI"
 }
 
-public enum PrimitiveType: String, Codable {
+public enum PrimitiveType: String, Codable, Sendable {
     case undefined = "Undefined"
     case cube = "Cube"
     case cylinder = "Cylinder"
@@ -76,19 +128,19 @@ public enum PrimitiveType: String, Codable {
     case conventional1_1 = "Conventional1_1"
 }
 
-public enum LampType: String, Codable {
+public enum LampType: String, Codable, Sendable {
     case discharge = "Discharge"
     case tungsten = "Tungsten"
     case halogen = "Halogen"
     case led = "LED"
 }
 
-public enum ColorType: String, Codable {
+public enum ColorType: String, Codable, Sendable {
     case rgb = "RGB"
     case singleWaveLength = "SingleWaveLength"
 }
 
-public enum FuseRating: String, Codable {
+public enum FuseRating: String, Codable, Sendable {
     case b = "B"
     case c = "C"
     case d = "D"
@@ -96,14 +148,14 @@ public enum FuseRating: String, Codable {
     case z = "Z"
 }
 
-public enum Orientation: String, Codable {
+public enum Orientation: String, Codable, Sendable {
     case left = "Left"
     case right = "Right"
     case top = "Top"
     case bottom = "Bottom"
 }
 
-public enum ComponentType: String, Codable {
+public enum ComponentType: String, Codable, Sendable {
     case input = "Input"
     case output = "Output"
     case powerSource = "PowerSource"
@@ -115,7 +167,7 @@ public enum ComponentType: String, Codable {
     case networkInOut = "NetworkInOut"
 }
 
-public enum BeamType: String, Codable {
+public enum BeamType: String, Codable, Sendable {
     case wash = "Wash"
     case spot = "Spot"
     case none = "None"
@@ -125,30 +177,30 @@ public enum BeamType: String, Codable {
     case glow = "Glow"
 }
 
-public enum Snap: String, Codable {
+public enum Snap: String, Codable, Sendable {
     case yes = "Yes"
     case no = "No"
     case on = "On"
     case off = "Off"
 }
 
-public enum Master: String, Codable {
+public enum Master: String, Codable, Sendable {
     case none = "None"
     case grand = "Grand"
     case group = "Group"
 }
 
-public enum DmxInvert: String, Codable {
+public enum DmxInvert: String, Codable, Sendable {
     case yes = "Yes"
     case no = "No"
 }
 
-public enum RelationType: String, Codable {
+public enum RelationType: String, Codable, Sendable {
     case multiply = "Multiply"
     case override = "Override"
 }
 
-public struct DMXAddress: Codable {
+public struct DMXAddress: Codable, Sendable {
     public var universe: Int
     public var address: Int
 }
@@ -176,7 +228,7 @@ public struct DMXValue: Codable, Hashable {
     }
     
     public var maxValue: Int {
-        return Int(powl(2, 8*Double(byteCount))) - 1
+        1 << (byteCount * 8) - 1
     }
     
     public var bytes: [UInt8] {
@@ -194,9 +246,8 @@ public struct DMXValue: Codable, Hashable {
 
 public extension DMXValue {
     init(_ percentage: Double, byteCount: Int) {
-        let maxValue = powl(2, 8*Double(byteCount)) - 1
-
-        self.init(value: Int(percentage.constrain(min: 0, max: 1) * maxValue), byteCount: byteCount)
+        let maxValue = 1 << (byteCount * 8) - 1
+        self.init(value: Int(percentage.constrain(min: 0, max: 1) * Double(maxValue)), byteCount: byteCount)
     }
 
     init(from rawValue: String) {

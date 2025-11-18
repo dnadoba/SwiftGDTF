@@ -23,15 +23,19 @@ public struct AttributeDescription: Decodable, Identifiable, Sendable, Equatable
         let attributesData = try! Data(contentsOf: attributesURL)
         let decoder = JSONDecoder()
         let attributes = try! decoder.decode(AttributeDescriptions.self, from: attributesData)
-        return Dictionary(uniqueKeysWithValues: attributes.attributes.lazy.map { ($0.name, $0) })
+        let attributesDict = Dictionary(uniqueKeysWithValues: attributes.attributes.lazy.map { ($0.name, $0) })
+        let unites = Set(attributes.attributes.flatMap { ($0.physicalUnit.map { [$0] } ?? []) + ($0.subPhysicalUnits.map { $0.physicalUnit } ?? [])  })
+        print("Physical Units")
+        print(unites.map { String(describing: $0) }.joined(separator: "\n"))
+        return attributesDict
     }()
 
     public var id: AttributeType.Canonical { name }
 
     public struct SubPhysicalUnit: Decodable, Sendable, Equatable {
         public var `default`: Bool
-        public var type: String
-        public var physicalUnit: String
+        public var type: SubPhysicalType
+        public var physicalUnit: PhysicalUnit
         private var _physicalFrom: LosslessDouble
         public var physicalFrom: Double {
             get { _physicalFrom.value }
@@ -59,7 +63,7 @@ public struct AttributeDescription: Decodable, Identifiable, Sendable, Equatable
         case physicalUnit = "_physicalUnit"
         case mainAttribute = "_MainAttribute"
         case activationGroup = "_ActivationGroup"
-        case subPhysicalUnits = "_subPhysicalUnits"
+        case _subPhysicalUnits
         case definition
         case explanation
         case visual
@@ -69,10 +73,14 @@ public struct AttributeDescription: Decodable, Identifiable, Sendable, Equatable
     public var name: AttributeType.Canonical
     public var prettyName: String
     public var feature: String
-    public var physicalUnit: String?
+    public var physicalUnit: PhysicalUnit?
     public var mainAttribute: String?
     public var activationGroup: String?
-    public var subPhysicalUnits: [SubPhysicalUnit]?
+    private var _subPhysicalUnits: [SubPhysicalUnit]?
+    public var subPhysicalUnits: [SubPhysicalUnit] {
+        get { _subPhysicalUnits ?? [] }
+        set { _subPhysicalUnits = newValue }
+    }
     public var definition: String?
     public var explanation: String
     public var visual: String

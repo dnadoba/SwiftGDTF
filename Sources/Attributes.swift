@@ -24,9 +24,6 @@ public struct AttributeDescription: Decodable, Identifiable, Sendable, Equatable
         let decoder = JSONDecoder()
         let attributes = try! decoder.decode(AttributeDescriptions.self, from: attributesData)
         let attributesDict = Dictionary(uniqueKeysWithValues: attributes.attributes.lazy.map { ($0.name, $0) })
-        let unites = Set(attributes.attributes.flatMap { ($0.physicalUnit.map { [$0] } ?? []) + ($0.subPhysicalUnits.map { $0.physicalUnit } ?? [])  })
-        print("Physical Units")
-        print(unites.map { String(describing: $0) }.joined(separator: "\n"))
         return attributesDict
     }()
 

@@ -236,8 +236,7 @@ extension Emitter: XMLDecodable {
         
         self.diodePart = element.attribute(by: "DiodePart")?.text
   
-        /// You can enable this if you would like, however its a lot of unneccessary data
-//        self.measurements = xml.parseChildrenToArray(tree: tree)
+        self.measurements = try xml.parseChildrenToArray(tree: tree)
     }
 }
 

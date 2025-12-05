@@ -175,7 +175,9 @@ public struct Emitter: Codable {
     public var name: String
     public var color: ColorCIE?
     public var dominantWavelength: Double?
-    public var diodePart: String?    
+    public var diodePart: String?
+    
+    public var measurements: [GDTFMeasurement]
 }
 
 public struct GDTFMeasurement: Codable {

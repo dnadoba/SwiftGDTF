@@ -7,6 +7,7 @@
 
 import Foundation
 import ZIPFoundation
+import simd
 
 public enum PhysicalUnit: String, Codable, Sendable {
     case none = "None"
@@ -128,6 +129,7 @@ public enum PrimitiveType: String, Codable, Sendable {
     case conventional1_1 = "Conventional1_1"
 }
 
+/// Defines type of the light source; The currently defined types are: Discharge, Tungsten, Halogen, LED; Default value “Discharge”
 public enum LampType: String, Codable, Sendable {
     case discharge = "Discharge"
     case tungsten = "Tungsten"
@@ -135,6 +137,7 @@ public enum LampType: String, Codable, Sendable {
     case led = "LED"
 }
 
+/// Color Type of a Laser.
 public enum ColorType: String, Codable, Sendable {
     case rgb = "RGB"
     case singleWaveLength = "SingleWaveLength"
@@ -155,6 +158,7 @@ public enum Orientation: String, Codable, Sendable {
     case bottom = "Bottom"
 }
 
+/// The type of the electrical component used.
 public enum ComponentType: String, Codable, Sendable {
     case input = "Input"
     case output = "Output"
@@ -167,6 +171,14 @@ public enum ComponentType: String, Codable, Sendable {
     case networkInOut = "NetworkInOut"
 }
 
+/// The ``BeamType`` describes how the Beam will be rendered.
+///
+/// - "Wash", "Fresnel", "PC"- A conical beam with soft edges and softened field projection.
+/// - "Spot" - A conical beam with hard edges.
+/// - "Rectangle" - A pyramid-shaped beam with hard edges.
+/// - "None", "Glow" - No beam will be drawn, only the geometry will emit light itself.
+///
+/// The beam geometry emits its light into negative Z direction (and Y-up).
 public enum BeamType: String, Codable, Sendable {
     case wash = "Wash"
     case spot = "Spot"
@@ -175,6 +187,12 @@ public enum BeamType: String, Codable, Sendable {
     case pc = "PC"
     case fresnel = "Fresnel"
     case glow = "Glow"
+}
+
+/// The type of structure. Defined values are "CenterLineBased", "Detail".
+public enum StructureType: String {
+    case centerLineBased = "CenterLineBased"
+    case detail = "Detail"
 }
 
 public enum Snap: String, Codable, Sendable {
@@ -254,6 +272,14 @@ public extension DMXValue {
         let split: [Int] = rawValue.split(separator: "/").map { Int($0) ?? 0 }
         self.init(value: split[0], byteCount: split[1])
     }
+}
+
+/// This XML node specifies the DMX offset for the DMX channel of the referenced geometry (XML node <Break>).
+public struct DMXBreak {
+    /// DMX offset; Default value:1 (Means no offset for the corresponding DMX Channel)
+    public var offset: DMXAddress
+    /// Defines the unique number of the DMX Break for which the Offset is given. Size: 1 byte; Default value 1.
+    public var `break`: Int
 }
 
 public struct ColorCIE: Codable {
@@ -396,52 +422,144 @@ extension ColorCIE {
 }
 #endif
 
-public struct Rotation: Codable {
-    public var matrix: [[Double]]
+public struct Vector3 {
+    public var vector: SIMD3<Double>
+    public init(vector: SIMD3<Double>) {
+        self.vector = vector
+    }
 }
 
-extension Rotation {
-    init(from rawValue: String) {
-        var strMatrix = rawValue
-        strMatrix = strMatrix.replacingOccurrences(of: "}{", with: ",")
-        strMatrix = strMatrix.replacingOccurrences(of: "{", with: "")
-        strMatrix = strMatrix.replacingOccurrences(of: "}", with: "")
+extension Vector3 {
+    private struct ParseError: Error, CustomStringConvertible {
+        var unexpectedCount: Int
+        var description: String {
+            "Vector3 requires exactly 3 elements but got \(unexpectedCount)"
+        }
+    }
+    private init(from numbers: borrowing [Double]) throws {
+        guard numbers.count == 3 else { throw ParseError(unexpectedCount: numbers.count) }
+        self.vector = .init(numbers[0], numbers[1], numbers[2])
+    }
+    init(from rawValue: String) throws {
+        var strNumbers = rawValue
+        strNumbers = strNumbers.replacingOccurrences(of: "{", with: "")
+        strNumbers = strNumbers.replacingOccurrences(of: "}", with: "")
         
-        let flatMatrix: [Double] = strMatrix.split(separator: ",").map{ Double($0) ?? 0 }
-        assert(flatMatrix.count == 9)
+        let numbers: [Double] = strNumbers.split(separator: ",").map{ Double($0) ?? 0 }
+        try self.init(from: numbers)
+    }
+}
 
-        /// convert 1D array into 3x3 2D array (matrix)
-        let matrix: [[Double]] = stride(from: 0, to: flatMatrix.count,by: 3)
-                                    .map{ Array(flatMatrix[$0..<$0 + 3]) }
-        
+extension Vector3: Codable {
+    public init(from decoder: any Decoder) throws {
+        try self.init(from: try decoder.singleValueContainer().decode([Double].self))
+    }
+    public func encode(to encoder: any Encoder) throws {
+        var encoder = encoder.singleValueContainer()
+        let array = [
+            vector[0], vector[1], vector[2],
+        ]
+        try encoder.encode(array)
+    }
+}
+
+/// Rotation matrix, consist of 3*3 floats. Stored as row-major matrix, i.e. each row of the matrix is stored as a 3-component vector. Mathematical definition of the matrix is column-major, i.e. the matrix rotation is stored in the three columns. Metric system, right-handed Cartesian coordinates XYZ:
+/// X – from left (-X) to right (+X),
+/// Y – from the outside of the monitor (-Y) to the inside of the monitor (+Y),
+/// Z – from the bottom (-Z) to the top (+Z).
+public struct Rotation {
+    public var matrix: simd_double3x3
+    public init(matrix: simd_double3x3) {
         self.matrix = matrix
     }
 }
 
-public struct Matrix: Codable {
-    public var matrix: [[Double]] = [
-        [1, 0, 0, 0],
-        [0, 1, 0, 0],
-        [0, 0, 1, 0],
-        [0, 0, 0, 1],
-    ]
-}
-
-extension Matrix {
-    init(from rawValue: String) {
+extension Rotation {
+    private struct ParseError: Error, CustomStringConvertible {
+        var unexpectedCount: Int
+        var description: String {
+            "3x3 Matrix requires exactly 9 elements but got \(unexpectedCount)"
+        }
+    }
+    private init(from flatMatrix: borrowing [Double]) throws {
+        guard flatMatrix.count == 9 else { throw ParseError(unexpectedCount: flatMatrix.count) }
+        self.matrix = .init(rows: [
+            .init(flatMatrix[0], flatMatrix[1], flatMatrix[2]),
+            .init(flatMatrix[3], flatMatrix[4], flatMatrix[5]),
+            .init(flatMatrix[6], flatMatrix[7], flatMatrix[8]),
+        ])
+    }
+    init(from rawValue: String) throws {
         var strMatrix = rawValue
         strMatrix = strMatrix.replacingOccurrences(of: "}{", with: ",")
         strMatrix = strMatrix.replacingOccurrences(of: "{", with: "")
         strMatrix = strMatrix.replacingOccurrences(of: "}", with: "")
         
         let flatMatrix: [Double] = strMatrix.split(separator: ",").map{ Double($0) ?? 0 }
-        assert(flatMatrix.count == 16)
+        try self.init(from: flatMatrix)
+    }
+}
+
+extension Rotation: Codable {
+    public init(from decoder: any Decoder) throws {
+        try self.init(from: try decoder.singleValueContainer().decode([Double].self))
+    }
+    public func encode(to encoder: any Encoder) throws {
+        var encoder = encoder.singleValueContainer()
+        let array = [
+            matrix[0, 0], matrix[0, 1], matrix[0, 2],
+            matrix[1, 0], matrix[1, 1], matrix[1, 2],
+            matrix[2, 0], matrix[2, 1], matrix[2, 2],
+        ]
+        try encoder.encode(array)
+    }
+}
+
+/// The transformation matrix consists 4 x 4 floats. Stored in a row-major order. For example, each row of the matrix is stored as a 4- component vector. The mathematical definition of the matrix is in a column-major order. For example, the matrix rotation is stored in the first three columns, and the translation is stored in the 4th column. The metric system consists of the Right- handed Cartesian Coordinates XYZ:
+/// X – from left (-X) to right (+X),
+/// Y – from the outside of the monitor (-Y) to the inside of the monitor (+Y),
+/// Z – from bottom (-Z) to top (+Z). 0,0,0 – center base.
+public struct Matrix {
+    public var matrix: simd_double4x4 = .init(diagonal: .one)
+    private struct ParseError: Error, CustomStringConvertible {
+        var unexpectedCount: Int
+        var description: String {
+            "4x4 Matrix requires exactly 16 elements but got \(unexpectedCount)"
+        }
+    }
+    private init(from flatMatrix: borrowing [Double]) throws {
+        guard flatMatrix.count == 16 else { throw ParseError(unexpectedCount: flatMatrix.count) }
+        self.matrix = .init(rows: [
+            .init(flatMatrix[00], flatMatrix[01], flatMatrix[02], flatMatrix[03]),
+            .init(flatMatrix[04], flatMatrix[05], flatMatrix[06], flatMatrix[07]),
+            .init(flatMatrix[08], flatMatrix[09], flatMatrix[10], flatMatrix[11]),
+            .init(flatMatrix[12], flatMatrix[13], flatMatrix[14], flatMatrix[15]),
+        ])
+    }
+    init(from rawValue: String) throws {
+        var strMatrix = rawValue
+        strMatrix = strMatrix.replacingOccurrences(of: "}{", with: ",")
+        strMatrix = strMatrix.replacingOccurrences(of: "{", with: "")
+        strMatrix = strMatrix.replacingOccurrences(of: "}", with: "")
         
-        /// convert 1D array into 3x3 2D array (matrix)
-        let matrix: [[Double]] = stride(from: 0, to: flatMatrix.count,by: 4)
-                                    .map{ Array(flatMatrix[$0..<$0 + 4]) }
-        
-        self.matrix = matrix
+        let flatMatrix: [Double] = strMatrix.split(separator: ",").map{ Double($0) ?? 0 }
+        try self.init(from: flatMatrix)
+    }
+}
+
+extension Matrix: Codable {
+    public init(from decoder: any Decoder) throws {
+        try self.init(from: try decoder.singleValueContainer().decode([Double].self))
+    }
+    public func encode(to encoder: any Encoder) throws {
+        var encoder = encoder.singleValueContainer()
+        let array = [
+            matrix[0, 0], matrix[0, 1], matrix[0, 2], matrix[0, 3],
+            matrix[1, 0], matrix[1, 1], matrix[1, 2], matrix[1, 3],
+            matrix[2, 0], matrix[2, 1], matrix[2, 2], matrix[2, 3],
+            matrix[3, 0], matrix[3, 1], matrix[3, 2], matrix[3, 3],
+        ]
+        try encoder.encode(array)
     }
 }
 

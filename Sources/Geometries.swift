@@ -1,48 +1,51 @@
 //
-//  Geometry.swift
+//  Geometries.swift
 //  SwiftGDTF
 //
 //  Created by David Nadoba on 12/5/25.
 //
 
-public enum Geometry {
-    public enum Kind {
+/// The physical description of the device parts is defined in the geometry collect. Geometry collect can contain a separate geometry or a tree of geometries. The geometry collect currently does not have any XML attributes (XML node <Geometries>).
+///
+/// Note 1: Position the geometry in it's "Default" position. This is defined by the Default Value from the DMX Channel that controls the position of that geometry.
+public enum Geometry: Codable {
+    public enum Kind: String {
         /// General Geometry.
-        case general
+        case general = "Geometry"
         /// Geometry with axis.
-        case axis
+        case axis = "Axis"
         /// Geometry with a beam filter.
-        case filterBeam
+        case filterBeam = "FilterBeam"
         /// Geometry with color filter.
-        case filterColor
+        case filterColor = "FilterColor"
         /// Geometry with gobo.
-        case filterGobo
+        case filterGobo = "FilterGobo"
         /// Geometry with shaper.
-        case filterShaper
+        case filterShaper = "FilterShaper"
         /// Geometry that describes a light output to project.
-        case beam
+        case beam = "Beam"
         /// Geometry that describes a media representation layer of a media device.
-        case mediaServerLayer
+        case mediaServerLayer = "MediaServerLayer"
         /// Geometry that describes a camera or output layer of a media device.
-        case mediaServerCamera
+        case mediaServerCamera = "MediaServerCamera"
         /// Geometry that describes a master control layer of a media device.
-        case mediaServerMaster
+        case mediaServerMaster = "MediaServerMaster"
         /// Geometry that describes a surface to display visual media.
-        case display
+        case display = "Display"
         /// Reference to already described geometries.
-        case reference
+        case reference = "GeometryReference"
         /// Geometry with a laser light output.
-        case laser
+        case laser = "Laser"
         /// Geometry that describes an internal wiring for power or data.
-        case wiringObject
+        case wiringObject = "WiringObject"
         /// Geometry that describes an additional item that can be used for a fixture (like a rain cover).
-        case inventory
+        case inventory = "Inventory"
         /// Geometry that describes the internal framing of an object (like members).
-        case structure
+        case structure = "Structure"
         /// Geometry that describes a support like a base plate or a hoist.
-        case support
+        case support = "Support"
         /// Geometry that describes a point where other geometries should be attached.
-        case magnet
+        case magnet = "Magnet"
     }
     /// General Geometry.
     case general(GeneralGeometry)
@@ -110,20 +113,22 @@ public protocol GeometryProtocol {
     /// The unique name of geometry. Recommendation for conventional is “Body”. Recommendation for a geometry that is representing the base housing of a moving head is “Base”.
     var name: String { get }
     /// Link to the corresponding model.
-    var model: String { get }
+    var model: String? { get }
     /// Relative position of geometry; Default value: Identity Matrix
     var position: Matrix { get }
+    
+    var children: [Geometry] { get }
 }
 
 /// General Geometry.
 ///
 /// It is a basic geometry type without specification (XML node <Geometry>).
-public struct GeneralGeometry: GeometryProtocol {
+public struct GeneralGeometry: Codable, GeometryProtocol {
     public static var kind: Geometry.Kind { .general }
     /// The unique name of geometry. Recommendation for conventional is “Body”. Recommendation for a geometry that is representing the base housing of a moving head is “Base”.
     public var name: String
     /// Link to the corresponding model.
-    public var model: String
+    public var model: String?
     /// Relative position of geometry; Default value: Identity Matrix
     public var position: Matrix
     
@@ -133,12 +138,12 @@ public struct GeneralGeometry: GeometryProtocol {
 /// Geometry with axis.
 ///
 /// This type of geometry defines device parts with a rotation axis (XML node <Axis>).
-public struct Axis: GeometryProtocol {
+public struct Axis: Codable, GeometryProtocol {
     public static var kind: Geometry.Kind { .axis }
     /// The unique name of the geometry. Recommendation for an axis-geometry is “Yoke”. Recommendation for an axis-geometry representing the lamp housing of a moving head is “Head”. Note: The Head of a moving head is usually mounted to the Yoke.
     public var name: String
     /// Link to the corresponding model.
-    public var model: String
+    public var model: String?
     /// Relative position of geometry; Default value: Identity Matrix
     public var position: Matrix
     
@@ -148,12 +153,12 @@ public struct Axis: GeometryProtocol {
 /// Geometry with a beam filter.
 ///
 /// This type of geometry defines device parts with a beam filter (XML node <FilterBeam>).
-public struct FilterBeam: GeometryProtocol {
+public struct FilterBeam: Codable, GeometryProtocol {
     public static var kind: Geometry.Kind { .filterBeam }
     /// The unique name of the geometry. Recommendation for beam filter limiting the diffusion of light is “BarnDoor”. Recommendation for beam filter adjusting the diameter of the beam is “Iris”. Note: BarnDoor and Iris are usually mounted to conventional.
     public var name: String
     /// Link to the corresponding model.
-    public var model: String
+    public var model: String?
     /// Relative position of geometry; Default value: Identity Matrix
     public var position: Matrix
     
@@ -163,12 +168,12 @@ public struct FilterBeam: GeometryProtocol {
 /// Geometry with color filter.
 ///
 /// This type of geometry is used to describe device parts which have a color filter (XML node <FilterColor>).
-public struct FilterColor: GeometryProtocol {
+public struct FilterColor: Codable, GeometryProtocol {
     public static var kind: Geometry.Kind { .filterColor }
     /// The unique name of geometry. Recommendation for filter of a color or mechanical color changer is “FilterColor”. Note: FilterColor is usually mounted to conventional.
     public var name: String
     /// Link to the corresponding model.
-    public var model: String
+    public var model: String?
     /// Relative position of geometry; Default value: Identity Matrix
     public var position: Matrix
     
@@ -177,12 +182,12 @@ public struct FilterColor: GeometryProtocol {
 
 /// Geometry with gobo.
 /// This type of geometry is used to describe device parts which have gobo wheels (XML node <FilterGobo>).
-public struct FilterGobo: GeometryProtocol {
+public struct FilterGobo: Codable, GeometryProtocol {
     public static var kind: Geometry.Kind { .filterGobo }
     /// The unique name of the geometry. Recommendation for filter of a gobo or mechanical gobo changer is “FilterGobo”. Note: FilterGobo is usually mounted to conventional.
     public var name: String
     /// Link to the corresponding model.
-    public var model: String
+    public var model: String?
     /// Relative position of geometry; Default value: Identity Matrix
     public var position: Matrix
     
@@ -191,12 +196,12 @@ public struct FilterGobo: GeometryProtocol {
 
 /// Geometry with shaper.
 /// This type of geometry is used to describe device parts which have a shaper (XML node <FilterShaper>).
-public struct FilterShaper: GeometryProtocol {
+public struct FilterShaper: Codable, GeometryProtocol {
     public static var kind: Geometry.Kind { .filterShaper }
     /// The unique name of the geometry; Recommendation for filter used to form the beam to a framed, triangular, or trapezoid shape, is “Shaper”. Note: Shaper is usually mounted to conventional.
     public var name: String
     /// Link to the corresponding model.
-    public var model: String
+    public var model: String?
     /// Relative position of geometry; Default value: Identity Matrix
     public var position: Matrix
     
@@ -208,12 +213,12 @@ public struct FilterShaper: GeometryProtocol {
 /// This type of geometry is used to describe device parts which have a light source (XML node <Beam>).
 ///
 /// Use the Geometry Type "Beam" to describe the position of the fixture's light output (usually the position of the lens) and not the position of the light source inside the device. The origin of the Geometry Type "Beam" is the origin of the rendered beam. The origin of the Geometry Type "Beam" should not be covered by any faces of other geometries in order to not block the rendered beam.
-public struct Beam: GeometryProtocol {
+public struct Beam: Codable, GeometryProtocol {
     public static var kind: Geometry.Kind { .beam }
     /// The unique name of the geometry. Recommendation for a light source of a conventional or moving head or a projector is “Beam”. Note 1: Beam is usually mounted to Head or Body. Recommendation for a self-emitting single light source is “Pixel”. Note 2: Pixel is usually mounted to Head or Body. Recommendation for a number of Pixel that are controlled at the same time is “Array”. Note 3: Array is usually mounted to Head or Body. Recommendation for a light source of a moving mirror is “Mirror”. Note 4: Mirror is usually mounted to Yoke.
     public var name: String
     /// Link to the corresponding model.
-    public var model: String
+    public var model: String?
     /// Relative position of geometry; Default value: Identity Matrix
     public var position: Matrix
     /// Defines type of the light source
@@ -247,12 +252,12 @@ public struct Beam: GeometryProtocol {
 /// Geometry that describes a media representation layer of a media device.
 ///
 /// This type of geometry is used to describe the layer of a media device that is used for representation of media files (XML node <MediaServerLayer>).
-public struct MediaServerLayer: GeometryProtocol {
+public struct MediaServerLayer: Codable, GeometryProtocol {
     public static var kind: Geometry.Kind { .mediaServerLayer }
     /// The unique name of the geometry.
     public var name: String
     /// Link to the corresponding model.
-    public var model: String
+    public var model: String?
     /// Relative position of geometry; Default value: Identity Matrix
     public var position: Matrix
     
@@ -263,12 +268,12 @@ public struct MediaServerLayer: GeometryProtocol {
 ///
 /// This type of geometry is used to describe the camera or output of a media device (XML node <MediaServerCamera>).
 /// The media server camera-view points into the positive Y-direction (and Z-up).
-public struct MediaServerCamera: GeometryProtocol {
+public struct MediaServerCamera: Codable, GeometryProtocol {
     public static var kind: Geometry.Kind { .mediaServerCamera }
     /// The unique name of the geometry.
     public var name: String
     /// Link to the corresponding model.
-    public var model: String
+    public var model: String?
     /// Relative position of geometry; Default value: Identity Matrix
     public var position: Matrix
     
@@ -278,12 +283,12 @@ public struct MediaServerCamera: GeometryProtocol {
 /// Geometry that describes a master control layer of a media device.
 ///
 /// This type of geometry is used to describe the master control of one or several media devices (XML node <MediaServerMaster>).
-public struct MediaServerMaster: GeometryProtocol {
+public struct MediaServerMaster: Codable, GeometryProtocol {
     public static var kind: Geometry.Kind { .mediaServerMaster }
     /// The unique name of the geometry.
     public var name: String
     /// Link to the corresponding model.
-    public var model: String
+    public var model: String?
     /// Relative position of geometry; Default value: Identity Matrix
     public var position: Matrix
     
@@ -293,23 +298,45 @@ public struct MediaServerMaster: GeometryProtocol {
 /// Geometry that describes a surface to display visual media.
 ///
 /// This type of geometry is used to describe a self-emitting surface which is used to display visual media (XML node <Display>).
-public struct Display: GeometryProtocol {
+public struct Display: Codable, GeometryProtocol {
     public static var kind: Geometry.Kind { .display }
     /// The unique name of the geometry.
     public var name: String
     /// Link to the corresponding model.
-    public var model: String
+    public var model: String?
     /// Relative position of geometry; Default value: Identity Matrix
     public var position: Matrix
     /// Name of the mapped texture in Model file that will be swapped out for the media resource.
-    public var texture: FileResource
+    public var texture: FileResource?
     
     public var children: [Geometry]
 }
 
 /// Reference to already described geometries.
-public struct GeometryReference {
+///
+/// The Geometry Type Reference is used to describe multiple instances of the same geometry. Example: LED panel with multiple pixels. (XML node ).
+/// Note 1: Geometry Reference also allows easier definition of the DMX Channels for these geometries.
+public struct GeometryReference: Codable {
     public static var kind: Geometry.Kind { .reference }
+    
+    enum Child {
+        enum Kind {
+            case geometry(Geometry.Kind)
+            case dmxBreak
+            init?(rawValue: String) {
+                if rawValue == "Break" {
+                    self = .dmxBreak
+                } else if let geometry = Geometry.Kind(rawValue: rawValue) {
+                    self = .geometry(geometry)
+                } else {
+                    return nil
+                }
+            }
+        }
+        case geometry(Geometry)
+        case dmxBreak(DMXBreak)
+    }
+    
     /// The unique name of the geometry.
     public var name: String
     /// Optional. Link to the corresponding model. The model only replaces the model of the parent of the referenced geometry. The models of the children of the referenced geometry are not affected. The starting point is Models Collect. If model is not set, the model is taken from the referenced geometry.
@@ -317,31 +344,47 @@ public struct GeometryReference {
     /// Relative position of geometry; Default value: Identity Matrix
     public var position: Matrix
     /// Name of the referenced geometry. Only top level geometries are allowed to be referenced.
-    public var geometry: String
+    public var geometry: String?
     
     /// As children, the Geometry Type Reference has a list of breaks. The count of the children depends on the number of different breaks in the DMX channels of the referenced geometry. If the referenced geometry, for example, has DMX channels with DMX break 2 and 4, the geometry reference has to have 2 children. The first child with DMX offset for DMX break 2 and the second child for DMX break 4. If one or more of the DMX channels of the referenced geometry have the special value “Overwrite” as a DMX break, the DMX break for those channels and the DMX offsets need to be defined.
-    public var children: [DMXBreak]
+    public var dmxBreaks: [DMXBreak]
+    
+    public var children: [Geometry]
 }
 
 /// Geometry with a laser light output.
 ///
 /// This type of geometry is used to describe the position of a laser's light output (XML node <Laser>).
-public struct Laser: GeometryProtocol {
+public struct Laser: Codable, GeometryProtocol {
     /// This XML node specifies the protocol for a Laser (XML node <Protocol>).
-    public struct `Protocol` {
+    // Just `Protocol` isn't working great e.g. [Laser.Protocol]() doesn't work (with or without "`")
+    public struct LaserProtocol: Codable {
         /// Name of the protocol
         public var name: String
     }
     
-    public enum Child {
+    enum Child {
+        enum Kind {
+            case geometry(Geometry.Kind)
+            case `protocol`
+            init?(rawValue: String) {
+                if rawValue == "Protocol" {
+                    self = .protocol
+                } else if let geometry = Geometry.Kind(rawValue: rawValue) {
+                    self = .geometry(geometry)
+                } else {
+                    return nil
+                }
+            }
+        }
         case geometry(Geometry)
-        case `protocol`(`Protocol`)
+        case `protocol`(LaserProtocol)
     }
     public static var kind: Geometry.Kind { .laser }
     /// The unique name of the geometry.
     public var name: String
     /// Link to the corresponding model.
-    public var model: String
+    public var model: String?
     /// Relative position of geometry; Default value: Identity Matrix
     public var position: Matrix
     /// Color type of the diode
@@ -366,13 +409,15 @@ public struct Laser: GeometryProtocol {
     /// Speed of the beam; Unit: kilo point per second
     public var scanSpeed: Double
 
-    public var children: [Child]
+    public var children: [Geometry]
+    
+    public var protocols: [LaserProtocol]
 }
 
 /// Geometry that describes an internal wiring for power or data.
-public struct WiringObject: GeometryProtocol {
+public struct WiringObject: Codable, GeometryProtocol {
     /// This XML node (XML node <PinPatch>) specifies how the different sockets of its parent wiring object are connected to the pins of other wiring objects.
-    public struct PinPatch {
+    public struct PinPatch: Codable {
         /// Link to the wiring object connected through this pin patch.
         public var toWiringObject: String
         /// The pin number used by the parent wiring object to connect to the targeted wiring object "ToWiringObject".
@@ -381,7 +426,21 @@ public struct WiringObject: GeometryProtocol {
         public var toPin: Int
         
     }
-    public enum Child {
+    
+    enum Child {
+        enum Kind {
+            case geometry(Geometry.Kind)
+            case pinPatch
+            init?(rawValue: String) {
+                if rawValue == "PinPatch" {
+                    self = .pinPatch
+                } else if let geometry = Geometry.Kind(rawValue: rawValue) {
+                    self = .geometry(geometry)
+                } else {
+                    return nil
+                }
+            }
+        }
         case geometry(Geometry)
         case pinPatch(PinPatch)
     }
@@ -390,7 +449,7 @@ public struct WiringObject: GeometryProtocol {
     /// The unique name of the geometry. The name is also the name of the interface to the outside
     public var name: String
     /// Link to the corresponding model.
-    public var model: String
+    public var model: String?
     /// Relative position of geometry; Default value: Identity Matrix
     public var position: Matrix
     /// The type of the connector. Find a list of predefined types in Annex D. This is not applicable for Component Types Fuses. Custom type of connector can also be defined, for example "Loose End".
@@ -428,18 +487,20 @@ public struct WiringObject: GeometryProtocol {
     /// Name of the group to which this wiring object belong.
     public var wireGroup: String
 
-    public var children: [Child]
+    public var children: [Geometry]
+    
+    public var pinPatches: [PinPatch]
 }
 
 /// Geometry that describes an additional item that can be used for a fixture (like a rain cover).
 ///
 /// This type of geometry is used to describe a geometry used for the inventory (XML node <Inventory>).
-public struct Inventory: GeometryProtocol {
+public struct Inventory: Codable, GeometryProtocol {
     public static var kind: Geometry.Kind { .inventory }
     /// The unique name of the geometry.
     public var name: String
     /// Link to the corresponding model.
-    public var model: String
+    public var model: String?
     /// Relative position of geometry; Default value: Identity Matrix
     public var position: Matrix
     /// The default count for new objects.
@@ -451,25 +512,25 @@ public struct Inventory: GeometryProtocol {
 /// Geometry that describes the internal framing of an object (like members).
 ///
 /// This type of geometry is used to describe a structure (XML node <Structure>).
-public struct Structure: GeometryProtocol {
+public struct Structure: Codable, GeometryProtocol {
     public static var kind: Geometry.Kind { .structure }
     /// The type of cross section. Defined values are "TrussFramework", "Tube".
     public enum Kind: String {
         case trussFramework = "TrussFramework"
         case tube = "Tube"
     }
-    public struct TrussFramework {
+    public struct TrussFramework: Codable {
         /// The name of the truss cross section. Only for Trusses.
         public var trussCrossSection: String
     }
-    public struct Tube {
+    public struct Tube: Codable {
         /// The height of the cross section. Only for Tubes. Unit: meter.
         public var crossSectionHeight: Double
         /// The thickness of the wall of the cross section. Only for Tubes. Unit: meter.
         public var crossSectionWallThickness: Double
     }
     /// The type of cross section. Defined values are "TrussFramework", "Tube".
-    public enum CrossSectionType {
+    public enum CrossSectionType: Codable {
         /// The type of cross section. Defined values are "TrussFramework", "Tube".
         public enum Kind: String {
             case trussFramework = "TrussFramework"
@@ -481,7 +542,7 @@ public struct Structure: GeometryProtocol {
     /// The unique name of the geometry.
     public var name: String
     /// Link to the corresponding model.
-    public var model: String
+    public var model: String?
     /// Relative position of geometry; Default value: Identity Matrix
     public var position: Matrix
     /// The linked geometry.
@@ -498,17 +559,17 @@ public struct Structure: GeometryProtocol {
 
 
 /// Geometry that describes a support like a base plate or a hoist.
-public struct Support: GeometryProtocol {
+public struct Support: Codable, GeometryProtocol {
     public static var kind: Geometry.Kind { .support }
     
-    public struct Rope {
+    public struct Rope: Codable {
         /// The name of the rope cross section. Only for Ropes.
         public var ropeCrossSection: String
         /// The Offset of the rope from bottom to top. Only for Ropes. Unit: meter.
         public var ropeOffset: Vector3
     }
     
-    public struct GroundSupport {
+    public struct GroundSupport: Codable {
         /// The compression ratio for this support along the X-Axis. Unit N/m. Only for Ground Supports.
         public var resistanceX: Double
         /// The compression ratio for this support along the Y-Axis. Unit N/m. Only for Ground Supports.
@@ -523,9 +584,9 @@ public struct Support: GeometryProtocol {
         public var resistanceZZ: Double
     }
     
-    public enum SupportType {
+    public enum SupportType: Codable {
         public enum Kind: String {
-            case rope = "rope"
+            case rope = "Rope"
             case groundSupport = "GroundSupport"
         }
         case rope(Rope)
@@ -534,7 +595,7 @@ public struct Support: GeometryProtocol {
     /// The unique name of the geometry.
     public var name: String
     /// Link to the corresponding model.
-    public var model: String
+    public var model: String?
     /// Relative position of geometry; Default value: Identity Matrix
     public var position: Matrix
     /// The type of support. Defined values are "Rope", "GroundSupport".
@@ -559,12 +620,14 @@ public struct Support: GeometryProtocol {
 /// Geometry that describes a point where other geometries should be attached.
 ///
 /// This type of geometry is used to describe a magnet, a point where other geometries should be attached (XML node <Magnet>).
-public struct Magnet: GeometryProtocol {
+public struct Magnet: Codable, GeometryProtocol {
     public static var kind: Geometry.Kind { .magnet }
     /// The unique name of the geometry.
     public var name: String
     /// Link to the corresponding model.
-    public var model: String
+    public var model: String?
     /// Relative position of geometry; Default value: Identity Matrix
     public var position: Matrix
+    
+    public var children: [Geometry]
 }

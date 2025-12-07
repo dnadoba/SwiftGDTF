@@ -62,6 +62,7 @@ public struct FixtureType: Codable {
     public var wheels: [Wheel]
     public var physicalDescriptions: PhysicalDescriptions?
     public var dmxModes: [DMXMode]
+    public var geometries: [Geometry]
 }
 
 // this is an identical copy to FixtureType but only includes top level attributes

@@ -12,12 +12,15 @@ public enum XMLParsingError: Error {
     case elementMissing
     case attributeMissing(named: String, on: SWXMLHash.XMLElement?)
     case childNotFound(named: String, at: String)
-    case initialFunctionPathInvalid
+    case initialFunctionPathInvalid(String)
     case enumCastFailed(enumType: String, stringValue: String)
     case invalidUUID(text: String)
     case nodeResolutionFailed(path: String)
     case noChildren(in: String)
     case failedToParseString
+    case failedToParseDouble(String)
+    case failedToParseInt(String)
+    case unexpectedGeometryType(String)
 }
 
 extension XMLAttribute {
@@ -74,7 +77,7 @@ extension XMLAttribute {
                 if let initialFunction = try? childElement.attribute(named: "InitialFunction").text {
                     let initialFunctionParts = initialFunction.components(separatedBy: ".")
                     guard initialFunctionParts.count == 3 else {
-                        throw XMLParsingError.initialFunctionPathInvalid
+                        throw XMLParsingError.initialFunctionPathInvalid(initialFunction)
                     }
                                     
                     if (initialFunctionParts.first == step) { return true }
@@ -180,8 +183,26 @@ extension XMLAttribute {
         return Double(self.text)
     }
     
+    var requiredDouble: Double {
+        get throws {
+            guard let double = Double(self.text) else {
+                throw XMLParsingError.failedToParseDouble(self.text)
+            }
+            return double
+        }
+    }
+    
     var int: Int? {
         return Int(self.text)
+    }
+    
+    var requiredInt: Int {
+        get throws {
+            guard let double = Int(self.text) else {
+                throw XMLParsingError.failedToParseInt(self.text)
+            }
+            return double
+        }
     }
 
     var uuid: UUID {

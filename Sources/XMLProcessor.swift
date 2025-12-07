@@ -48,6 +48,7 @@ extension FixtureType: XMLDecodable {
         self.physicalDescriptions = try xml["PhysicalDescriptions"].parse(tree: tree)
         self.wheels = try xml["Wheels"].parseChildrenToArray(tree: tree)
         self.dmxModes = try xml["DMXModes"].parseChildrenToArray(tree: tree)
+        self.geometries = try xml["Geometries"].parseChildrenToArray(tree: tree)
     }
 }
 
@@ -373,10 +374,10 @@ extension DMXChannel: XMLDecodable {
         // the default is first logical channel function
         // the name of the channel is actually the first element in the Initial Function attribute
         if element.attribute(by: "InitialFunction") != nil {
-            let path = element.attribute(by: "InitialFunction")!.text
+            let path = try element.attribute(named: "InitialFunction").text
             let initialFunctionParts = path.components(separatedBy: ".")
             
-            guard initialFunctionParts.count == 3 else { throw XMLParsingError.initialFunctionPathInvalid}
+            guard initialFunctionParts.count == 3 else { throw XMLParsingError.initialFunctionPathInvalid(path) }
             
             self.name = initialFunctionParts.first
             

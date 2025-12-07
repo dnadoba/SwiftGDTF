@@ -190,7 +190,7 @@ public enum BeamType: String, Codable, Sendable {
 }
 
 /// The type of structure. Defined values are "CenterLineBased", "Detail".
-public enum StructureType: String {
+public enum StructureType: String, Codable {
     case centerLineBased = "CenterLineBased"
     case detail = "Detail"
 }
@@ -275,7 +275,7 @@ public extension DMXValue {
 }
 
 /// This XML node specifies the DMX offset for the DMX channel of the referenced geometry (XML node <Break>).
-public struct DMXBreak {
+public struct DMXBreak: Codable {
     /// DMX offset; Default value:1 (Means no offset for the corresponding DMX Channel)
     public var offset: DMXAddress
     /// Defines the unique number of the DMX Break for which the Offset is given. Size: 1 byte; Default value 1.

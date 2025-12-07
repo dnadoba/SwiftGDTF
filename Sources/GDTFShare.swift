@@ -23,7 +23,7 @@ public struct GDTFShare {
     
     public struct DMXMode: Equatable, Codable, Sendable {
         let name: String
-        let dmxFootprint: Int
+        let dmxFootprint: Int?
         
         private enum CodingKeys : String, CodingKey {
             case name, dmxFootprint = "dmxfootprint"

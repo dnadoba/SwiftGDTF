@@ -1448,18 +1448,18 @@ public enum AttributeType: Hashable, Codable, CustomStringConvertible, Sendable 
     case fanMode(n: Int)
     case followSpotMode
     case beamEffectIndexRotateMode
-    case intensityMovementSpeed(n: Int)
-    case positionMovementSpeed(n: Int)
-    case colorMixMovementSpeed(n: Int)
-    case colorWheelSelectMovementSpeed(n: Int)
+    case intensityMovementSpeed
+    case positionMovementSpeed
+    case colorMixMovementSpeed
+    case colorWheelSelectMovementSpeed
     case goboWheelMovementSpeed(n: Int)
-    case irisMovementSpeed(n: Int)
+    case irisMovementSpeed
     case prismMovementSpeed(n: Int)
-    case focusMovementSpeed(n: Int)
+    case focusMovementSpeed
     case frostMovementSpeed(n: Int)
-    case zoomMovementSpeed(n: Int)
+    case zoomMovementSpeed
     case frameMovementSpeed(n: Int)
-    case globalMovementSpeed(n: Int)
+    case globalMovementSpeed
     case reflectorAdjust
     case fixtureGlobalReset
     case dimmerReset
@@ -2066,18 +2066,18 @@ public enum AttributeType: Hashable, Codable, CustomStringConvertible, Sendable 
         case .beamEffectIndexRotateMode: return "Beam Effect Index Rotate Mode"
 
             // Speed
-        case .intensityMovementSpeed(let n): return "Intensity Movement Speed \(n)"
-        case .positionMovementSpeed(let n): return "Position Movement Speed \(n)"
-        case .colorMixMovementSpeed(let n): return "Color Mix Movement Speed \(n)"
-        case .colorWheelSelectMovementSpeed(let n): return "Color Wheel Select Movement Speed \(n)"
+        case .intensityMovementSpeed: return "Intensity Movement Speed"
+        case .positionMovementSpeed: return "Position Movement Speed"
+        case .colorMixMovementSpeed: return "Color Mix Movement Speed"
+        case .colorWheelSelectMovementSpeed: return "Color Wheel Select Movement Speed"
         case .goboWheelMovementSpeed(let n): return "Gobo Wheel Movement Speed \(n)"
-        case .irisMovementSpeed(let n): return "Iris Movement Speed \(n)"
+        case .irisMovementSpeed: return "Iris Movement Speed"
         case .prismMovementSpeed(let n): return "Prism Movement Speed \(n)"
-        case .focusMovementSpeed(let n): return "Focus Movement Speed \(n)"
+        case .focusMovementSpeed: return "Focus Movement Speed"
         case .frostMovementSpeed(let n): return "Frost Movement Speed \(n)"
-        case .zoomMovementSpeed(let n): return "Zoom Movement Speed \(n)"
+        case .zoomMovementSpeed: return "Zoom Movement Speed"
         case .frameMovementSpeed(let n): return "Frame Movement Speed \(n)"
-        case .globalMovementSpeed(let n): return "Global Movement Speed \(n)"
+        case .globalMovementSpeed: return "Global Movement Speed"
 
             // Resets
         case .reflectorAdjust: return "Reflector Adjust"

@@ -106,6 +106,29 @@ public enum Geometry: Codable {
         case .magnet: .magnet
         }
     }
+    
+    public var children: [Geometry] {
+        switch self {
+        case .general(let geometry): geometry.children
+        case .axis(let geometry): geometry.children
+        case .filterBeam(let geometry): geometry.children
+        case .filterColor(let geometry): geometry.children
+        case .filterGobo(let geometry): geometry.children
+        case .filterShaper(let geometry): geometry.children
+        case .beam(let geometry): geometry.children
+        case .mediaServerLayer(let geometry): geometry.children
+        case .mediaServerCamera(let geometry): geometry.children
+        case .mediaServerMaster(let geometry): geometry.children
+        case .display(let geometry): geometry.children
+        case .reference(let geometry): geometry.children
+        case .laser(let geometry): geometry.children
+        case .wiringObject(let geometry): geometry.children
+        case .inventory(let geometry): geometry.children
+        case .structure(let geometry): geometry.children
+        case .support(let geometry): geometry.children
+        case .magnet(let geometry): geometry.children
+        }
+    }
 }
 
 public protocol GeometryProtocol {
@@ -316,7 +339,7 @@ public struct Display: Codable, GeometryProtocol {
 ///
 /// The Geometry Type Reference is used to describe multiple instances of the same geometry. Example: LED panel with multiple pixels. (XML node ).
 /// Note 1: Geometry Reference also allows easier definition of the DMX Channels for these geometries.
-public struct GeometryReference: Codable {
+public struct GeometryReference: GeometryProtocol, Codable {
     public static var kind: Geometry.Kind { .reference }
     
     enum Child {

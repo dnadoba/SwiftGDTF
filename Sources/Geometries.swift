@@ -129,6 +129,75 @@ public enum Geometry: Codable {
         case .magnet(let geometry): geometry.children
         }
     }
+    
+    public var name: String {
+        switch self {
+        case .general(let geometry): geometry.name
+        case .axis(let geometry): geometry.name
+        case .filterBeam(let geometry): geometry.name
+        case .filterColor(let geometry): geometry.name
+        case .filterGobo(let geometry): geometry.name
+        case .filterShaper(let geometry): geometry.name
+        case .beam(let geometry): geometry.name
+        case .mediaServerLayer(let geometry): geometry.name
+        case .mediaServerCamera(let geometry): geometry.name
+        case .mediaServerMaster(let geometry): geometry.name
+        case .display(let geometry): geometry.name
+        case .reference(let geometry): geometry.name
+        case .laser(let geometry): geometry.name
+        case .wiringObject(let geometry): geometry.name
+        case .inventory(let geometry): geometry.name
+        case .structure(let geometry): geometry.name
+        case .support(let geometry): geometry.name
+        case .magnet(let geometry): geometry.name
+        }
+    }
+    
+    public var model: String? {
+        switch self {
+        case .general(let geometry): geometry.model
+        case .axis(let geometry): geometry.model
+        case .filterBeam(let geometry): geometry.model
+        case .filterColor(let geometry): geometry.model
+        case .filterGobo(let geometry): geometry.model
+        case .filterShaper(let geometry): geometry.model
+        case .beam(let geometry): geometry.model
+        case .mediaServerLayer(let geometry): geometry.model
+        case .mediaServerCamera(let geometry): geometry.model
+        case .mediaServerMaster(let geometry): geometry.model
+        case .display(let geometry): geometry.model
+        case .reference(let geometry): geometry.model
+        case .laser(let geometry): geometry.model
+        case .wiringObject(let geometry): geometry.model
+        case .inventory(let geometry): geometry.model
+        case .structure(let geometry): geometry.model
+        case .support(let geometry): geometry.model
+        case .magnet(let geometry): geometry.model
+        }
+    }
+    
+    public var position: Matrix {
+        switch self {
+        case .general(let geometry): geometry.position
+        case .axis(let geometry): geometry.position
+        case .filterBeam(let geometry): geometry.position
+        case .filterColor(let geometry): geometry.position
+        case .filterGobo(let geometry): geometry.position
+        case .filterShaper(let geometry): geometry.position
+        case .beam(let geometry): geometry.position
+        case .mediaServerLayer(let geometry): geometry.position
+        case .mediaServerCamera(let geometry): geometry.position
+        case .mediaServerMaster(let geometry): geometry.position
+        case .display(let geometry): geometry.position
+        case .reference(let geometry): geometry.position
+        case .laser(let geometry): geometry.position
+        case .wiringObject(let geometry): geometry.position
+        case .inventory(let geometry): geometry.position
+        case .structure(let geometry): geometry.position
+        case .support(let geometry): geometry.position
+        case .magnet(let geometry): geometry.position
+        }
+    }
 }
 
 public protocol GeometryProtocol {
@@ -367,6 +436,7 @@ public struct GeometryReference: GeometryProtocol, Codable {
     /// Relative position of geometry; Default value: Identity Matrix
     public var position: Matrix
     /// Name of the referenced geometry. Only top level geometries are allowed to be referenced.
+    /// Note: Should really be non-optional but ~15 GDTFs from GDTF Share currently don't define it. It already prodcues a warning in the GDTF editor so maybe we can revisit this in the future.
     public var geometry: String?
     
     /// As children, the Geometry Type Reference has a list of breaks. The count of the children depends on the number of different breaks in the DMX channels of the referenced geometry. If the referenced geometry, for example, has DMX channels with DMX break 2 and 4, the geometry reference has to have 2 children. The first child with DMX offset for DMX break 2 and the second child for DMX break 4. If one or more of the DMX channels of the referenced geometry have the special value “Overwrite” as a DMX break, the DMX break for those channels and the DMX offsets need to be defined.

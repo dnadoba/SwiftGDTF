@@ -242,15 +242,25 @@ public struct OperatingTemp: Codable {
 ///
 
 public struct DMXMode: Codable {
+    /// The unique name of the DMX mode
     public var name: String
+    /// Description of the DMX mode
     public var description: String
-    
+    /// Name of the first geometry in the device; Only top level geometries are allowed to be linked.
+    ///
+    /// In theory requred but ~50 fixtures don't have it. GDTF Share Editor already complains about it.
+    /// We might want to revisit and make this required but for now I have opted to just handle this case (by complaining in the UI about is as well)
+    public var geometry: String?
+    /// Description of all DMX channels used in the mode
     public var channels: [DMXChannel]
+    /// Description of relations between channels
     public var relations: [Relation]
+    /// Is used to describe macros of the manufacturer.
     public var macros: [Macro]
-    public init(name: String, description: String, channels: [DMXChannel], relations: [Relation], macros: [Macro]) {
+    public init(name: String, description: String, geometry: String, channels: [DMXChannel], relations: [Relation], macros: [Macro]) {
         self.name = name
         self.description = description
+        self.geometry = geometry
         self.channels = channels
         self.relations = relations
         self.macros = macros
@@ -262,8 +272,21 @@ public struct DMXMode: Codable {
 }
 
 public struct DMXChannel: Codable {
+    public enum Break: Codable, Comparable {
+        case id(Int)
+        case overwrite
+        init?(rawValue: String) {
+            if rawValue == "Overwrite" {
+                self = .overwrite
+            } else if let id = Int(rawValue) {
+                self = .id(id)
+            } else {
+                return nil
+            }
+        }
+    }
     public var name: String?
-    public var dmxBreak: Int
+    public var dmxBreak: Break
     public var offset: [Int]
     public var initialFunction: ChannelFunction?
     public var highlight: DMXValue?

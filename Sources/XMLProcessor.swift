@@ -340,6 +340,7 @@ extension DMXMode: XMLDecodable {
         
         self.name = try element.attribute(named: "Name").text
         self.description = element.attribute(by: "Description")?.text ?? ""
+        self.geometry = element.attribute(by: "Geometry")?.text
                 
         self.channels = try xml["DMXChannels"].parseChildrenToArray(tree: tree)
         self.relations = try xml["Relations"].parseChildrenToArray(parent: xml, tree: tree)
@@ -352,14 +353,9 @@ extension DMXChannel: XMLDecodable {
         guard let element = xml.element else { throw XMLParsingError.elementMissing }
 
         self.offset = []
-
-        // TODO: Handle overrides from geometry nodes
         
-        if let dmxBreak = element.attribute(by: "DMXBreak") {
-            self.dmxBreak = dmxBreak.int ?? 0
-        } else {
-            self.dmxBreak = 0
-        }
+        self.dmxBreak = element.attribute(by: "DMXBreak").flatMap { DMXChannel.Break(rawValue: $0.text) } ?? .id(1)
+            
 
         if let offset = element.attribute(by: "Offset"), offset.text != "None" {
             self.offset = offset.text.split(separator: ",").map { Int($0) ?? 0 }

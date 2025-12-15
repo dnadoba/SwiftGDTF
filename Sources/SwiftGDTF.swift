@@ -55,7 +55,7 @@ func loadXML(xmlData: Data) throws -> XMLIndexer {
     
     /// Setup XML parser config
     let config = XMLHash.config { config in
-        config.caseInsensitive = true
+        //config.caseInsensitive = true
         config.shouldProcessLazily = false
         config.detectParsingErrors = true
     }
@@ -132,7 +132,12 @@ public func loadFixtureModePackage(mode: String, gdtf: Data) throws -> FixturePa
         else { throw GDTFError.dmxModeNotFound }
     
     /// Get initial description data
-    let mode: DMXMode = try modeTree.parse(tree: xmlTree)
+    let dmxModeParseDependencies = DMXMode.ParseDependencies(
+        wheels: try xmlTree["Wheels"].parseChildrenToArray(tree: xmlTree),
+        attributeDefinitions: try xmlTree["AttributeDefinitions"].parse(tree: xmlTree),
+        physicialDescriptions: try xmlTree["PhysicalDescriptions"].parse(tree: xmlTree)
+    )
+    let mode: DMXMode = try DMXMode(xml: modeTree, tree: xmlTree, dependencies: dmxModeParseDependencies)
     let fixtureInfo: FixtureInfo = try xmlTree.parse(tree: xmlTree)
     
     ///

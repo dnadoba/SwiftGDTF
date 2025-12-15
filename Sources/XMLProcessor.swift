@@ -47,7 +47,19 @@ extension FixtureType: XMLDecodable {
         self.attributeDefinitions = try xml["AttributeDefinitions"].parse(tree: tree)
         self.physicalDescriptions = try xml["PhysicalDescriptions"].parse(tree: tree)
         self.wheels = try xml["Wheels"].parseChildrenToArray(tree: tree)
-        self.dmxModes = try xml["DMXModes"].parseChildrenToArray(tree: tree)
+        let dmxModeParseDependencies = DMXMode.ParseDependencies.init(
+            wheels: self.wheels,
+            attributes: self.attributeDefinitions.attributes,
+            activationGroups: self.attributeDefinitions.activationGroups ?? [],
+            features: self.attributeDefinitions.featureGroups.flatMap { $0.features },
+            emitters: self.physicalDescriptions.emitters,
+            filters: self.physicalDescriptions.filters,
+            colorSpaces: self.physicalDescriptions.additionalColorSpaces,
+            dmxProfiles: self.physicalDescriptions.dmxProfiles
+        )
+        self.dmxModes = try xml["DMXModes"].children.map {
+            try DMXMode(xml: $0, tree: tree, dependencies: dmxModeParseDependencies)
+        }
         self.geometries = try xml["Geometries"].parseChildrenToArray(tree: tree)
     }
 }
@@ -334,22 +346,85 @@ extension OperatingTemp: XMLDecodable {
 /// DMX Mode Schema
 ///
 
-extension DMXMode: XMLDecodable {
-    init(xml: XMLIndexer, tree: XMLIndexer) throws {
+extension DMXMode {
+    struct ParseDependencies {
+        var wheels: [String: Wheel]
+        var attributes: [String: FixtureAttribute]
+        var activationGroups: [String: ActivationGroup]
+        var features: [String: Feature]
+        var emitters: [String: Emitter]
+        var filters: [String: Filter]
+        var colorSpaces: [String: ColorSpace]
+        var dmxProfiles: [String: DMXProfile]
+        init(
+            wheels: [Wheel],
+            attributeDefinitions: AttributeDefinitions?,
+            physicialDescriptions: PhysicalDescriptions?
+        ) {
+            self.init(
+                wheels: wheels,
+                attributes: attributeDefinitions?.attributes ?? [],
+                activationGroups: attributeDefinitions?.activationGroups ?? [],
+                // TODO: this is probably wrong. We probably need to have a Key that includes the groups name and the features name
+                features: attributeDefinitions?.featureGroups.flatMap { $0.features } ?? [],
+                emitters: physicialDescriptions?.emitters ?? [],
+                filters: physicialDescriptions?.filters ?? [],
+                colorSpaces: physicialDescriptions?.additionalColorSpaces ?? [],
+                dmxProfiles: physicialDescriptions?.dmxProfiles ?? []
+            )
+        }
+        
+        init(
+            wheels: [Wheel],
+            attributes: [FixtureAttribute],
+            activationGroups: [ActivationGroup],
+            features: [Feature],
+            emitters: [Emitter],
+            filters: [Filter],
+            colorSpaces: [ColorSpace],
+            dmxProfiles: [DMXProfile],
+        ) {
+            self.wheels = Dictionary(wheels.lazy.map { ($0.name, $0) }, uniquingKeysWith: { old, new in old })
+            self.attributes = Dictionary(attributes.lazy.map { ($0.name, $0) }, uniquingKeysWith: { old, new in old })
+            self.activationGroups = Dictionary(activationGroups.lazy.map { ($0.name, $0) }, uniquingKeysWith: { old, new in old })
+            self.features = Dictionary(features.lazy.map { ($0.name, $0) }, uniquingKeysWith: { old, new in old })
+            self.emitters = Dictionary(emitters.lazy.map { ($0.name, $0) }, uniquingKeysWith: { old, new in old })
+            self.filters = Dictionary(filters.lazy.map { ($0.name, $0) }, uniquingKeysWith: { old, new in old })
+            self.colorSpaces = Dictionary(colorSpaces.lazy.map { ($0.name, $0) }, uniquingKeysWith: { old, new in old })
+            self.dmxProfiles = Dictionary(dmxProfiles.lazy.map { ($0.name, $0) }, uniquingKeysWith: { old, new in old })
+        }
+        
+        func getRequiredWheel(name: String) throws -> Wheel {
+            guard let wheel = wheels[name] else {
+                throw XMLParsingError.missingWheel(name)
+            }
+            return wheel
+        }
+        
+        func getRequiredAttribute(name: String) throws -> FixtureAttribute {
+            guard let attribute = attributes[name] else {
+                throw XMLParsingError.missingWheel(name)
+            }
+            return attribute
+        }
+    }
+    init(xml: XMLIndexer, tree: XMLIndexer, dependencies: ParseDependencies) throws {
         guard let element = xml.element else { throw XMLParsingError.elementMissing }
         
         self.name = try element.attribute(named: "Name").text
         self.description = element.attribute(by: "Description")?.text ?? ""
         self.geometry = element.attribute(by: "Geometry")?.text
                 
-        self.channels = try xml["DMXChannels"].parseChildrenToArray(tree: tree)
+        self.channels = try xml["DMXChannels"].children.map {
+            try DMXChannel(xml: $0, tree: tree, dependencies: dependencies)
+        }
         self.relations = try xml["Relations"].parseChildrenToArray(parent: xml, tree: tree)
         self.macros = try xml["FTMacros"].parseChildrenToArray(parent: xml, tree: tree)
     }
 }
 
-extension DMXChannel: XMLDecodable {
-    init(xml: XMLIndexer, tree: XMLIndexer) throws {
+extension DMXChannel {
+    init(xml: XMLIndexer, tree: XMLIndexer, dependencies: DMXMode.ParseDependencies) throws {
         guard let element = xml.element else { throw XMLParsingError.elementMissing }
 
         self.offset = []
@@ -362,7 +437,9 @@ extension DMXChannel: XMLDecodable {
         }
 
         
-        self.logicalChannels = try xml.parseChildrenToArray(tree: tree)
+        self.logicalChannels = try xml.children.map {
+            try LogicalChannel(xml: $0, tree: tree, dependencies: dependencies)
+        }
         
         // Initial Function
         //
@@ -375,18 +452,17 @@ extension DMXChannel: XMLDecodable {
             
             guard initialFunctionParts.count == 3 else { throw XMLParsingError.initialFunctionPathInvalid(path) }
             
-            self.name = initialFunctionParts.first
+            self.name = initialFunctionParts[0]
+            let logicialAttribute = AttributeType.from(initialFunctionParts[1])
+            let channelName =  initialFunctionParts[2]
             
-            let foundInitial: ChannelFunction? = try xml
-                .filterChildren({ child, _ in
-                    return (try? child.attribute(named: "Attribute").text == initialFunctionParts[1]) ?? false
-                }).children.first?
-                .filterChildren({child, _ in
-                    return (try? child.attribute(named: "Name").text == initialFunctionParts[2]) ?? false
-                }).children.first?.parse(index: 0, tree: tree)
-            
+            let foundInitial = logicalChannels.first { logicalChannel in
+                logicalChannel.attribute.type == logicialAttribute
+            }?.channelFunctions.first { chanel in
+                chanel.name == channelName
+            }
 
-            self.initialFunction =  try foundInitial ?? xml["LogicalChannel"].firstChild().parse(index: 0, tree: tree)
+            self.initialFunction = foundInitial ?? self.logicalChannels.first?.channelFunctions.first
             
         } else {
             // "Default value is the first channel function of the first logical function of this DMX channel."
@@ -403,11 +479,11 @@ extension DMXChannel: XMLDecodable {
     }
 }
 
-extension LogicalChannel: XMLDecodable {
-    init(xml: XMLIndexer, tree: XMLIndexer) throws {
+extension LogicalChannel {
+    init(xml: XMLIndexer, tree: XMLIndexer, dependencies: DMXMode.ParseDependencies) throws {
         guard let element = xml.element else { throw XMLParsingError.elementMissing }
 
-        self.attribute = try element.attribute(named: "Attribute").resolveNode(base: tree["AttributeDefinitions"]["Attributes"], tree: tree)
+        self.attribute = try dependencies.getRequiredAttribute(name: try element.attribute(named: "Attribute").text)
         
         self.snap = (try? element.attribute(by: "Snap")?.toEnum()) ?? .no
         self.master = (try? element.attribute(by: "Master")?.toEnum()) ?? .none
@@ -415,18 +491,20 @@ extension LogicalChannel: XMLDecodable {
         self.mibFade = element.attribute(by: "MIBFade")?.double ?? 0
         self.dmxChangeTimeLimit = element.attribute(by: "DMXChangeTimeLimit")?.double ?? 0
         
-        self.channelFunctions = try xml.parseChildrenToArray(tree: tree)
+        self.channelFunctions = try xml.children.enumerated().map { (offset, child) in
+            try ChannelFunction(xml: child, index: offset, tree: tree, dependencies: dependencies)
+        }
     }
 }
 
-extension ChannelFunction: XMLDecodableWithIndex {
-    init(xml: XMLIndexer, index: Int, tree: XMLIndexer) throws {
+extension ChannelFunction {
+    init(xml: XMLIndexer, index: Int, tree: XMLIndexer, dependencies: DMXMode.ParseDependencies) throws {
         guard let element = xml.element else { throw XMLParsingError.elementMissing }
-
-        self.name = try element.attribute(by: "Name")?.text ?? element.attribute(named: "Attribute").text + " " + String(index+1)
+        let attributeName = element.attribute(by: "Attribute")?.text
+        self.name = element.attribute(by: "Name")?.text ?? attributeName.map { $0 + " " + String(index+1) } ?? String(index+1)
         
-        if (element.attribute(by: "Attribute")?.text != "NoFeature") {
-            self.attribute = try element.attribute(by: "Attribute")?.resolveNode(base: tree["AttributeDefinitions"]["Attributes"], tree: tree)
+        if let attributeName, attributeName != "NoFeature" {
+            self.attribute = try dependencies.getRequiredAttribute(name: attributeName)
         }
         
         self.originalAttribute = element.attribute(by: "OriginalAttribute")?.text ?? ""
@@ -441,7 +519,7 @@ extension ChannelFunction: XMLDecodableWithIndex {
         // handle node resolution for each type of function
         
         // Wheel
-        self.wheel = try element.attribute(by: "Wheel")?.resolveNode(base: tree["Wheels"], tree: tree)
+        self.wheel = try element.attribute(by: "Wheel").map { try dependencies.getRequiredWheel(name: $0.text) }
         
         // Emitter
         self.emitter = try element.attribute(by: "Emitter")?.resolveNode(base: tree["PhysicalDescriptions"]["Emitters"], tree: tree)
@@ -520,9 +598,9 @@ extension Relation: XMLDecodableWithParent {
         
         self.name = try element.attribute(named: "Name").text
         
-        self.master = try element.attribute(named: "Master").resolveNode(base: parent.child(named: "DMXChannels"), tree: tree)
+        self.master = try element.attribute(named: "Master").text
         
-        self.follower = try element.attribute(named: "Follower").resolveNode(base: parent.child(named: "DMXChannels"), tree: tree)
+        self.follower = try element.attribute(named: "Follower").text
         
         self.type = try element.attribute(named: "Type").toEnum()
     }
@@ -535,7 +613,7 @@ extension Macro: XMLDecodableWithParent {
         self.name = try element.attribute(named: "Name").text
         
         if element.attribute(by: "ChannelFunction") != nil {
-            self.channelFunction = try element.attribute(named: "ChannelFunction").resolveNode(base: parent["DMXChannels"], tree: tree)
+            self.channelFunction = try element.attribute(named: "ChannelFunction").text
         }
         
         self.steps = try xml["MacroDMX"].parseChildrenToArray(parent: parent, tree: tree)
@@ -554,19 +632,7 @@ extension MacroStep: XMLDecodableWithParent {
 extension MacroValue: XMLDecodableWithParent {
     init(xml: SWXMLHash.XMLIndexer, parent: SWXMLHash.XMLIndexer, tree: SWXMLHash.XMLIndexer) throws {
         guard let element = xml.element else { throw XMLParsingError.elementMissing }
-                
-        // do our own lookup of the channel since it does not follow normal Node Name schema
-        var foundChannel: DMXChannel? = nil
-        
-        for child in parent["DMXChannels"].children {
-            let parts = child.element?.attribute(by: "InitialFunction")?.text.components(separatedBy: ".")
-            
-            if try parts?[0] == element.attribute(named: "DMXChannel").text {
-                foundChannel = try child.parse(tree: tree)
-            }
-        }
-     
-        self.dmxChannel = try foundChannel ?? parent["DMXChannels"].firstChild().parse(tree: tree)
+        self.dmxChannel = try element.attribute(named: "DMXChannel").text
         self.value = try DMXValue(from: element.attribute(named: "Value").text)
     }
 }
@@ -797,16 +863,16 @@ extension AttributeType {
         compile(regex: "^BeamEffectIndexRotateMode$") : { _ in .beamEffectIndexRotateMode },
         compile(regex: "^IntensityMSpeed$") : { _ in .intensityMovementSpeed },
         compile(regex: "^PositionMSpeed$") : { _ in .positionMovementSpeed },
-        compile(regex: "^ColorMix(?<n>[0-9]+)MSpeed$") : { _ in .colorMixMovementSpeed },
-        compile(regex: "^ColorWheelSelect(?<n>[0-9]+)Speed$") : { _ in .colorWheelSelectMovementSpeed },
+        compile(regex: "^ColorMixMSpeed$") : { _ in .colorMixMovementSpeed },
+        compile(regex: "^ColorWheelSelectSpeed$") : { _ in .colorWheelSelectMovementSpeed },
         compile(regex: "^GoboWheel(?<n>[0-9]+)MSpeed$") : { e in .goboWheelMovementSpeed(n: e[0]) },
-        compile(regex: "^Iris(?<n>[0-9]+)MSpeed$") : { _ in .irisMovementSpeed },
+        compile(regex: "^IrisMSpeed$") : { _ in .irisMovementSpeed },
         compile(regex: "^Prism(?<n>[0-9]+)MSpeed$") : { e in .prismMovementSpeed(n: e[0]) },
-        compile(regex: "^Focus(?<n>[0-9]+)MSpeed$") : { _ in .focusMovementSpeed },
+        compile(regex: "^FocusMSpeed$") : { _ in .focusMovementSpeed },
         compile(regex: "^Frost(?<n>[0-9]+)MSpeed$") : { e in .frostMovementSpeed(n: e[0]) },
-        compile(regex: "^Zoom(?<n>[0-9]+)MSpeed$") : { _ in .zoomMovementSpeed },
+        compile(regex: "^ZoomMSpeed$") : { _ in .zoomMovementSpeed },
         compile(regex: "^Frame(?<n>[0-9]+)MSpeed$") : { e in .frameMovementSpeed(n: e[0]) },
-        compile(regex: "^Global(?<n>[0-9]+)MSpeed$") : { _ in .globalMovementSpeed },
+        compile(regex: "^GlobalMSpeed$") : { _ in .globalMovementSpeed },
         compile(regex: "^ReflectorAdjust$") : { _ in .reflectorAdjust },
         compile(regex: "^FixtureGlobalReset$") : { _ in .fixtureGlobalReset },
         compile(regex: "^DimmerReset$") : { _ in .dimmerReset },

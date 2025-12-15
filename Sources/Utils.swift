@@ -21,6 +21,8 @@ public enum XMLParsingError: Error {
     case failedToParseDouble(String)
     case failedToParseInt(String)
     case unexpectedGeometryType(String)
+    case missingWheel(String)
+    case missingAttribute(String)
 }
 
 extension XMLAttribute {

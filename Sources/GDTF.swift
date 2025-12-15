@@ -60,7 +60,7 @@ public struct FixtureType: Codable {
 
     public var attributeDefinitions: AttributeDefinitions
     public var wheels: [Wheel]
-    public var physicalDescriptions: PhysicalDescriptions?
+    public var physicalDescriptions: PhysicalDescriptions
     public var dmxModes: [DMXMode]
     public var geometries: [Geometry]
 }
@@ -356,14 +356,14 @@ public struct SubChannelSet: Codable {
 
 public struct Relation: Codable {
     public var name: String
-    public var master: DMXChannel
-    public var follower: ChannelFunction
+    public var master: String
+    public var follower: String
     public var type: RelationType
 }
 
 public struct Macro: Codable {
     public var name: String
-    public var channelFunction: ChannelFunction?
+    public var channelFunction: String?
     
     public var steps: [MacroStep]
 }
@@ -375,7 +375,7 @@ public struct MacroStep: Codable {
 
 public struct MacroValue: Codable {
     public var value: DMXValue
-    public var dmxChannel: DMXChannel
+    public var dmxChannel: String
 }
 
 // see Annex A: https://github.com/mvrdevelopment/spec/blob/main/gdtf-spec.md#annex-a-normative-attribute-definitions

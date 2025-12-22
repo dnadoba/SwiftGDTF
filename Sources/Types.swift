@@ -53,7 +53,7 @@ extension PhysicalUnit {
         case .temperature:
             Measurement(value: value, unit: UnitTemperature.kelvin).formatted()
         case .luminousIntensity:
-            value.formatted() + "cd"
+            value.formatted() + "lm"
         case .angle:
             Measurement(value: value, unit: UnitAngle.degrees).formatted()
         case .force:

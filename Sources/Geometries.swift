@@ -200,6 +200,52 @@ public enum Geometry: Codable {
     }
 }
 
+extension Geometry {
+    public var nestedChildren: GeometryNestedChildren {
+        GeometryNestedChildren(geometry: self)
+    }
+}
+
+public struct GeometryNestedChildren: Sequence {
+    public typealias Element = Geometry
+    public var geometry: Geometry
+    public final class Iterator: IteratorProtocol {
+        public typealias Element = Geometry
+        public var geometry: Geometry
+        public var index: Int?
+        public var childIterator: Iterator?
+        
+        init(geometry: Geometry) {
+            self.geometry = geometry
+        }
+        
+        public func next() -> Element? {
+            guard let index else {
+                index = 0
+                return geometry
+            }
+            if let childIterator = childIterator {
+                if let element = childIterator.next() {
+                    return element
+                } else {
+                    self.index = index &+ 1
+                    self.childIterator = nil
+                    return next()
+                }
+            } else {
+                guard geometry.children.indices.contains(index) else {
+                    return nil
+                }
+                self.childIterator = Iterator(geometry: geometry.children[index])
+                return next()
+            }
+        }
+    }
+    public func makeIterator() -> Iterator {
+        .init(geometry: geometry)
+    }
+}
+
 public protocol GeometryProtocol {
     static var kind: Geometry.Kind { get }
     /// The unique name of geometry. Recommendation for conventional is “Body”. Recommendation for a geometry that is representing the base housing of a moving head is “Base”.

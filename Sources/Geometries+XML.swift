@@ -280,20 +280,10 @@ extension WiringObject: XMLDecodable {
         self.model = element.attribute(by: "Model")?.text
         self.position = try Matrix(from: try element.attribute(named: "Position").text)
         self.connectorType = try element.attribute(named: "ConnectorType").text
-        self.componentType = try element.attribute(named: "ComponentType").toEnum()
+        self.component = try .init(xml: xml, tree: tree)
         self.signalType = try element.attribute(named: "SignalType").text
         self.pinCount = try element.attribute(named: "PinCount").requiredInt
-        self.electricalPayLoad = try element.attribute(named: "ElectricalPayLoad").requiredDouble
-        self.voltageRangeMax = try element.attribute(named: "VoltageRangeMax").requiredDouble
-        self.voltageRangeMin = try element.attribute(named: "VoltageRangeMin").requiredDouble
-        self.frequencyRangeMax = try element.attribute(named: "FrequencyRangeMax").requiredDouble
-        self.frequencyRangeMin = try element.attribute(named: "FrequencyRangeMin").requiredDouble
-        self.maxPayLoad = try element.attribute(named: "MaxPayLoad").requiredDouble
-        self.voltage = try element.attribute(named: "Voltage").requiredDouble
         self.signalLayer = try element.attribute(named: "SignalLayer").requiredInt
-        self.cosPhi = try element.attribute(named: "CosPhi").requiredDouble
-        self.fuseCurrent = try element.attribute(named: "FuseCurrent").requiredDouble
-        self.fuseRating = try element.attribute(named: "FuseRating").toEnum()
         self.orientation = try element.attribute(named: "Orientation").toEnum()
         self.wireGroup = try element.attribute(named: "WireGroup").text
         
@@ -337,6 +327,64 @@ extension WiringObject.Child: XMLDecodable {
         case .pinPatch:
             self = .pinPatch(try .init(xml: xml, tree: tree))
         }
+    }
+}
+
+extension WiringObject.Component: XMLDecodable {
+    init(xml: XMLIndexer, tree: XMLIndexer) throws {
+        guard let element = xml.element else { throw XMLParsingError.elementMissing }
+        guard let kind = Kind(rawValue: try element.attribute(named: "ComponentType").text) else {
+            throw XMLParsingError.unexpectedGeometryType(element.name)
+        }
+        switch kind {
+        case .input:
+            self = .input
+        case .output:
+            self = .output
+        case .powerSource:
+            self = .powerSource(try .init(xml: xml, tree: tree))
+        case .consumer:
+            self = .consumer(try .init(xml: xml, tree: tree))
+        case .fuse:
+            self = .fuse(try .init(xml: xml, tree: tree))
+        case .networkProvider:
+            self = .networkProvider
+        case .networkInput:
+            self = .networkInput
+        case .networkOutput:
+            self = .networkOutput
+        case .networkInOut:
+            self = .networkInOut
+        }
+    }
+}
+
+
+extension WiringObject.Consumer: XMLDecodable {
+    init(xml: XMLIndexer, tree: XMLIndexer) throws {
+        guard let element = xml.element else { throw XMLParsingError.elementMissing }
+        self.electricalPayLoad = try element.attribute(named: "ElectricalPayLoad").requiredDouble
+        self.voltageRangeMax = try element.attribute(named: "VoltageRangeMax").requiredDouble
+        self.voltageRangeMin = try element.attribute(named: "VoltageRangeMin").requiredDouble
+        self.frequencyRangeMax = try element.attribute(named: "FrequencyRangeMax").requiredDouble
+        self.frequencyRangeMin = try element.attribute(named: "FrequencyRangeMin").requiredDouble
+        self.cosPhi = try element.attribute(named: "CosPhi").requiredDouble
+    }
+}
+
+extension WiringObject.PowerSource: XMLDecodable {
+    init(xml: XMLIndexer, tree: XMLIndexer) throws {
+        guard let element = xml.element else { throw XMLParsingError.elementMissing }
+        self.maxPayLoad = try element.attribute(named: "MaxPayLoad").requiredDouble
+        self.voltage = try element.attribute(named: "Voltage").requiredDouble
+    }
+}
+
+extension WiringObject.Fuse: XMLDecodable {
+    init(xml: XMLIndexer, tree: XMLIndexer) throws {
+        guard let element = xml.element else { throw XMLParsingError.elementMissing }
+        self.fuseCurrent = try element.attribute(named: "FuseCurrent").requiredDouble
+        self.fuseRating = try element.attribute(named: "FuseRating").toEnum()
     }
 }
 

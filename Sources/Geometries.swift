@@ -584,6 +584,59 @@ public struct WiringObject: Codable, GeometryProtocol {
         case pinPatch(PinPatch)
     }
     
+    public struct Consumer: Codable {
+        /// The electrical consumption in Watts. Only for Consumers. Unit: Watt.
+        public var electricalPayLoad: Double
+        /// The voltage range's maximum value. Only for Consumers. Unit:volt.
+        public var voltageRangeMax: Double
+        /// The voltage range's minimum value. Only for Consumers. Unit: volt.
+        public var voltageRangeMin: Double
+        /// The Frequency range's maximum value. Only for Consumers. Unit: hertz.
+        public var frequencyRangeMax: Double
+        /// The Frequency range's minimum value. Only for Consumers. Unit: hertz.
+        public var frequencyRangeMin: Double
+        /// The Power Factor of the device. Only for consumers.
+        public var cosPhi: Double
+    }
+    
+    public struct PowerSource: Codable {
+        /// The maximum electrical payload that this power source can handle. Only for Power Sources. Unit: voltampere.
+        public var maxPayLoad: Double
+        /// The voltage output that this power source can handle. Only for Power Sources. Unit: volt.
+        public var voltage: Double
+    }
+    
+    public struct Fuse: Codable {
+        /// The fuse value. Only for fuses. Unit: ampere.
+        public var fuseCurrent: Double
+        /// Fuse Rating.
+        public var fuseRating: FuseRating
+    }
+    
+    public enum Component: Codable {
+        /// The type of the electrical component used.
+        public enum Kind: String, Codable, Sendable {
+            case input = "Input"
+            case output = "Output"
+            case powerSource = "PowerSource"
+            case consumer = "Consumer"
+            case fuse = "Fuse"
+            case networkProvider = "NetworkProvider"
+            case networkInput = "NetworkInput"
+            case networkOutput = "NetworkOutput"
+            case networkInOut = "NetworkInOut"
+        }
+        case input
+        case output
+        case powerSource(PowerSource)
+        case consumer(Consumer)
+        case fuse(Fuse)
+        case networkProvider
+        case networkInput
+        case networkOutput
+        case networkInOut
+    }
+    
     public static var kind: Geometry.Kind { .wiringObject }
     /// The unique name of the geometry. The name is also the name of the interface to the outside
     public var name: String
@@ -594,33 +647,13 @@ public struct WiringObject: Codable, GeometryProtocol {
     /// The type of the connector. Find a list of predefined types in Annex D. This is not applicable for Component Types Fuses. Custom type of connector can also be defined, for example "Loose End".
     public var connectorType: String
     /// The type of the electrical component used.
-    public var componentType: ComponentType
+    public var component: Component
     /// The type of the signal used. Predefinded values are "Power", "DMX512", "Protocol", "AES", "AnalogVideo", "AnalogAudio". When you have a custom protocol, you can add it here.
     public var signalType: String
     /// The number of available pins of the connector type to connect internal wiring to it.
     public var pinCount: Int
-    /// The electrical consumption in Watts. Only for Consumers. Unit: Watt.
-    public var electricalPayLoad: Double
-    /// The voltage range's maximum value. Only for Consumers. Unit:volt.
-    public var voltageRangeMax: Double
-    /// The voltage range's minimum value. Only for Consumers. Unit: volt.
-    public var voltageRangeMin: Double
-    /// The Frequency range's maximum value. Only for Consumers. Unit: hertz.
-    public var frequencyRangeMax: Double
-    /// The Frequency range's minimum value. Only for Consumers. Unit: hertz.
-    public var frequencyRangeMin: Double
-    /// The maximum electrical payload that this power source can handle. Only for Power Sources. Unit: voltampere.
-    public var maxPayLoad: Double
-    /// The voltage output that this power source can handle. Only for Power Sources. Unit: volt.
-    public var voltage: Double
     /// The layer of the Signal Type. In one device, all wiring geometry that use the same Signal Layers are connected. Special value 0: Connected to all geometries.
     public var signalLayer: Int
-    /// The Power Factor of the device. Only for consumers.
-    public var cosPhi: Double
-    /// The fuse value. Only for fuses. Unit: ampere.
-    public var fuseCurrent: Double
-    /// Fuse Rating.
-    public var fuseRating: FuseRating
     /// Where the pins are placed on the object.
     public var orientation: Orientation
     /// Name of the group to which this wiring object belong.

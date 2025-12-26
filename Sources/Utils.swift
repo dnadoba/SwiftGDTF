@@ -22,7 +22,16 @@ public enum XMLParsingError: Error {
     case failedToParseInt(String)
     case unexpectedGeometryType(String)
     case missingWheel(String)
+    case missingEmitter(String)
+    case missingFilter(String)
+    case missingColorSpace(String)
+    case missingDMXProfile(String)
     case missingAttribute(String)
+    case unexpectSubPhysicalUnitType(String)
+    case missingSubPhysicalUnitType(SubPhysicalType, in: FixtureAttribute)
+    case unexpectedChannelChild(String)
+    case fixtureAttributeReuqireForSubChannelSet
+    case duplicateSubPhysicalUnit(first: SubPhysicalUnit, second: SubPhysicalUnit)
 }
 
 extension XMLAttribute {

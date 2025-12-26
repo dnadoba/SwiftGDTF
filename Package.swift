@@ -19,6 +19,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/drmohundro/SWXMLHash.git", from: "7.0.0"),
         .package(url: "https://github.com/weichsel/ZIPFoundation", .upToNextMajor(from: "0.9.19")),
+        .package(url: "https://github.com/apple/swift-collections", from: "1.2.0"),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
@@ -27,7 +28,8 @@ let package = Package(
             name: "SwiftGDTF",
             dependencies: [
                 .product(name: "SWXMLHash", package: "SWXMLHash"),
-                .product(name: "ZIPFoundation", package: "ZIPFoundation")
+                .product(name: "ZIPFoundation", package: "ZIPFoundation"),
+                .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             resources: [
                 .process("Resources"),

@@ -7,6 +7,7 @@
 
 import Foundation
 import SWXMLHash
+import OrderedCollections
 
 protocol XMLDecodable {
     init(xml: XMLIndexer, tree: XMLIndexer) throws
@@ -47,15 +48,10 @@ extension FixtureType: XMLDecodable {
         self.attributeDefinitions = try xml["AttributeDefinitions"].parse(tree: tree)
         self.physicalDescriptions = try xml["PhysicalDescriptions"].parse(tree: tree)
         self.wheels = try xml["Wheels"].parseChildrenToArray(tree: tree)
-        let dmxModeParseDependencies = DMXMode.ParseDependencies.init(
+        let dmxModeParseDependencies = DMXMode.ParseDependencies(
             wheels: self.wheels,
-            attributes: self.attributeDefinitions.attributes,
-            activationGroups: self.attributeDefinitions.activationGroups ?? [],
-            features: self.attributeDefinitions.featureGroups.flatMap { $0.features },
-            emitters: self.physicalDescriptions.emitters,
-            filters: self.physicalDescriptions.filters,
-            colorSpaces: self.physicalDescriptions.additionalColorSpaces,
-            dmxProfiles: self.physicalDescriptions.dmxProfiles
+            attributeDefinitions: self.attributeDefinitions,
+            physicialDescriptions: self.physicalDescriptions
         )
         self.dmxModes = try xml["DMXModes"].children.map {
             try DMXMode(xml: $0, tree: tree, dependencies: dmxModeParseDependencies)
@@ -144,10 +140,13 @@ extension FixtureAttribute: XMLDecodable {
         if let colorString = element.attribute(by: "Color")?.text {
             self.color = ColorCIE(from: colorString)
         }
+        let subPhysicalUnits: [SubPhysicalUnit] = try xml.parseChildrenToArray(tree: tree)
+        self.subPhysicalUnits = try OrderedDictionary(
+            subPhysicalUnits.lazy.map { ($0.type, $0) },
+            uniquingKeysWith: { old, new in throw XMLParsingError.duplicateSubPhysicalUnit(first: old, second: new) }
+        )
         
-        self.subPhysicalUnits = try xml.parseChildrenToArray(tree: tree)
-        
-        self.type = AttributeType.from(self.name)
+        self.type = AttributeType(fromString: self.name)
     }
 }
 
@@ -348,10 +347,14 @@ extension OperatingTemp: XMLDecodable {
 
 extension DMXMode {
     struct ParseDependencies {
+        struct FeatureKey: Hashable {
+            var group: String
+            var name: String
+        }
         var wheels: [String: Wheel]
         var attributes: [String: FixtureAttribute]
         var activationGroups: [String: ActivationGroup]
-        var features: [String: Feature]
+        var features: [FeatureKey: Feature]
         var emitters: [String: Emitter]
         var filters: [String: Filter]
         var colorSpaces: [String: ColorSpace]
@@ -365,8 +368,11 @@ extension DMXMode {
                 wheels: wheels,
                 attributes: attributeDefinitions?.attributes ?? [],
                 activationGroups: attributeDefinitions?.activationGroups ?? [],
-                // TODO: this is probably wrong. We probably need to have a Key that includes the groups name and the features name
-                features: attributeDefinitions?.featureGroups.flatMap { $0.features } ?? [],
+                features: attributeDefinitions?.featureGroups.lazy.flatMap { group in
+                    group.features.map { feature in
+                        (FeatureKey(group: group.name, name: feature.name), feature)
+                    }
+                } ?? [],
                 emitters: physicialDescriptions?.emitters ?? [],
                 filters: physicialDescriptions?.filters ?? [],
                 colorSpaces: physicialDescriptions?.additionalColorSpaces ?? [],
@@ -378,7 +384,7 @@ extension DMXMode {
             wheels: [Wheel],
             attributes: [FixtureAttribute],
             activationGroups: [ActivationGroup],
-            features: [Feature],
+            features: [(FeatureKey, Feature)],
             emitters: [Emitter],
             filters: [Filter],
             colorSpaces: [ColorSpace],
@@ -387,7 +393,7 @@ extension DMXMode {
             self.wheels = Dictionary(wheels.lazy.map { ($0.name, $0) }, uniquingKeysWith: { old, new in old })
             self.attributes = Dictionary(attributes.lazy.map { ($0.name, $0) }, uniquingKeysWith: { old, new in old })
             self.activationGroups = Dictionary(activationGroups.lazy.map { ($0.name, $0) }, uniquingKeysWith: { old, new in old })
-            self.features = Dictionary(features.lazy.map { ($0.name, $0) }, uniquingKeysWith: { old, new in old })
+            self.features = Dictionary(features, uniquingKeysWith: { old, new in old })
             self.emitters = Dictionary(emitters.lazy.map { ($0.name, $0) }, uniquingKeysWith: { old, new in old })
             self.filters = Dictionary(filters.lazy.map { ($0.name, $0) }, uniquingKeysWith: { old, new in old })
             self.colorSpaces = Dictionary(colorSpaces.lazy.map { ($0.name, $0) }, uniquingKeysWith: { old, new in old })
@@ -401,11 +407,51 @@ extension DMXMode {
             return wheel
         }
         
+        func getRequiredEmitter(name: String) throws -> Emitter {
+            guard let emitter = emitters[name] else {
+                throw XMLParsingError.missingEmitter(name)
+            }
+            return emitter
+        }
+        func getRequiredFilter(name: String) throws -> Filter {
+            guard let filter = filters[name] else {
+                throw XMLParsingError.missingFilter(name)
+            }
+            return filter
+        }
+        func getRequiredColorSpace(name: String) throws -> ColorSpace {
+            guard let colorSpace = colorSpaces[name] else {
+                throw XMLParsingError.missingColorSpace(name)
+            }
+            return colorSpace
+        }
+        func getRequiredDMXProfile(name: String) throws -> DMXProfile {
+            guard let dmxProfile = dmxProfiles[name] else {
+                throw XMLParsingError.missingDMXProfile(name)
+            }
+            return dmxProfile
+        }
         func getRequiredAttribute(name: String) throws -> FixtureAttribute {
             guard let attribute = attributes[name] else {
-                throw XMLParsingError.missingWheel(name)
+                throw XMLParsingError.missingAttribute(name)
             }
             return attribute
+        }
+        func getRequiredSubPhysicalUnit(attributeName: String, subPhysicalTypeName: String) throws -> SubPhysicalUnit {
+            guard let attribute = attributes[attributeName] else {
+                throw XMLParsingError.missingAttribute(attributeName)
+            }
+            
+            guard let unit = SubPhysicalType(rawValue: subPhysicalTypeName) else {
+                throw XMLParsingError.unexpectSubPhysicalUnitType(subPhysicalTypeName)
+            }
+            guard let subPhysicalUnit = attribute.subPhysicalUnits[unit] else {
+                throw XMLParsingError.missingSubPhysicalUnitType(unit, in: attribute)
+            }
+            return subPhysicalUnit
+        }
+        func getFeature(group: String, name: String) -> Feature? {
+            features[.init(group: group, name: name)]
         }
     }
     init(xml: XMLIndexer, tree: XMLIndexer, dependencies: ParseDependencies) throws {
@@ -416,7 +462,7 @@ extension DMXMode {
         self.geometry = element.attribute(by: "Geometry")?.text
                 
         self.channels = try xml["DMXChannels"].children.map {
-            try DMXChannel(xml: $0, tree: tree, dependencies: dependencies)
+            try DMXChannel(xml: $0, dependencies: dependencies)
         }
         self.relations = try xml["Relations"].parseChildrenToArray(parent: xml, tree: tree)
         self.macros = try xml["FTMacros"].parseChildrenToArray(parent: xml, tree: tree)
@@ -424,7 +470,7 @@ extension DMXMode {
 }
 
 extension DMXChannel {
-    init(xml: XMLIndexer, tree: XMLIndexer, dependencies: DMXMode.ParseDependencies) throws {
+    init(xml: XMLIndexer, dependencies: DMXMode.ParseDependencies) throws {
         guard let element = xml.element else { throw XMLParsingError.elementMissing }
 
         self.offset = []
@@ -438,7 +484,7 @@ extension DMXChannel {
 
         
         self.logicalChannels = try xml.children.map {
-            try LogicalChannel(xml: $0, tree: tree, dependencies: dependencies)
+            try LogicalChannel(xml: $0, dependencies: dependencies)
         }
         
         // Initial Function
@@ -453,7 +499,7 @@ extension DMXChannel {
             guard initialFunctionParts.count == 3 else { throw XMLParsingError.initialFunctionPathInvalid(path) }
             
             self.name = initialFunctionParts[0]
-            let logicialAttribute = AttributeType.from(initialFunctionParts[1])
+            let logicialAttribute = AttributeType(fromString: initialFunctionParts[1])
             let channelName =  initialFunctionParts[2]
             
             let foundInitial = logicalChannels.first { logicalChannel in
@@ -480,7 +526,7 @@ extension DMXChannel {
 }
 
 extension LogicalChannel {
-    init(xml: XMLIndexer, tree: XMLIndexer, dependencies: DMXMode.ParseDependencies) throws {
+    init(xml: XMLIndexer, dependencies: DMXMode.ParseDependencies) throws {
         guard let element = xml.element else { throw XMLParsingError.elementMissing }
 
         self.attribute = try dependencies.getRequiredAttribute(name: try element.attribute(named: "Attribute").text)
@@ -492,13 +538,13 @@ extension LogicalChannel {
         self.dmxChangeTimeLimit = element.attribute(by: "DMXChangeTimeLimit")?.double ?? 0
         
         self.channelFunctions = try xml.children.enumerated().map { (offset, child) in
-            try ChannelFunction(xml: child, index: offset, tree: tree, dependencies: dependencies)
+            try ChannelFunction(xml: child, index: offset, dependencies: dependencies)
         }
     }
 }
 
 extension ChannelFunction {
-    init(xml: XMLIndexer, index: Int, tree: XMLIndexer, dependencies: DMXMode.ParseDependencies) throws {
+    init(xml: XMLIndexer, index: Int, dependencies: DMXMode.ParseDependencies) throws {
         guard let element = xml.element else { throw XMLParsingError.elementMissing }
         let attributeName = element.attribute(by: "Attribute")?.text
         self.name = element.attribute(by: "Name")?.text ?? attributeName.map { $0 + " " + String(index+1) } ?? String(index+1)
@@ -518,17 +564,11 @@ extension ChannelFunction {
         
         // handle node resolution for each type of function
         
-        // Wheel
+
         self.wheel = try element.attribute(by: "Wheel").map { try dependencies.getRequiredWheel(name: $0.text) }
-        
-        // Emitter
-        self.emitter = try element.attribute(by: "Emitter")?.resolveNode(base: tree["PhysicalDescriptions"]["Emitters"], tree: tree)
-        
-        // Filter
-        self.filter = try element.attribute(by: "Filter")?.resolveNode(base: tree["PhysicalDescriptions"]["Filters"], tree: tree)
-        
-        // ColorSpace
-        self.colorSpace = try element.attribute(by: "ColorSpace")?.resolveNode(base: tree["PhysicalDescriptions"]["AdditionalColorSpaces"], tree: tree)
+        self.emitter = try element.attribute(by: "Emitter").map { try dependencies.getRequiredEmitter(name: $0.text) }
+        self.filter = try element.attribute(by: "Filter").map { try dependencies.getRequiredFilter(name: $0.text) }
+        self.colorSpace = try element.attribute(by: "ColorSpace").map { try dependencies.getRequiredColorSpace(name: $0.text) }
         
         // Mode Master
         self.modeMaster = element.attribute(by: "ModeMaster")?.text
@@ -539,39 +579,42 @@ extension ChannelFunction {
         }
         
         // DMX Profile
-        self.dmxProfile = try? element.attribute(by: "DMXProfile")?.resolveNode(base: tree["DMXProfiles"], tree: tree)
+        self.dmxProfile = try? element.attribute(by: "DMXProfile").map { try dependencies.getRequiredDMXProfile(name: $0.text) }
         
         self.minimum = element.attribute(by: "Min")?.double ?? self.physicalFrom
         self.maximum = element.attribute(by: "Max")?.double ?? self.physicalTo
         self.customName = element.attribute(by: "CustomName")?.text
         
-        self.channelSets = try xml.filterChildren({ child, _ in child.name == "ChannelSet"}).parseChildrenToArray(parent: xml, tree: tree)
-        self.subChannelSets = try xml.filterChildren({ child, _ in child.name == "SubChannelSet"}).parseChildrenToArray(parent: xml, tree: tree)
+        channelSets = []
+        subChannelSets = []
+        for child in xml.children {
+            switch child.element?.name {
+            case "ChannelSet":
+                channelSets.append(try ChannelSet(xml: child, parentPhysicalFrom: physicalFrom, parentPhysicalTo: physicalTo))
+            case "SubChannelSet":
+                subChannelSets.append(try SubChannelSet(xml: child, attribute: attribute, dependencies: dependencies))
+            default:
+                throw XMLParsingError.unexpectedChannelChild(name)
+            }
+        }
     }
 }
 
 
-extension ChannelSet: XMLDecodableWithParent {
-    init(xml: XMLIndexer, parent: XMLIndexer, tree: XMLIndexer) throws {
+extension ChannelSet {
+    init(xml: XMLIndexer, parentPhysicalFrom: Double?, parentPhysicalTo: Double?) throws {
         guard let element = xml.element else { throw XMLParsingError.elementMissing }
-        guard let parentElement = parent.element else { throw XMLParsingError.elementMissing }
         
         self.name = element.attribute(by: "Name")?.text ?? ""
-        
         self.dmxFrom = DMXValue(from: element.attribute(by: "DMXFrom")?.text ?? "0/1")
-        
-        // the defaults for these reference parent, they will be nil if not provided
-        self.physicalFrom = element.attribute(by: "PhysicalFrom")?.double
-                                ?? parentElement.attribute(by: "PhysicalFrom")?.double ?? 0
-        self.physicalTo = element.attribute(by: "PhysicalTo")?.double
-                                ?? parentElement.attribute(by: "PhysicalTo")?.double ?? 1
-        
+        self.physicalFrom = element.attribute(by: "PhysicalFrom")?.double ?? parentPhysicalFrom ?? 0
+        self.physicalTo = element.attribute(by: "PhysicalTo")?.double ?? parentPhysicalTo ?? 1
         self.wheelSlotIndex = element.attribute(by: "WheelSlotIndex")?.int
     }
 }
 
-extension SubChannelSet: XMLDecodableWithParent {
-    init(xml: XMLIndexer, parent: XMLIndexer, tree: XMLIndexer) throws {
+extension SubChannelSet {
+    init(xml: XMLIndexer, attribute: FixtureAttribute?, dependencies: DMXMode.ParseDependencies) throws {
         guard let element = xml.element else { throw XMLParsingError.elementMissing }
         
         self.name = element.attribute(by: "Name")?.text ?? ""
@@ -579,16 +622,21 @@ extension SubChannelSet: XMLDecodableWithParent {
         self.physicalFrom = (try? element.attribute(named: "PhysicalFrom"))?.double ?? 0
         self.physicalTo = (try? element.attribute(named: "PhysicalTo"))?.double ?? 1
         
-        // needs the parent
-        guard let attributeName = try parent.element?.attribute(named: "Attribute") else {
-            throw XMLParsingError.attributeMissing(named: "Attribute", on: parent.element)
+
+        let subPhysicalUnitName = try element.attribute(named: "SubPhysicalUnit").text
+        guard let unit = SubPhysicalType(rawValue: subPhysicalUnitName) else {
+            throw XMLParsingError.unexpectSubPhysicalUnitType(subPhysicalUnitName)
+        }
+        guard let attribute else {
+            throw XMLParsingError.fixtureAttributeReuqireForSubChannelSet
+        }
+        guard let subPhysicalUnit = attribute.subPhysicalUnits[unit] else {
+            throw XMLParsingError.missingSubPhysicalUnitType(unit, in: attribute)
         }
         
-        let associatedAttribute = try tree["AttributeDefinitions"]["Attributes"].findChild(with: "Name", being: attributeName.text)
-
-        self.subPhysicalUnit = try element.attribute(named: "SubPhysicalUnit").resolveNode(base: associatedAttribute, tree: tree)
+        self.subPhysicalUnit = subPhysicalUnit
         
-        self.dmxProfile = try? element.attribute(named: "DMXProfile").resolveNode(base: tree["DMXProfiles"], tree: tree)
+        self.dmxProfile = try element.attribute(by: "DMXProfile").map { try dependencies.getRequiredDMXProfile(name: $0.text) }
     }
 }
 
@@ -636,329 +684,3 @@ extension MacroValue: XMLDecodableWithParent {
         self.value = try DMXValue(from: element.attribute(named: "Value").text)
     }
 }
-
-extension AttributeType {
-    static func compile(regex: String) -> NSRegularExpression {
-        return try! NSRegularExpression(pattern: regex)
-    }
-    
-    static let enumerationRegex = compile(regex: "[0-9]+")
-    
-    nonisolated(unsafe) static let regexes: [NSRegularExpression : ([Int]) -> AttributeType] = [
-        compile(regex: "^Dimmer$") : { _ in .dimmer },
-        compile(regex: "^Pan$") : { _ in .pan },
-        compile(regex: "^Tilt$") : { _ in .tilt },
-        compile(regex: "^PanRotate$") : { _ in .panRotate },
-        compile(regex: "^TiltRotate$") : { _ in .tiltRotate },
-        compile(regex: "^PositionEffect$") : { _ in .positionEffect },
-        compile(regex: "^PositionEffectRate$") : { _ in .positionEffectRate },
-        compile(regex: "^PositionEffectFade$") : { _ in .positionEffectFade },
-        compile(regex: "^XYZ_X$") : { _ in .xyzX },
-        compile(regex: "^XYZ_Y$") : { _ in .xyzY },
-        compile(regex: "^XYZ_Z$") : { _ in .xyzZ },
-        compile(regex: "^Rot_X$") : { _ in .rotationX },
-        compile(regex: "^Rot_Y$") : { _ in .rotationY },
-        compile(regex: "^Rot_Z$") : { _ in .rotationZ },
-        compile(regex: "^Scale_X$") : { _ in .scaleX },
-        compile(regex: "^Scale_Y$") : { _ in .scaleY },
-        compile(regex: "^Scale_Z$") : { _ in .scaleZ },
-        compile(regex: "^Scale_XYZ$") : { _ in .scaleXYZ },
-        compile(regex: "^Gobo(?<n>[0-9]+)$") : { e in .gobo(n: e[0]) },
-        compile(regex: "^Gobo(?<n>[0-9]+)SelectSpin$") : { e in .goboSelectSpin(n: e[0]) },
-        compile(regex: "^Gobo(?<n>[0-9]+)SelectShake$") : { e in .goboSelectShake(n: e[0]) },
-        compile(regex: "^Gobo(?<n>[0-9]+)SelectEffects$") : { e in .goboSelectEffects(n: e[0]) },
-        compile(regex: "^Gobo(?<n>[0-9]+)WheelIndex$") : { e in .goboWheelIndex(n: e[0]) },
-        compile(regex: "^Gobo(?<n>[0-9]+)WheelSpin$") : { e in .goboWheelSpin(n: e[0]) },
-        compile(regex: "^Gobo(?<n>[0-9]+)WheelShake$") : { e in .goboWheelShake(n: e[0]) },
-        compile(regex: "^Gobo(?<n>[0-9]+)WheelRandom$") : { e in .goboWheelRandom(n: e[0]) },
-        compile(regex: "^Gobo(?<n>[0-9]+)WheelAudio$") : { e in .goboWheelAudio(n: e[0]) },
-        compile(regex: "^Gobo(?<n>[0-9]+)Pos$") : { e in .goboPosition(n: e[0]) },
-        compile(regex: "^Gobo(?<n>[0-9]+)PosRotate$") : { e in .goboPositionRotate(n: e[0]) },
-        compile(regex: "^Gobo(?<n>[0-9]+)PosShake$") : { e in .goboPositionShake(n: e[0]) },
-        compile(regex: "^AnimationWheel(?<n>[0-9]+)$") : { e in .animationWheel(n: e[0]) },
-        compile(regex: "^AnimationWheel(?<n>[0-9]+)Audio$") : { e in .animationWheelAudio(n: e[0]) },
-        compile(regex: "^AnimationWheel(?<n>[0-9]+)Macro$") : { e in .animationWheelMacro(n: e[0]) },
-        compile(regex: "^AnimationWheel(?<n>[0-9]+)Random$") : { e in .animationWheelRandom(n: e[0]) },
-        compile(regex: "^AnimationWheel(?<n>[0-9]+)SelectEffects$") : { e in .animationWheelSelectEffects(n: e[0]) },
-        compile(regex: "^AnimationWheel(?<n>[0-9]+)SelectShake$") : { e in .animationWheelSelectShake(n: e[0]) },
-        compile(regex: "^AnimationWheel(?<n>[0-9]+)SelectSpin$") : { e in .animationWheelSelectSpin(n: e[0]) },
-        compile(regex: "^AnimationWheel(?<n>[0-9]+)Pos$") : { e in .animationWheelPosition(n: e[0]) },
-        compile(regex: "^AnimationWheel(?<n>[0-9]+)PosRotate$") : { e in .animationWheelPositionRotate(n: e[0]) },
-        compile(regex: "^AnimationWheel(?<n>[0-9]+)PosShake$") : { e in .animationWheelPositionShake(n: e[0]) },
-        compile(regex: "^AnimationSystem(?<n>[0-9]+)$") : { e in .animationSystem(n: e[0]) },
-        compile(regex: "^AnimationSystem(?<n>[0-9]+)Ramp$") : { e in .animationSystemRamp(n: e[0]) },
-        compile(regex: "^AnimationSystem(?<n>[0-9]+)Shake$") : { e in .animationSystemShake(n: e[0]) },
-        compile(regex: "^AnimationSystem(?<n>[0-9]+)Audio$") : { e in .animationSystemAudio(n: e[0]) },
-        compile(regex: "^AnimationSystem(?<n>[0-9]+)Random$") : { e in .animationSystemRandom(n: e[0]) },
-        compile(regex: "^AnimationSystem(?<n>[0-9]+)Pos$") : { e in .animationSystemPosition(n: e[0]) },
-        compile(regex: "^AnimationSystem(?<n>[0-9]+)PosRotate$") : { e in .animationSystemPositionRotate(n: e[0]) },
-        compile(regex: "^AnimationSystem(?<n>[0-9]+)PosShake$") : { e in .animationSystemPositionShake(n: e[0]) },
-        compile(regex: "^AnimationSystem(?<n>[0-9]+)PosRandom$") : { e in .animationSystemPositionRandom(n: e[0]) },
-        compile(regex: "^AnimationSystem(?<n>[0-9]+)PosAudio$") : { e in .animationSystemPositionAudio(n: e[0]) },
-        compile(regex: "^AnimationSystem(?<n>[0-9]+)Macro$") : { e in .animationSystemMacro(n: e[0]) },
-        compile(regex: "^MediaFolder(?<n>[0-9]+)$") : { e in .mediaFolder(n: e[0]) },
-        compile(regex: "^MediaContent(?<n>[0-9]+)$") : { e in .mediaContent(n: e[0]) },
-        compile(regex: "^ModelFolder(?<n>[0-9]+)$") : { e in .modelFolder(n: e[0]) },
-        compile(regex: "^ModelContent(?<n>[0-9]+)$") : { e in .modelContent(n: e[0]) },
-        compile(regex: "^PlayMode$") : { _ in .playMode },
-        compile(regex: "^PlayBegin$") : { _ in .playBegin },
-        compile(regex: "^PlayEnd$") : { _ in .playEnd },
-        compile(regex: "^PlaySpeed$") : { _ in .playSpeed },
-        compile(regex: "^ColorEffects(?<n>[0-9]+)$") : { e in .colorEffects(n: e[0]) },
-        compile(regex: "^Color(?<n>[0-9]+)$") : { e in .color(n: e[0]) },
-        compile(regex: "^Color(?<n>[0-9]+)WheelIndex$") : { e in .colorWheelIndex(n: e[0]) },
-        compile(regex: "^Color(?<n>[0-9]+)WheelSpin$") : { e in .colorWheelSpin(n: e[0]) },
-        compile(regex: "^Color(?<n>[0-9]+)WheelRandom$") : { e in .colorWheelRandom(n: e[0]) },
-        compile(regex: "^Color(?<n>[0-9]+)WheelAudio$") : { e in .colorWheelAudio(n: e[0]) },
-        compile(regex: "^ColorAdd_R$") : { _ in .colorAddRed },
-        compile(regex: "^ColorAdd_G$") : { _ in .colorAddGreen },
-        compile(regex: "^ColorAdd_B$") : { _ in .colorAddBlue },
-        compile(regex: "^ColorAdd_C$") : { _ in .colorAddCyan },
-        compile(regex: "^ColorAdd_M$") : { _ in .colorAddMagenta },
-        compile(regex: "^ColorAdd_Y$") : { _ in .colorAddYellow },
-        compile(regex: "^ColorAdd_RY$") : { _ in .colorAddRedYellow },
-        compile(regex: "^ColorAdd_GY$") : { _ in .colorAddGreenYellow },
-        compile(regex: "^ColorAdd_GC$") : { _ in .colorAddGreenCyan },
-        compile(regex: "^ColorAdd_BC$") : { _ in .colorAddBlueCyan },
-        compile(regex: "^ColorAdd_BM$") : { _ in .colorAddBlueMagenta },
-        compile(regex: "^ColorAdd_RM$") : { _ in .colorAddRedMagenta },
-        compile(regex: "^ColorAdd_W$") : { _ in .colorAddWhite },
-        compile(regex: "^ColorAdd_WW$") : { _ in .colorAddWarmWhite },
-        compile(regex: "^ColorAdd_CW$") : { _ in .colorAddCoolWhite },
-        compile(regex: "^ColorAdd_UV$") : { _ in .colorAddUltraviolet },
-        compile(regex: "^ColorSub_R$") : { _ in .colorSubtractRed },
-        compile(regex: "^ColorSub_G$") : { _ in .colorSubtractGreen },
-        compile(regex: "^ColorSub_B$") : { _ in .colorSubtractBlue },
-        compile(regex: "^ColorSub_C$") : { _ in .colorSubtractCyan },
-        compile(regex: "^ColorSub_M$") : { _ in .colorSubtractMagenta },
-        compile(regex: "^ColorSub_Y$") : { _ in .colorSubtractYellow },
-        compile(regex: "^ColorMacro(?<n>[0-9]+)$") : { e in .colorMacro(n: e[0]) },
-        compile(regex: "^ColorMacro(?<n>[0-9]+)Rate$") : { e in .colorMacroRate(n: e[0]) },
-        compile(regex: "^CTO$") : { _ in .colorTemperatureOrange },
-        compile(regex: "^CTC$") : { _ in .colorTemperatureCorrection },
-        compile(regex: "^CTB$") : { _ in .colorTemperatureBlue },
-        compile(regex: "^Tint$") : { _ in .tint },
-        compile(regex: "^HSB_Hue$") : { _ in .hueShiftBlueHue },
-        compile(regex: "^HSB_Saturation$") : { _ in .hueShiftBlueSaturation },
-        compile(regex: "^HSB_Brightness$") : { _ in .hueShiftBlueBrightness },
-        compile(regex: "^HSB_Quality$") : { _ in .hueShiftBlueQuality },
-        compile(regex: "^CIE_X$") : { _ in .chromaticityX },
-        compile(regex: "^CIE_Y$") : { _ in .chromaticityY },
-        compile(regex: "^CIE_Brightness$") : { _ in .chromaticityBrightness },
-        compile(regex: "^ColorRGB_Red$") : { _ in .colorRGBRed },
-        compile(regex: "^ColorRGB_Green$") : { _ in .colorRGBGreen },
-        compile(regex: "^ColorRGB_Blue$") : { _ in .colorRGBBlue },
-        compile(regex: "^ColorRGB_Cyan$") : { _ in .colorRGBCyan },
-        compile(regex: "^ColorRGB_Magenta$") : { _ in .colorRGBMagenta },
-        compile(regex: "^ColorRGB_Yellow$") : { _ in .colorRGBYellow },
-        compile(regex: "^ColorRGB_Quality$") : { _ in .colorRGBQuality },
-        compile(regex: "^VideoBoost_R$") : { _ in .videoBoostRed },
-        compile(regex: "^VideoBoost_G$") : { _ in .videoBoostGreen },
-        compile(regex: "^VideoBoost_B$") : { _ in .videoBoostBlue },
-        compile(regex: "^VideoHueShift$") : { _ in .videoHueShift },
-        compile(regex: "^VideoSaturation$") : { _ in .videoSaturation },
-        compile(regex: "^VideoBrightness$") : { _ in .videoBrightness },
-        compile(regex: "^VideoContrast$") : { _ in .videoContrast },
-        compile(regex: "^VideoKeyColor_R$") : { _ in .videoKeyColorRed },
-        compile(regex: "^VideoKeyColor_G$") : { _ in .videoKeyColorGreen },
-        compile(regex: "^VideoKeyColor_B$") : { _ in .videoKeyColorBlue },
-        compile(regex: "^VideoKeyIntensity$") : { _ in .videoKeyIntensity },
-        compile(regex: "^VideoKeyTolerance$") : { _ in .videoKeyTolerance },
-        compile(regex: "^StrobeDuration$") : { _ in .strobeDuration },
-        compile(regex: "^StrobeRate$") : { _ in .strobeRate },
-        compile(regex: "^StrobeFrequency$") : { _ in .strobeFrequency },
-        compile(regex: "^StrobeModeShutter$") : { _ in .strobeModeShutter },
-        compile(regex: "^StrobeModeStrobe$") : { _ in .strobeModeStrobe },
-        compile(regex: "^StrobeModePulse$") : { _ in .strobeModePulse },
-        compile(regex: "^StrobeModePulseOpen$") : { _ in .strobeModePulseOpen },
-        compile(regex: "^StrobeModePulseClose$") : { _ in .strobeModePulseClose },
-        compile(regex: "^StrobeModeRandom$") : { _ in .strobeModeRandom },
-        compile(regex: "^StrobeModeRandomPulse$") : { _ in .strobeModeRandomPulse },
-        compile(regex: "^StrobeModeRandomPulseOpen$") : { _ in .strobeModeRandomPulseOpen },
-        compile(regex: "^StrobeModeRandomPulseClose$") : { _ in .strobeModeRandomPulseClose },
-        compile(regex: "^StrobeModeEffect$") : { _ in .strobeModeEffect },
-        compile(regex: "^Shutter(?<n>[0-9]+)$") : { e in .shutter(n: e[0]) },
-        compile(regex: "^Shutter(?<n>[0-9]+)Strobe$") : { e in .shutterStrobe(n: e[0]) },
-        compile(regex: "^Shutter(?<n>[0-9]+)StrobePulse$") : { e in .shutterStrobePulse(n: e[0]) },
-        compile(regex: "^Shutter(?<n>[0-9]+)StrobePulseClose$") : { e in .shutterStrobePulseClose(n: e[0]) },
-        compile(regex: "^Shutter(?<n>[0-9]+)StrobePulseOpen$") : { e in .shutterStrobePulseOpen(n: e[0]) },
-        compile(regex: "^Shutter(?<n>[0-9]+)StrobeRandom$") : { e in .shutterStrobeRandom(n: e[0]) },
-        compile(regex: "^Shutter(?<n>[0-9]+)StrobeRandomPulse$") : { e in .shutterStrobeRandomPulse(n: e[0]) },
-        compile(regex: "^Shutter(?<n>[0-9]+)StrobeRandomPulseClose$") : { e in .shutterStrobeRandomPulseClose(n: e[0]) },
-        compile(regex: "^Shutter(?<n>[0-9]+)StrobeRandomPulseOpen$") : { e in .shutterStrobeRandomPulseOpen(n: e[0]) },
-        compile(regex: "^Shutter(?<n>[0-9]+)StrobeEffect$") : { e in .shutterStrobeEffect(n: e[0]) },
-        compile(regex: "^Iris$") : { _ in .iris },
-        compile(regex: "^IrisStrobe$") : { _ in .irisStrobe },
-        compile(regex: "^IrisStrobeRandom$") : { _ in .irisStrobeRandom },
-        compile(regex: "^IrisPulseClose$") : { _ in .irisPulseClose },
-        compile(regex: "^IrisPulseOpen$") : { _ in .irisPulseOpen },
-        compile(regex: "^IrisRandomPulseClose$") : { _ in .irisRandomPulseClose },
-        compile(regex: "^IrisRandomPulseOpen$") : { _ in .irisRandomPulseOpen },
-        compile(regex: "^Frost(?<n>[0-9]+)$") : { e in .frost(n: e[0]) },
-        compile(regex: "^Frost(?<n>[0-9]+)PulseOpen$") : { e in .frostPulseOpen(n: e[0]) },
-        compile(regex: "^Frost(?<n>[0-9]+)PulseClose$") : { e in .frostPulseClose(n: e[0]) },
-        compile(regex: "^Frost(?<n>[0-9]+)Ramp$") : { e in .frostRamp(n: e[0]) },
-        compile(regex: "^Prism(?<n>[0-9]+)$") : { e in .prism(n: e[0]) },
-        compile(regex: "^Prism(?<n>[0-9]+)SelectSpin$") : { e in .prismSelectSpin(n: e[0]) },
-        compile(regex: "^Prism(?<n>[0-9]+)Macro$") : { e in .prismMacro(n: e[0]) },
-        compile(regex: "^Prism(?<n>[0-9]+)Pos$") : { e in .prismPosition(n: e[0]) },
-        compile(regex: "^Prism(?<n>[0-9]+)PosRotate$") : { e in .prismPositionRotate(n: e[0]) },
-        compile(regex: "^Effects(?<n>[0-9]+)$") : { e in .effects(n: e[0]) },
-        compile(regex: "^Effects(?<n>[0-9]+)Rate$") : { e in .effectsRate(n: e[0]) },
-        compile(regex: "^Effects(?<n>[0-9]+)Fade$") : { e in .effectsFade(n: e[0]) },
-        compile(regex: "^Effects(?<n>[0-9]+)Adjust(?<m>[0-9]+)$") : { e in .effectsAdjust(n: e[0], m: e[1]) },
-        compile(regex: "^Effects(?<n>[0-9]+)Pos$") : { e in .effectsPosition(n: e[0]) },
-        compile(regex: "^Effects(?<n>[0-9]+)PosRotate$") : { e in .effectsPositionRotate(n: e[0]) },
-        compile(regex: "^EffectsSync$") : { _ in .effectsSync },
-        compile(regex: "^BeamShaper$") : { _ in .beamShaper },
-        compile(regex: "^BeamShaperMacro$") : { _ in .beamShaperMacro },
-        compile(regex: "^BeamShaperPos$") : { _ in .beamShaperPosition },
-        compile(regex: "^BeamShaperPosRotate$") : { _ in .beamShaperPositionRotate },
-        compile(regex: "^Zoom$") : { _ in .zoom },
-        compile(regex: "^ZoomModeSpot$") : { _ in .zoomModeSpot },
-        compile(regex: "^ZoomModeBeam$") : { _ in .zoomModeBeam },
-        compile(regex: "^DigitalZoom$") : { _ in .digitalZoom },
-        compile(regex: "^Focus(?<n>[0-9]+)$") : { e in .focus(n: e[0]) },
-        compile(regex: "^Focus(?<n>[0-9]+)Adjust$") : { e in .focusAdjust(n: e[0]) },
-        compile(regex: "^Focus(?<n>[0-9]+)Distance$") : { e in .focusDistance(n: e[0]) },
-        compile(regex: "^Control(?<n>[0-9]+)$") : { e in .control(n: e[0]) },
-        compile(regex: "^DimmerMode$") : { _ in .dimmerMode },
-        compile(regex: "^DimmerCurve$") : { _ in .dimmerCurve },
-        compile(regex: "^BlackoutMode$") : { _ in .blackoutMode },
-        compile(regex: "^LEDFrequency$") : { _ in .ledFrequency },
-        compile(regex: "^LEDZoneMode$") : { _ in .ledZoneMode },
-        compile(regex: "^PixelMode$") : { _ in .pixelMode },
-        compile(regex: "^PanMode$") : { _ in .panMode },
-        compile(regex: "^TiltMode$") : { _ in .tiltMode },
-        compile(regex: "^PanTiltMode$") : { _ in .panTiltMode },
-        compile(regex: "^PositionModes$") : { _ in .positionModes },
-        compile(regex: "^Gobo(?<n>[0-9]+)WheelMode$") : { e in .goboWheelMode(n: e[0]) },
-        compile(regex: "^GoboWheelShortcutMode$") : { _ in .goboWheelShortcutMode },
-        compile(regex: "^AnimationWheel(?<n>[0-9]+)Mode$") : { e in .animationWheelMode(n: e[0]) },
-        compile(regex: "^AnimationWheelShortcutMode$") : { _ in .animationWheelShortcutMode },
-        compile(regex: "^Color(?<n>[0-9]+)Mode$") : { e in .colorMode(n: e[0]) },
-        compile(regex: "^ColorWheelShortcutMode$") : { _ in .colorWheelShortcutMode },
-        compile(regex: "^CyanMode$") : { _ in .cyanMode },
-        compile(regex: "^MagentaMode$") : { _ in .magentaMode },
-        compile(regex: "^YellowMode$") : { _ in .yellowMode },
-        compile(regex: "^ColorMixMode$") : { _ in .colorMixMode },
-        compile(regex: "^ChromaticMode$") : { _ in .chromaticMode },
-        compile(regex: "^ColorCalibrationMode$") : { _ in .colorCalibrationMode },
-        compile(regex: "^ColorConsistency$") : { _ in .colorConsistency },
-        compile(regex: "^ColorControl$") : { _ in .colorControl },
-        compile(regex: "^ColorModelMode$") : { _ in .colorModelMode },
-        compile(regex: "^ColorSettingsReset$") : { _ in .colorSettingsReset },
-        compile(regex: "^ColorUniformity$") : { _ in .colorUniformity },
-        compile(regex: "^CRIMode$") : { _ in .colorRenderingIndexMode },
-        compile(regex: "^CustomColor$") : { _ in .customColor },
-        compile(regex: "^UVStability$") : { _ in .ultravioletStability },
-        compile(regex: "^WavelengthCorrection$") : { _ in .wavelengthCorrection },
-        compile(regex: "^WhiteCount$") : { _ in .whiteCount },
-        compile(regex: "^StrobeMode$") : { _ in .strobeMode },
-        compile(regex: "^ZoomMode$") : { _ in .zoomMode },
-        compile(regex: "^FocusMode$") : { _ in .focusMode },
-        compile(regex: "^IrisMode$") : { _ in .irisMode },
-        compile(regex: "^Fan(?<n>[0-9]+)Mode$") : { e in .fanMode(n: e[0]) },
-        compile(regex: "^FollowSpotMode$") : { _ in .followSpotMode },
-        compile(regex: "^BeamEffectIndexRotateMode$") : { _ in .beamEffectIndexRotateMode },
-        compile(regex: "^IntensityMSpeed$") : { _ in .intensityMovementSpeed },
-        compile(regex: "^PositionMSpeed$") : { _ in .positionMovementSpeed },
-        compile(regex: "^ColorMixMSpeed$") : { _ in .colorMixMovementSpeed },
-        compile(regex: "^ColorWheelSelectSpeed$") : { _ in .colorWheelSelectMovementSpeed },
-        compile(regex: "^GoboWheel(?<n>[0-9]+)MSpeed$") : { e in .goboWheelMovementSpeed(n: e[0]) },
-        compile(regex: "^IrisMSpeed$") : { _ in .irisMovementSpeed },
-        compile(regex: "^Prism(?<n>[0-9]+)MSpeed$") : { e in .prismMovementSpeed(n: e[0]) },
-        compile(regex: "^FocusMSpeed$") : { _ in .focusMovementSpeed },
-        compile(regex: "^Frost(?<n>[0-9]+)MSpeed$") : { e in .frostMovementSpeed(n: e[0]) },
-        compile(regex: "^ZoomMSpeed$") : { _ in .zoomMovementSpeed },
-        compile(regex: "^Frame(?<n>[0-9]+)MSpeed$") : { e in .frameMovementSpeed(n: e[0]) },
-        compile(regex: "^GlobalMSpeed$") : { _ in .globalMovementSpeed },
-        compile(regex: "^ReflectorAdjust$") : { _ in .reflectorAdjust },
-        compile(regex: "^FixtureGlobalReset$") : { _ in .fixtureGlobalReset },
-        compile(regex: "^DimmerReset$") : { _ in .dimmerReset },
-        compile(regex: "^ShutterReset$") : { _ in .shutterReset },
-        compile(regex: "^BeamReset$") : { _ in .beamReset },
-        compile(regex: "^ColorMixReset$") : { _ in .colorMixReset },
-        compile(regex: "^ColorWheelReset$") : { _ in .colorWheelReset },
-        compile(regex: "^FocusReset$") : { _ in .focusReset },
-        compile(regex: "^FrameReset$") : { _ in .frameReset },
-        compile(regex: "^GoboWheelReset$") : { _ in .goboWheelReset },
-        compile(regex: "^IntensityReset$") : { _ in .intensityReset },
-        compile(regex: "^IrisReset$") : { _ in .irisReset },
-        compile(regex: "^PositionReset$") : { _ in .positionReset },
-        compile(regex: "^PanReset$") : { _ in .panReset },
-        compile(regex: "^TiltReset$") : { _ in .tiltReset },
-        compile(regex: "^ZoomReset$") : { _ in .zoomReset },
-        compile(regex: "^CTBReset$") : { _ in .colorTemperatureBlueReset },
-        compile(regex: "^CTOReset$") : { _ in .colorTemperatureOrangeReset },
-        compile(regex: "^CTCReset$") : { _ in .colorTemperatureCorrectionReset },
-        compile(regex: "^AnimationSystemReset$") : { _ in .animationSystemReset },
-        compile(regex: "^FixtureCalibrationReset$") : { _ in .fixtureCalibrationReset },
-        compile(regex: "^Function$") : { _ in .function },
-        compile(regex: "^LampControl$") : { _ in .lampControl },
-        compile(regex: "^DisplayIntensity$") : { _ in .displayIntensity },
-        compile(regex: "^DMXInput$") : { _ in .dmxInput },
-        compile(regex: "^NoFeature$") : { _ in .noFeature },
-        compile(regex: "^Blower(?<n>[0-9]+)$") : { e in .blower(n: e[0]) },
-        compile(regex: "^Fan(?<n>[0-9]+)$") : { e in .fan(n: e[0]) },
-        compile(regex: "^Fog(?<n>[0-9]+)$") : { e in .fog(n: e[0]) },
-        compile(regex: "^Haze(?<n>[0-9]+)$") : { e in .haze(n: e[0]) },
-        compile(regex: "^LampPowerMode$") : { _ in .lampPowerMode },
-        compile(regex: "^Fans$") : { _ in .fans },
-        compile(regex: "^Blade(?<n>[0-9]+)A$") : { e in .bladeA(n: e[0]) },
-        compile(regex: "^Blade(?<n>[0-9]+)B$") : { e in .bladeB(n: e[0]) },
-        compile(regex: "^Blade(?<n>[0-9]+)Rot$") : { e in .bladeRotation(n: e[0]) },
-        compile(regex: "^ShaperRot$") : { _ in .shaperRotation },
-        compile(regex: "^ShaperMacros$") : { _ in .shaperMacros },
-        compile(regex: "^ShaperMacrosSpeed$") : { _ in .shaperMacrosSpeed },
-        compile(regex: "^BladeSoft(?<n>[0-9]+)A$") : { e in .bladeSoftA(n: e[0]) },
-        compile(regex: "^BladeSoft(?<n>[0-9]+)B$") : { e in .bladeSoftB(n: e[0]) },
-        compile(regex: "^KeyStone(?<n>[0-9]+)A$") : { e in .keystoneA(n: e[0]) },
-        compile(regex: "^KeyStone(?<n>[0-9]+)B$") : { e in .keystoneB(n: e[0]) },
-        compile(regex: "^Video$") : { _ in .video },
-        compile(regex: "^VideoEffect(?<n>[0-9]+)Type$") : { e in .videoEffectType(n: e[0]) },
-        compile(regex: "^VideoEffect(?<n>[0-9]+)Parameter(?<m>[0-9]+)$") : { e in .videoEffectParameter(n: e[0], m: e[1]) },
-        compile(regex: "^VideoCamera(?<n>[0-9]+)$") : { e in .videoCamera(n: e[0]) },
-        compile(regex: "^VideoSoundVolume(?<n>[0-9]+)$") : { e in .videoSoundVolume(n: e[0]) },
-        compile(regex: "^VideoBlendMode$") : { _ in .videoBlendMode },
-        compile(regex: "^InputSource$") : { _ in .inputSource },
-        compile(regex: "^FieldOfView$") : { _ in .fieldOfView },
-    ]
-    
-    public static func from(_ str: String) -> Self {
-        // Get any numbers out of the string for later
-        
-        // Helper Function
-        func stringMatches(_ string: String, regex: NSRegularExpression) -> (Bool, [Int]) {
-            if let match = regex.firstMatch(in: str, options: [], range: NSRange(str.startIndex..<str.endIndex, in: str)) {
-                var enumerations: [Int] = []
-                
-                // Extract the enumerations if the exist
-                for capture in ["n", "m"] {
-                    let range = match.range(withName: capture)
-                    if range.location != NSNotFound {
-                        if let e = Int((str as NSString).substring(with: range)) {
-                            enumerations.append(e)
-                        }
-                    }
-                }
-                
-                return (true, enumerations)
-            }
-            
-            return (false, [])
-        }
-        
-        for (regex, generator) in regexes {
-            let match = stringMatches(str, regex: regex)
-            if match.0 {
-                return generator(match.1)
-            }
-        }
-        
-        return .custom(name: str)
-    }
-}
-
-
-

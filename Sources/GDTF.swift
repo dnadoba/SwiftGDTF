@@ -64,6 +64,7 @@ public struct FixtureType: Codable {
     public var physicalDescriptions: PhysicalDescriptions
     public var dmxModes: [DMXMode]
     public var geometries: [Geometry]
+    public var revisions: [Revision]
 }
 
 // this is an identical copy to FixtureType but only includes top level attributes
@@ -377,4 +378,15 @@ public struct MacroStep: Codable {
 public struct MacroValue: Codable {
     public var value: DMXValue
     public var dmxChannel: String
+}
+
+public struct Revision: Codable {
+    /// User-defined text for this revision; Default value: empty
+    public var text: String
+    /// Revision date and time
+    public var date: Date
+    /// UserID of the user that has uploaded the GDTF file to the database; Default value: 0
+    public var userID: Int
+    /// Name of the software that modified this revision; Default value: empty
+    public var modifiedBy: String
 }

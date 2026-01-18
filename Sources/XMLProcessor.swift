@@ -57,6 +57,7 @@ extension FixtureType: XMLDecodable {
             try DMXMode(xml: $0, tree: tree, dependencies: dmxModeParseDependencies)
         }
         self.geometries = try xml["Geometries"].parseChildrenToArray(tree: tree)
+        self.revisions = try (try? xml.byKey("Revisions"))?.children.map { try Revision(xml: $0) } ?? []
     }
 }
 
@@ -682,5 +683,20 @@ extension MacroValue: XMLDecodableWithParent {
         guard let element = xml.element else { throw XMLParsingError.elementMissing }
         self.dmxChannel = try element.attribute(named: "DMXChannel").text
         self.value = try DMXValue(from: element.attribute(named: "Value").text)
+    }
+}
+
+extension Revision {
+    private static let dateParseStrategy = Date.ParseStrategy(
+        format: "\(year: .defaultDigits)-\(month: .twoDigits)-\(day: .twoDigits)T\(hour: .twoDigits(clock: .twentyFourHour, hourCycle: .zeroBased)):\(minute: .twoDigits):\(second: .twoDigits)",
+        locale: Locale(identifier: "en_US_POSIX"), timeZone: .gmt
+    )
+    init(xml: SWXMLHash.XMLIndexer) throws {
+        guard let element = xml.element else { throw XMLParsingError.elementMissing }
+        self.text = try element.attribute(named: "Text").text
+        let dateString = try element.attribute(named: "Date").text
+        self.date = try Date(dateString, strategy: Self.dateParseStrategy)
+        self.userID = try element.attribute(named: "UserID").requiredInt
+        self.modifiedBy = element.attribute(by: "ModifiedBy")?.text ?? ""
     }
 }

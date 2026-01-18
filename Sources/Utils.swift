@@ -21,6 +21,7 @@ public enum XMLParsingError: Error {
     case failedToParseDouble(String)
     case failedToParseInt(String)
     case unexpectedGeometryType(String)
+    case unexpectedProtocolType(String)
     case missingWheel(String)
     case missingEmitter(String)
     case missingFilter(String)
@@ -231,6 +232,13 @@ extension XMLAttribute {
         }
         
         return enumValue
+    }
+    
+    func requiredHexInt<Integer: FixedWidthInteger & BinaryInteger>() throws -> Integer {
+        guard text.hasPrefix("0x"), let integer = Integer.init(text.dropFirst(2), radix: 16) else {
+            throw XMLParsingError.failedToParseInt(self.text)
+        }
+        return integer
     }
 }
 

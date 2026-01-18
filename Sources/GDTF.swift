@@ -64,6 +64,7 @@ public struct FixtureType: Codable {
     public var physicalDescriptions: PhysicalDescriptions
     public var dmxModes: [DMXMode]
     public var geometries: [Geometry]
+    public var protocols: [FixtureProtocol]
     public var revisions: [Revision]
 }
 
@@ -378,6 +379,51 @@ public struct MacroStep: Codable {
 public struct MacroValue: Codable {
     public var value: DMXValue
     public var dmxChannel: String
+}
+
+/// If the device supports one or several additional protocols, these protocol specific information have to be specified.
+///
+/// There are more protoclls in the spec but they don't really contain usefull information yet.
+/// I don't really understand what the sACN/ArtNet mappings are for either so leaving them out for now.
+/// I also check on 18/01/26 that no GDTF file on the share contains anything but RDM.
+public enum FixtureProtocol: Codable {
+    public enum Kind: String {
+        case rdm = "FTRDM"
+        case artNet = "Art-Net"
+        case sACN = "sACN"
+        case posiStageNet = "PosiStageNet"
+        case openSoundControl = "OpenSoundControl"
+    }
+    case rdm(RDM)
+}
+
+public struct RDM: Codable {
+    /// Manufacturer ESTA ID
+    public var manufacturerID: UInt16
+    /// Unique device model ID
+    public var deviceModelID: UInt32
+    /// all software versions and their supported DMX modes
+    public var softwareVersions: [SofwareVersion]
+    
+    /// mmmm:dddddddd, where mmmm is the Manufacturer ID in hexadecimal and dddddddd is the Device ID in hexadecimal.
+    public var uid: String {
+        String(format: "%04X:%08X", manufacturerID, deviceModelID)
+    }
+}
+
+extension RDM {
+    public struct SofwareVersion: Codable {
+        /// Software version ID
+        public var id: UInt32
+        /// supported DMX modes
+        public var personalties: [DMXPersonality]
+    }
+    public struct DMXPersonality: Codable {
+        /// Hex Value of the DMXPersonality
+        public var id: UInt16
+        /// Link to the DMX Mode that can be used with this software version.
+        public var dmxMode: String
+    }
 }
 
 public struct Revision: Codable {

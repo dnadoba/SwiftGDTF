@@ -57,6 +57,7 @@ extension FixtureType: XMLDecodable {
             try DMXMode(xml: $0, tree: tree, dependencies: dmxModeParseDependencies)
         }
         self.geometries = try xml["Geometries"].parseChildrenToArray(tree: tree)
+        self.protocols = try (try? xml.byKey("Protocols"))?.children.compactMap { try FixtureProtocol(xml: $0) } ?? []
         self.revisions = try (try? xml.byKey("Revisions"))?.children.map { try Revision(xml: $0) } ?? []
     }
 }
@@ -700,3 +701,45 @@ extension Revision {
         self.modifiedBy = element.attribute(by: "ModifiedBy")?.text ?? ""
     }
 }
+
+extension FixtureProtocol {
+    init?(xml: SWXMLHash.XMLIndexer) throws {
+        guard let element = xml.element else { throw XMLParsingError.elementMissing }
+        guard let kind = Kind(rawValue: element.name) else {
+            throw XMLParsingError.unexpectedProtocolType(element.name)
+        }
+        // RDM is the only protocol we care at the moment
+        guard kind == .rdm else {
+            print("Unsupported Protocol Kind", kind)
+            return nil
+        }
+        self = .rdm(try .init(xml: xml))
+    }
+}
+
+extension RDM {
+    init(xml: SWXMLHash.XMLIndexer) throws {
+        guard let element = xml.element else { throw XMLParsingError.elementMissing }
+        self.manufacturerID = try element.attribute(named: "ManufacturerID").requiredHexInt()
+        self.deviceModelID = try element.attribute(named: "DeviceModelID").requiredHexInt()
+        self.softwareVersions = try xml.children.map { try RDM.SofwareVersion(xml: $0) }
+    }
+}
+
+extension RDM.SofwareVersion {
+    init(xml: SWXMLHash.XMLIndexer) throws {
+        guard let element = xml.element else { throw XMLParsingError.elementMissing }
+        self.id = try element.attribute(named: "Value").requiredHexInt()
+        self.personalties = try xml.children.map { try RDM.DMXPersonality(xml: $0) }
+    }
+}
+
+extension RDM.DMXPersonality {
+    init(xml: SWXMLHash.XMLIndexer) throws {
+        guard let element = xml.element else { throw XMLParsingError.elementMissing }
+        self.id = try element.attribute(named: "Value").requiredHexInt()
+        self.dmxMode = try element.attribute(named: "DMXMode").text
+    }
+}
+
+

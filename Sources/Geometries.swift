@@ -120,7 +120,7 @@ public enum Geometry: Codable {
         case .mediaServerCamera(let geometry): geometry.children
         case .mediaServerMaster(let geometry): geometry.children
         case .display(let geometry): geometry.children
-        case .reference(let geometry): geometry.children
+        case .reference: []
         case .laser(let geometry): geometry.children
         case .wiringObject(let geometry): geometry.children
         case .inventory(let geometry): geometry.children
@@ -454,26 +454,8 @@ public struct Display: Codable, GeometryProtocol {
 ///
 /// The Geometry Type Reference is used to describe multiple instances of the same geometry. Example: LED panel with multiple pixels. (XML node ).
 /// Note 1: Geometry Reference also allows easier definition of the DMX Channels for these geometries.
-public struct GeometryReference: GeometryProtocol, Codable {
+public struct GeometryReference: Codable {
     public static var kind: Geometry.Kind { .reference }
-    
-    enum Child {
-        enum Kind {
-            case geometry(Geometry.Kind)
-            case dmxBreak
-            init?(rawValue: String) {
-                if rawValue == "Break" {
-                    self = .dmxBreak
-                } else if let geometry = Geometry.Kind(rawValue: rawValue) {
-                    self = .geometry(geometry)
-                } else {
-                    return nil
-                }
-            }
-        }
-        case geometry(Geometry)
-        case dmxBreak(DMXBreak)
-    }
     
     /// The unique name of the geometry.
     public var name: String
@@ -487,8 +469,6 @@ public struct GeometryReference: GeometryProtocol, Codable {
     
     /// As children, the Geometry Type Reference has a list of breaks. The count of the children depends on the number of different breaks in the DMX channels of the referenced geometry. If the referenced geometry, for example, has DMX channels with DMX break 2 and 4, the geometry reference has to have 2 children. The first child with DMX offset for DMX break 2 and the second child for DMX break 4. If one or more of the DMX channels of the referenced geometry have the special value “Overwrite” as a DMX break, the DMX break for those channels and the DMX offsets need to be defined.
     public var dmxBreaks: [DMXBreak]
-    
-    public var children: [Geometry]
 }
 
 /// Geometry with a laser light output.

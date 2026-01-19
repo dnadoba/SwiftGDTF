@@ -172,36 +172,7 @@ extension GeometryReference: XMLDecodable {
         self.model = element.attribute(by: "Model")?.text
         self.position = try Matrix(from: try element.attribute(named: "Position").text)
         self.geometry = element.attribute(by: "Geometry")?.text
-        
-        var geometries = [Geometry]()
-        var dmxBreaks = [DMXBreak]()
-    
-        let children: [Child] = try xml.parseChildrenToArray(tree: tree)
-        for child in children {
-            switch child {
-            case .geometry(let geometry):
-                geometries.append(geometry)
-            case .dmxBreak(let dmxBreak):
-                dmxBreaks.append(dmxBreak)
-            }
-        }
-        self.dmxBreaks = dmxBreaks
-        self.children = geometries
-    }
-}
-
-extension GeometryReference.Child: XMLDecodable {
-    init(xml: SWXMLHash.XMLIndexer, tree: SWXMLHash.XMLIndexer) throws {
-        guard let element = xml.element else { throw XMLParsingError.elementMissing }
-        guard let kind = Kind(rawValue: element.name) else {
-            throw XMLParsingError.unexpectedGeometryType(element.name)
-        }
-        switch kind {
-        case .geometry(let kind):
-            self = .geometry(try kind.parse(xml: xml, tree: tree))
-        case .dmxBreak:
-            self = .dmxBreak(try .init(xml: xml, tree: tree))
-        }
+        self.dmxBreaks = try xml.parseChildrenToArray(tree: tree)
     }
 }
 

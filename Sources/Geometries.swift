@@ -201,6 +201,7 @@ public enum Geometry: Codable {
 }
 
 extension Geometry {
+    /// self and all children recursivly
     public var nestedChildren: GeometryNestedChildren {
         GeometryNestedChildren(geometry: self)
     }

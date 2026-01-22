@@ -53,28 +53,23 @@ extension DMXMode {
             } else if let references = topLevelGeometryToReferences[channel.geometry] {
                 // This isn't in the root geometry but it might be references
                 for reference in references {
-                    for dmxBreak in reference.dmxBreaks {
-                        var copyOfChannel = channel
-                        switch channel.dmxBreak {
-                        case .id(let channelDmxBreak):
-                            guard channelDmxBreak == dmxBreak.break else {
-                                continue
-                            }
-                        case .overwrite:
-                            copyOfChannel.dmxBreak = .id(dmxBreak.break)
-                        }
-                        
-                        copyOfChannel.offset = copyOfChannel.offset.map {
-                            /// a DMXAddress has in theory also a univers but the GDTF Share editor doesn't seem to allow to define the universe
-                            $0 + (dmxBreak.offset.address - 1)
-                        }
-                        if let oldName = copyOfChannel.name {
-                            copyOfChannel.name = "\(reference.name) \(oldName)"
-                        } else {
-                            copyOfChannel.name = reference.name
-                        }
-                        channelsFromReferences.append(copyOfChannel)
+                    var copyOfChannel = channel
+                    guard let referenceBreak = reference.getDMXBreak(for: channel.dmxBreak) else {
+                        continue
                     }
+                    // This is only really doing something if the dmxBreak was overwrite before
+                    copyOfChannel.dmxBreak = .id(referenceBreak.break)
+                    
+                    copyOfChannel.offset = copyOfChannel.offset.map {
+                        /// a DMXAddress has in theory also a univers but the GDTF Share editor doesn't seem to allow to define the universe
+                        $0 + (referenceBreak.offset.address - 1)
+                    }
+                    if let oldName = copyOfChannel.name {
+                        copyOfChannel.name = "\(reference.name) \(oldName)"
+                    } else {
+                        copyOfChannel.name = reference.name
+                    }
+                    channelsFromReferences.append(copyOfChannel)
                 }
             }
         }

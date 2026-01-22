@@ -472,6 +472,19 @@ public struct GeometryReference: Codable {
     public var dmxBreaks: [DMXBreak]
 }
 
+extension GeometryReference {
+    /// This isn't mentioned in the spec but I have noticed that if a DMX Channel with ``DMXChannel/Break/overwrite`` is defined then the last element in this array will contain the value for the break.
+    /// All other DMX breaks are before that and a matching break for a DMX Channel therfore needs to be seearch linearly from the start as it might have duplicates due to the last overwrite break.
+    public func getDMXBreak(for channelBreak: DMXChannel.Break) -> DMXBreak? {
+        switch channelBreak {
+        case .id(let id):
+            dmxBreaks.first(where: { $0.break == id })
+        case .overwrite:
+            dmxBreaks.last
+        }
+    }
+}
+
 /// Geometry with a laser light output.
 ///
 /// This type of geometry is used to describe the position of a laser's light output (XML node <Laser>).

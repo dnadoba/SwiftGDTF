@@ -275,7 +275,7 @@ public struct DMXMode: Codable {
 }
 
 public struct DMXChannel: Codable {
-    public enum Break: Codable, Comparable {
+    public enum Break: Codable, Comparable, Hashable {
         case id(Int)
         case overwrite
         init?(rawValue: String) {

@@ -85,3 +85,15 @@ extension DMXMode {
         return copyOfDMXMode
     }
 }
+
+import OrderedCollections
+
+extension [DMXChannel] {
+    /// Groups the ``DMXChannel`` by their ``DMXChannel/Break``.
+    /// - Returns: The returned ``OrderedDictionary`` is sorted by the ``DMXChannel.Break``.
+    public func groupedByDMXBreak() -> OrderedDictionary<DMXChannel.Break, [DMXChannel]> {
+        var dict = OrderedDictionary(grouping: self, by: { $0.dmxBreak })
+        dict.sort(by: { $0.key < $1.key })
+        return dict
+    }
+}

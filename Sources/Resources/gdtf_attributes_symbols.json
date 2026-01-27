@@ -1,149 +1,956 @@
 {
-  "Dimmer": { "symbol": "lightbulb", "category": "Intensity", "style": "continuous" },
-  "Pan": { "symbol": "arrow.left.and.right", "category": "Position", "style": "continuous" },
-  "Tilt": { "symbol": "arrow.up.and.down", "category": "Position", "style": "continuous" },
-  "PanRotate": { "symbol": "arrow.triangle.2.circlepath", "category": "Position", "style": "continuous" },
-  "TiltRotate": { "symbol": "arrow.triangle.2.circlepath", "category": "Position", "style": "continuous" },
-  "PositionEffect": { "symbol": "wand.and.stars", "category": "Position", "style": "effect" },
-  "PositionEffectRate": { "symbol": "speedometer", "category": "Position", "style": "continuous" },
-  "PositionEffectFade": { "symbol": "arrow.up.left.and.down.right", "category": "Position", "style": "continuous" },
-
-  "XYZ_X": { "symbol": "arrow.left.and.right", "category": "Position", "style": "continuous" },
-  "XYZ_Y": { "symbol": "arrow.up.and.down", "category": "Position", "style": "continuous" },
-  "XYZ_Z": { "symbol": "arrow.up.and.down", "category": "Position", "style": "continuous" },
-
-  "Rot_X": { "symbol": "rotate.left", "category": "Position", "style": "continuous" },
-  "Rot_Y": { "symbol": "rotate.left", "category": "Position", "style": "continuous" },
-  "Rot_Z": { "symbol": "rotate.right", "category": "Position", "style": "continuous" },
-
-  "Scale_X": { "symbol": "arrow.up.left.and.down.right", "category": "Position", "style": "continuous" },
-  "Scale_Y": { "symbol": "arrow.up.left.and.down.right", "category": "Position", "style": "continuous" },
-  "Scale_Z": { "symbol": "arrow.up.left.and.down.right", "category": "Position", "style": "continuous" },
-  "Scale_XYZ": { "symbol": "arrow.up.left.and.down.right", "category": "Position", "style": "continuous" },
-
-  "Gobo(n)": { "symbol": "circle.grid.3x3", "category": "Gobo", "style": "discrete" },
-  "Gobo(n)SelectSpin": { "symbol": "arrow.triangle.2.circlepath", "category": "Gobo", "style": "continuous" },
-  "Gobo(n)SelectShake": { "symbol": "sparkles", "category": "Gobo", "style": "effect" },
-  "Gobo(n)SelectEffects": { "symbol": "sparkles", "category": "Gobo", "style": "effect" },
-
-  "Gobo(n)WheelIndex": { "symbol": "circle.grid.3x3", "category": "Gobo", "style": "discrete" },
-  "Gobo(n)WheelSpin": { "symbol": "arrow.triangle.2.circlepath", "category": "Gobo", "style": "continuous" },
-  "Gobo(n)WheelShake": { "symbol": "sparkles", "category": "Gobo", "style": "effect" },
-  "Gobo(n)WheelRandom": { "symbol": "shuffle", "category": "Gobo", "style": "effect" },
-  "Gobo(n)WheelAudio": { "symbol": "music.note", "category": "Gobo", "style": "effect" },
-
-  "Gobo(n)Pos": { "symbol": "circle.grid.3x3", "category": "Gobo", "style": "continuous" },
-  "Gobo(n)PosRotate": { "symbol": "arrow.triangle.2.circlepath", "category": "Gobo", "style": "continuous" },
-  "Gobo(n)PosShake": { "symbol": "sparkles", "category": "Gobo", "style": "effect" },
-
-  "AnimationWheel(n)": { "symbol": "film", "category": "Animation", "style": "discrete" },
-  "AnimationWheel(n)Audio": { "symbol": "music.note", "category": "Animation", "style": "effect" },
-  "AnimationWheel(n)Macro": { "symbol": "film.stack", "category": "Animation", "style": "discrete" },
-  "AnimationWheel(n)Random": { "symbol": "shuffle", "category": "Animation", "style": "effect" },
-  "AnimationWheel(n)SelectEffects": { "symbol": "sparkles", "category": "Animation", "style": "effect" },
-  "AnimationWheel(n)SelectShake": { "symbol": "sparkles", "category": "Animation", "style": "effect" },
-  "AnimationWheel(n)SelectSpin": { "symbol": "arrow.triangle.2.circlepath", "category": "Animation", "style": "continuous" },
-  "AnimationWheel(n)Pos": { "symbol": "film", "category": "Animation", "style": "continuous" },
-  "AnimationWheel(n)PosRotate": { "symbol": "arrow.triangle.2.circlepath", "category": "Animation", "style": "continuous" },
-  "AnimationWheel(n)PosShake": { "symbol": "sparkles", "category": "Animation", "style": "effect" },
-
-  "AnimationSystem(n)": { "symbol": "goforward", "category": "Animation", "style": "discrete" },
-  "AnimationSystem(n)Ramp": { "symbol": "speedometer", "category": "Animation", "style": "continuous" },
-  "AnimationSystem(n)Shake": { "symbol": "sparkles", "category": "Animation", "style": "effect" },
-  "AnimationSystem(n)Audio": { "symbol": "music.note", "category": "Animation", "style": "effect" },
-  "AnimationSystem(n)Random": { "symbol": "shuffle", "category": "Animation", "style": "effect" },
-  "AnimationSystem(n)Pos": { "symbol": "goforward", "category": "Animation", "style": "continuous" },
-  "AnimationSystem(n)PosRotate": { "symbol": "arrow.triangle.2.circlepath", "category": "Animation", "style": "continuous" },
-  "AnimationSystem(n)PosShake": { "symbol": "sparkles", "category": "Animation", "style": "effect" },
-  "AnimationSystem(n)PosRandom": { "symbol": "shuffle", "category": "Animation", "style": "effect" },
-  "AnimationSystem(n)PosAudio": { "symbol": "music.note", "category": "Animation", "style": "effect" },
-  "AnimationSystem(n)Macro": { "symbol": "film.stack", "category": "Animation", "style": "discrete" },
-
-  "MediaFolder(n)": { "symbol": "folder", "category": "Media", "style": "discrete" },
-  "MediaContent(n)": { "symbol": "doc", "category": "Media", "style": "discrete" },
-  "ModelFolder(n)": { "symbol": "folder", "category": "Media", "style": "discrete" },
-  "ModelContent(n)": { "symbol": "cube", "category": "Media", "style": "discrete" },
-  "Playmode": { "symbol": "playpause", "category": "Media", "style": "discrete" },
-  "PlayBegin": { "symbol": "play.fill", "category": "Media", "style": "continuous" },
-  "PlayEnd": { "symbol": "stop.fill", "category": "Media", "style": "continuous" },
-  "PlaySpeed": { "symbol": "speedometer", "category": "Media", "style": "continuous" },
-
-  "ColorEffects(n)": { "symbol": "sparkles", "category": "Color", "style": "discrete" },
-  "Color(n)": { "symbol": "paintpalette", "category": "Color", "style": "discrete" },
-  "Color(n)WheelIndex": { "symbol": "circle.grid.3x3", "category": "Color", "style": "discrete" },
-  "Color(n)WheelSpin": { "symbol": "arrow.triangle.2.circlepath", "category": "Color", "style": "continuous" },
-  "Color(n)WheelRandom": { "symbol": "shuffle", "category": "Color", "style": "effect" },
-  "Color(n)WheelAudio": { "symbol": "music.note", "category": "Color", "style": "effect" },
-
-  "ColorAdd_R": { "symbol": "circle.fill", "category": "Color", "style": "continuous", "color": "red" },
-  "ColorAdd_G": { "symbol": "circle.fill", "category": "Color", "style": "continuous", "color": "green" },
-  "ColorAdd_B": { "symbol": "circle.fill", "category": "Color", "style": "continuous", "color": "blue" },
-  "ColorAdd_C": { "symbol": "circle.fill", "category": "Color", "style": "continuous", "color": "cyan" },
-  "ColorAdd_M": { "symbol": "circle.fill", "category": "Color", "style": "continuous", "color": "magenta" },
-  "ColorAdd_Y": { "symbol": "circle.fill", "category": "Color", "style": "continuous", "color": "yellow" },
-  "ColorAdd_RY": { "symbol": "circle.fill", "category": "Color", "style": "continuous", "color": "amber" },
-  "ColorAdd_GY": { "symbol": "circle.fill", "category": "Color", "style": "continuous", "color": "lime" },
-  "ColorAdd_GC": { "symbol": "circle.fill", "category": "Color", "style": "continuous", "color": "teal" },
-  "ColorAdd_BC": { "symbol": "circle.fill", "category": "Color", "style": "continuous", "color": "lightBlue" },
-  "ColorAdd_BM": { "symbol": "circle.fill", "category": "Color", "style": "continuous", "color": "purple" },
-  "ColorAdd_RM": { "symbol": "circle.fill", "category": "Color", "style": "continuous", "color": "pink" },
-  "ColorAdd_W": { "symbol": "circle.fill", "category": "Color", "style": "continuous", "color": "white" },
-  "ColorAdd_WW": { "symbol": "circle.fill", "category": "Color", "style": "continuous", "color": "warmWhite" },
-  "ColorAdd_CW": { "symbol": "circle.fill", "category": "Color", "style": "continuous", "color": "coolWhite" },
-  "ColorAdd_UV": { "symbol": "circle.fill", "category": "Color", "style": "continuous", "color": "purple" },
-
-  "ColorSub_R": { "symbol": "circle", "category": "Color", "style": "continuous", "color": "red" },
-  "ColorSub_G": { "symbol": "circle", "category": "Color", "style": "continuous", "color": "green" },
-  "ColorSub_B": { "symbol": "circle", "category": "Color", "style": "continuous", "color": "blue" },
-  "ColorSub_C": { "symbol": "circle", "category": "Color", "style": "continuous", "color": "cyan" },
-  "ColorSub_M": { "symbol": "circle", "category": "Color", "style": "continuous", "color": "magenta" },
-  "ColorSub_Y": { "symbol": "circle", "category": "Color", "style": "continuous", "color": "yellow" },
-
-  "ColorMacro(n)": { "symbol": "paintpalette", "category": "Color", "style": "discrete" },
-  "ColorMacro(n)Rate": { "symbol": "speedometer", "category": "Color", "style": "continuous" },
-
-  "CTO": { "symbol": "thermometer", "category": "Color", "style": "continuous", "color": "amber" },
-  "CTC": { "symbol": "thermometer", "category": "Color", "style": "continuous" },
-  "CTB": { "symbol": "thermometer", "category": "Color", "style": "continuous", "color": "blue" },
-  "Tint": { "symbol": "eyedropper", "category": "Color", "style": "continuous" },
-
-  "HSB_Hue": { "symbol": "circle.grid.3x3", "category": "Color", "style": "continuous" },
-  "HSB_Saturation": { "symbol": "circle.lefthalf.fill", "category": "Color", "style": "continuous" },
-  "HSB_Brightness": { "symbol": "lightbulb", "category": "Color", "style": "continuous" },
-  "HSB_Quality": { "symbol": "slider.horizontal.3", "category": "Color", "style": "continuous" },
-
-  "CIE_X": { "symbol": "circle.grid.3x3", "category": "Color", "style": "continuous" },
-  "CIE_Y": { "symbol": "circle.grid.3x3", "category": "Color", "style": "continuous" },
-  "CIE_Brightness": { "symbol": "lightbulb", "category": "Color", "style": "continuous" },
-
-  "ColorRGB_Red": { "symbol": "circle.fill", "category": "Color", "style": "continuous", "color": "red" },
-  "ColorRGB_Green": { "symbol": "circle.fill", "category": "Color", "style": "continuous", "color": "green" },
-  "ColorRGB_Blue": { "symbol": "circle.fill", "category": "Color", "style": "continuous", "color": "blue" },
-  "ColorRGB_Cyan": { "symbol": "circle.fill", "category": "Color", "style": "continuous", "color": "cyan" },
-  "ColorRGB_Magenta": { "symbol": "circle.fill", "category": "Color", "style": "continuous", "color": "magenta" },
-  "ColorRGB_Yellow": { "symbol": "circle.fill", "category": "Color", "style": "continuous", "color": "yellow" },
-  "ColorRGB_Quality": { "symbol": "slider.horizontal.3", "category": "Color", "style": "continuous" },
-
-  "VideoBoost_R": { "symbol": "circle.fill", "category": "Video", "style": "continuous", "color": "red" },
-  "VideoBoost_G": { "symbol": "circle.fill", "category": "Video", "style": "continuous", "color": "green" },
-  "VideoBoost_B": { "symbol": "circle.fill", "category": "Video", "style": "continuous", "color": "blue" },
-  "VideoHueShift": { "symbol": "circle.grid.3x3", "category": "Video", "style": "continuous" },
-  "VideoSaturation": { "symbol": "circle.lefthalf.fill", "category": "Video", "style": "continuous" },
-  "VideoBrightness": { "symbol": "lightbulb", "category": "Video", "style": "continuous" },
-  "VideoContrast": { "symbol": "dial.min", "category": "Video", "style": "continuous" },
-  "VideoKeyColor_R": { "symbol": "circle.fill", "category": "Video", "style": "continuous", "color": "red" },
-  "VideoKeyColor_G": { "symbol": "circle.fill", "category": "Video", "style": "continuous", "color": "green" },
-  "VideoColorKey_B": { "symbol": "circle.fill", "category": "Video", "style": "continuous", "color": "blue" },
-  "VideoKeyIntensity": { "symbol": "speedometer", "category": "Video", "style": "continuous" },
-  "VideoKeyTolerance": { "symbol": "slider.horizontal.3", "category": "Video", "style": "continuous" },
-
-  "StrobeDuration": { "symbol": "timer", "category": "Beam", "style": "continuous" },
-  "StrobeRate": { "symbol": "speedometer", "category": "Beam", "style": "continuous" },
-  "StrobeFrequency": { "symbol": "speedometer", "category": "Beam", "style": "continuous" },
-  "StrobeModeShutter": { "symbol": "bolt", "category": "Beam", "style": "discrete" },
-  "StrobeModeStrobe": { "symbol": "bolt.fill", "category": "Beam", "style": "discrete" },
-  "StrobeModePulse": { "symbol": "bolt", "category": "Beam", "style": "discrete" },
-  "StrobeModePulseOpen": { "symbol": "bolt", "category": "Beam", "style": "discrete" },
-  "StrobeModePulseClose": { "symbol": "bolt", "category": "Beam", "style": "discrete" },
-  "StrobeModeRandom": { "symbol": "shuffle", "category": "Beam", "style": "effect" }
+  "Dimmer": {
+    "symbol": "light.max"
+  },
+  "Pan": {
+    "symbol": "arrow.left.and.right.circle"
+  },
+  "Tilt": {
+    "symbol": "arrow.up.and.down.circle"
+  },
+  "PanRotate": {
+    "symbol": "arrow.clockwise.circle"
+  },
+  "TiltRotate": {
+    "symbol": "arrow.counterclockwise.circle"
+  },
+  "PositionEffect": {
+    "symbol": "wand.and.stars"
+  },
+  "PositionEffectRate": {
+    "symbol": "speedometer"
+  },
+  "PositionEffectFade": {
+    "symbol": "waveform.path"
+  },
+  "XYZ_X": {
+    "symbol": "move.3d"
+  },
+  "XYZ_Y": {
+    "symbol": "move.3d"
+  },
+  "XYZ_Z": {
+    "symbol": "move.3d"
+  },
+  "Rot_X": {
+    "symbol": "rotate.3d"
+  },
+  "Rot_Y": {
+    "symbol": "rotate.3d"
+  },
+  "Rot_Z": {
+    "symbol": "rotate.3d"
+  },
+  "Scale_X": {
+    "symbol": "scale.3d"
+  },
+  "Scale_Y": {
+    "symbol": "scale.3d"
+  },
+  "Scale_Z": {
+    "symbol": "scale.3d"
+  },
+  "Scale_XYZ": {
+    "symbol": "scale.3d"
+  },
+  "Gobo(n)": {
+    "symbol": "circle.grid.3x3"
+  },
+  "Gobo(n)SelectSpin": {
+    "symbol": "arrow.clockwise.circle"
+  },
+  "Gobo(n)SelectShake": {
+    "symbol": "waveform"
+  },
+  "Gobo(n)SelectEffects": {
+    "symbol": "wand.and.stars"
+  },
+  "Gobo(n)WheelIndex": {
+    "symbol": "location.circle"
+  },
+  "Gobo(n)WheelSpin": {
+    "symbol": "arrow.clockwise"
+  },
+  "Gobo(n)WheelShake": {
+    "symbol": "waveform"
+  },
+  "Gobo(n)WheelRandom": {
+    "symbol": "dice"
+  },
+  "Gobo(n)WheelAudio": {
+    "symbol": "waveform.and.mic"
+  },
+  "Gobo(n)Pos": {
+    "symbol": "location"
+  },
+  "Gobo(n)PosRotate": {
+    "symbol": "rotate.left"
+  },
+  "Gobo(n)PosShake": {
+    "symbol": "waveform"
+  },
+  "AnimationWheel(n)": {
+    "symbol": "film.stack"
+  },
+  "AnimationWheel(n)Audio": {
+    "symbol": "waveform.and.mic"
+  },
+  "AnimationWheel(n)Macro": {
+    "symbol": "wand.and.rays"
+  },
+  "AnimationWheel(n)Random": {
+    "symbol": "dice"
+  },
+  "AnimationWheel(n)SelectEffects": {
+    "symbol": "wand.and.stars"
+  },
+  "AnimationWheel(n)SelectShake": {
+    "symbol": "waveform"
+  },
+  "AnimationWheel(n)SelectSpin": {
+    "symbol": "arrow.clockwise.circle"
+  },
+  "AnimationWheel(n)Pos": {
+    "symbol": "location"
+  },
+  "AnimationWheel(n)PosRotate": {
+    "symbol": "rotate.left"
+  },
+  "AnimationWheel(n)PosShake": {
+    "symbol": "waveform"
+  },
+  "AnimationSystem(n)": {
+    "symbol": "film"
+  },
+  "AnimationSystem(n)Ramp": {
+    "symbol": "waveform.path.ecg"
+  },
+  "AnimationSystem(n)Shake": {
+    "symbol": "waveform"
+  },
+  "AnimationSystem(n)Audio": {
+    "symbol": "waveform.and.mic"
+  },
+  "AnimationSystem(n)Random": {
+    "symbol": "dice"
+  },
+  "AnimationSystem(n)Pos": {
+    "symbol": "location"
+  },
+  "AnimationSystem(n)PosRotate": {
+    "symbol": "rotate.left"
+  },
+  "AnimationSystem(n)PosShake": {
+    "symbol": "waveform"
+  },
+  "AnimationSystem(n)PosRandom": {
+    "symbol": "dice"
+  },
+  "AnimationSystem(n)PosAudio": {
+    "symbol": "waveform.and.mic"
+  },
+  "AnimationSystem(n)Macro": {
+    "symbol": "wand.and.rays"
+  },
+  "MediaFolder(n)": {
+    "symbol": "folder"
+  },
+  "MediaContent(n)": {
+    "symbol": "photo"
+  },
+  "ModelFolder(n)": {
+    "symbol": "folder.badge.gearshape"
+  },
+  "ModelContent(n)": {
+    "symbol": "cube.transparent"
+  },
+  "Playmode": {
+    "symbol": "play.circle"
+  },
+  "PlayBegin": {
+    "symbol": "play"
+  },
+  "PlayEnd": {
+    "symbol": "stop"
+  },
+  "PlaySpeed": {
+    "symbol": "speedometer"
+  },
+  "ColorEffects(n)": {
+    "symbol": "paintpalette",
+    "r": 0.5,
+    "g": 0.5,
+    "b": 0.5
+  },
+  "Color(n)": {
+    "symbol": "paintpalette"
+  },
+  "Color(n)WheelIndex": {
+    "symbol": "location.circle"
+  },
+  "Color(n)WheelSpin": {
+    "symbol": "arrow.clockwise"
+  },
+  "Color(n)WheelRandom": {
+    "symbol": "dice"
+  },
+  "Color(n)WheelAudio": {
+    "symbol": "waveform.and.mic"
+  },
+  "ColorAdd_R": {
+    "symbol": "plus.circle",
+    "r": 1,
+    "g": 0,
+    "b": 0
+  },
+  "ColorAdd_G": {
+    "symbol": "plus.circle",
+    "r": 0,
+    "g": 1,
+    "b": 0
+  },
+  "ColorAdd_B": {
+    "symbol": "plus.circle",
+    "r": 0,
+    "g": 0,
+    "b": 1
+  },
+  "ColorAdd_C": {
+    "symbol": "plus.circle",
+    "r": 0,
+    "g": 1,
+    "b": 1
+  },
+  "ColorAdd_M": {
+    "symbol": "plus.circle",
+    "r": 1,
+    "g": 0,
+    "b": 1
+  },
+  "ColorAdd_Y": {
+    "symbol": "plus.circle",
+    "r": 1,
+    "g": 1,
+    "b": 0
+  },
+  "ColorAdd_RY": {
+    "symbol": "plus.circle",
+    "r": 1,
+    "g": 0.5,
+    "b": 0
+  },
+  "ColorAdd_GY": {
+    "symbol": "plus.circle",
+    "r": 0.5,
+    "g": 1,
+    "b": 0
+  },
+  "ColorAdd_GC": {
+    "symbol": "plus.circle",
+    "r": 0,
+    "g": 1,
+    "b": 0.5
+  },
+  "ColorAdd_BC": {
+    "symbol": "plus.circle",
+    "r": 0,
+    "g": 0.5,
+    "b": 1
+  },
+  "ColorAdd_BM": {
+    "symbol": "plus.circle",
+    "r": 0.5,
+    "g": 0,
+    "b": 1
+  },
+  "ColorAdd_RM": {
+    "symbol": "plus.circle",
+    "r": 1,
+    "g": 0,
+    "b": 0.5
+  },
+  "ColorAdd_W": {
+    "symbol": "plus.circle",
+    "r": 1,
+    "g": 1,
+    "b": 1
+  },
+  "ColorAdd_WW": {
+    "symbol": "plus.circle",
+    "r": 1,
+    "g": 0.9,
+    "b": 0.7
+  },
+  "ColorAdd_CW": {
+    "symbol": "plus.circle",
+    "r": 0.7,
+    "g": 0.9,
+    "b": 1
+  },
+  "ColorAdd_UV": {
+    "symbol": "plus.circle",
+    "r": 0.5,
+    "g": 0,
+    "b": 1
+  },
+  "ColorSub_R": {
+    "symbol": "minus.circle",
+    "r": 1,
+    "g": 0,
+    "b": 0
+  },
+  "ColorSub_G": {
+    "symbol": "minus.circle",
+    "r": 0,
+    "g": 1,
+    "b": 0
+  },
+  "ColorSub_B": {
+    "symbol": "minus.circle",
+    "r": 0,
+    "g": 0,
+    "b": 1
+  },
+  "ColorSub_C": {
+    "symbol": "minus.circle",
+    "r": 0,
+    "g": 1,
+    "b": 1
+  },
+  "ColorSub_M": {
+    "symbol": "minus.circle",
+    "r": 1,
+    "g": 0,
+    "b": 1
+  },
+  "ColorSub_Y": {
+    "symbol": "minus.circle",
+    "r": 1,
+    "g": 1,
+    "b": 0
+  },
+  "ColorMacro(n)": {
+    "symbol": "wand.and.rays"
+  },
+  "ColorMacro(n)Rate": {
+    "symbol": "speedometer"
+  },
+  "CTO": {
+    "symbol": "thermometer.sun"
+  },
+  "CTC": {
+    "symbol": "thermometer.medium"
+  },
+  "CTB": {
+    "symbol": "thermometer.snowflake"
+  },
+  "Tint": {
+    "symbol": "paintbrush"
+  },
+  "HSB_Hue": {
+    "symbol": "rainbow"
+  },
+  "HSB_Saturation": {
+    "symbol": "drop"
+  },
+  "HSB_Brightness": {
+    "symbol": "sun.max"
+  },
+  "HSB_Quality": {
+    "symbol": "checkmark.circle"
+  },
+  "CIE_X": {
+    "symbol": "x.circle"
+  },
+  "CIE_Y": {
+    "symbol": "y.circle"
+  },
+  "CIE_Brightness": {
+    "symbol": "sun.max"
+  },
+  "ColorRGB_Red": {
+    "symbol": "circle.fill",
+    "r": 1,
+    "g": 0,
+    "b": 0
+  },
+  "ColorRGB_Green": {
+    "symbol": "circle.fill",
+    "r": 0,
+    "g": 1,
+    "b": 0
+  },
+  "ColorRGB_Blue": {
+    "symbol": "circle.fill",
+    "r": 0,
+    "g": 0,
+    "b": 1
+  },
+  "ColorRGB_Cyan": {
+    "symbol": "circle.fill",
+    "r": 0,
+    "g": 1,
+    "b": 1
+  },
+  "ColorRGB_Magenta": {
+    "symbol": "circle.fill",
+    "r": 1,
+    "g": 0,
+    "b": 1
+  },
+  "ColorRGB_Yellow": {
+    "symbol": "circle.fill",
+    "r": 1,
+    "g": 1,
+    "b": 0
+  },
+  "ColorRGB_Quality": {
+    "symbol": "checkmark.circle"
+  },
+  "VideoBoost_R": {
+    "symbol": "plus.circle",
+    "r": 1,
+    "g": 0,
+    "b": 0
+  },
+  "VideoBoost_G": {
+    "symbol": "plus.circle",
+    "r": 0,
+    "g": 1,
+    "b": 0
+  },
+  "VideoBoost_B": {
+    "symbol": "plus.circle",
+    "r": 0,
+    "g": 0,
+    "b": 1
+  },
+  "VideoHueShift": {
+    "symbol": "arrow.left.and.right"
+  },
+  "VideoSaturation": {
+    "symbol": "drop"
+  },
+  "VideoBrightness": {
+    "symbol": "sun.max"
+  },
+  "VideoContrast": {
+    "symbol": "circle.lefthalf.filled"
+  },
+  "VideoKeyColor_R": {
+    "symbol": "key.horizontal",
+    "r": 1,
+    "g": 0,
+    "b": 0
+  },
+  "VideoKeyColor_G": {
+    "symbol": "key.horizontal",
+    "r": 0,
+    "g": 1,
+    "b": 0
+  },
+  "VideoColorKey_B": {
+    "symbol": "key.horizontal",
+    "r": 0,
+    "g": 0,
+    "b": 1
+  },
+  "VideoKeyIntensity": {
+    "symbol": "light.max"
+  },
+  "VideoKeyTolerance": {
+    "symbol": "plusminus.circle"
+  },
+  "StrobeDuration": {
+    "symbol": "timer"
+  },
+  "StrobeRate": {
+    "symbol": "speedometer"
+  },
+  "StrobeFrequency": {
+    "symbol": "waveform"
+  },
+  "StrobeModeShutter": {
+    "symbol": "camera.shutter.button"
+  },
+  "StrobeModeStrobe": {
+    "symbol": "bolt"
+  },
+  "StrobeModePulse": {
+    "symbol": "waveform.path.ecg"
+  },
+  "StrobeModePulseOpen": {
+    "symbol": "arrow.up.circle"
+  },
+  "StrobeModePulseClose": {
+    "symbol": "arrow.down.circle"
+  },
+  "StrobeModeRandom": {
+    "symbol": "dice"
+  },
+  "StrobeModeRandomPulse": {
+    "symbol": "dice"
+  },
+  "StrobeModeRandomPulseOpen": {
+    "symbol": "dice"
+  },
+  "StrobeModeRandomPulseClose": {
+    "symbol": "dice"
+  },
+  "StrobeModeEffect": {
+    "symbol": "wand.and.stars"
+  },
+  "Shutter(n)": {
+    "symbol": "camera.shutter.button"
+  },
+  "Shutter(n)Strobe": {
+    "symbol": "bolt"
+  },
+  "Shutter(n)StrobePulse": {
+    "symbol": "waveform.path.ecg"
+  },
+  "Shutter(n)StrobePulseClose": {
+    "symbol": "arrow.down.circle"
+  },
+  "Shutter(n)StrobePulseOpen": {
+    "symbol": "arrow.up.circle"
+  },
+  "Shutter(n)StrobeRandom": {
+    "symbol": "dice"
+  },
+  "Shutter(n)StrobeRandomPulse": {
+    "symbol": "dice"
+  },
+  "Shutter(n)StrobeRandomPulseClose": {
+    "symbol": "dice"
+  },
+  "Shutter(n)StrobeRandomPulseOpen": {
+    "symbol": "dice"
+  },
+  "Shutter(n)StrobeEffect": {
+    "symbol": "wand.and.stars"
+  },
+  "Iris": {
+    "symbol": "circle.dotted"
+  },
+  "IrisStrobe": {
+    "symbol": "bolt.circle"
+  },
+  "IrisStrobeRandom": {
+    "symbol": "dice"
+  },
+  "IrisPulseClose": {
+    "symbol": "arrow.down.circle"
+  },
+  "IrisPulseOpen": {
+    "symbol": "arrow.up.circle"
+  },
+  "IrisRandomPulseClose": {
+    "symbol": "dice"
+  },
+  "IrisRandomPulseOpen": {
+    "symbol": "dice"
+  },
+  "Frost(n)": {
+    "symbol": "snowflake"
+  },
+  "Frost(n)PulseOpen": {
+    "symbol": "arrow.up.circle"
+  },
+  "Frost(n)PulseClose": {
+    "symbol": "arrow.down.circle"
+  },
+  "Frost(n)Ramp": {
+    "symbol": "waveform.path"
+  },
+  "Prism(n)": {
+    "symbol": "sparkles"
+  },
+  "Prism(n)SelectSpin": {
+    "symbol": "arrow.clockwise.circle"
+  },
+  "Prism(n)Macro": {
+    "symbol": "wand.and.rays"
+  },
+  "Prism(n)Pos": {
+    "symbol": "location"
+  },
+  "Prism(n)PosRotate": {
+    "symbol": "rotate.left"
+  },
+  "Effects(n)": {
+    "symbol": "wand.and.stars"
+  },
+  "Effects(n)Rate": {
+    "symbol": "speedometer"
+  },
+  "Effects(n)Fade": {
+    "symbol": "waveform.path"
+  },
+  "Effects(n)Adjust(m)": {
+    "symbol": "slider.horizontal.3"
+  },
+  "Effects(n)Pos": {
+    "symbol": "location"
+  },
+  "Effects(n)PosRotate": {
+    "symbol": "rotate.left"
+  },
+  "EffectsSync": {
+    "symbol": "arrow.triangle.2.circlepath"
+  },
+  "BeamShaper": {
+    "symbol": "square.resize"
+  },
+  "BeamShaperMacro": {
+    "symbol": "wand.and.rays"
+  },
+  "BeamShaperPos": {
+    "symbol": "location"
+  },
+  "BeamShaperPosRotate": {
+    "symbol": "rotate.left"
+  },
+  "Zoom": {
+    "symbol": "magnifyingglass"
+  },
+  "ZoomModeSpot": {
+    "symbol": "dot.circle"
+  },
+  "ZoomModeBeam": {
+    "symbol": "rays"
+  },
+  "DigitalZoom": {
+    "symbol": "magnifyingglass.circle"
+  },
+  "Focus(n)": {
+    "symbol": "camera.aperture"
+  },
+  "Focus(n)Adjust": {
+    "symbol": "slider.horizontal.3"
+  },
+  "Focus(n)Distance": {
+    "symbol": "ruler"
+  },
+  "Control(n)": {
+    "symbol": "gearshape"
+  },
+  "DimmerMode": {
+    "symbol": "lightbulb.2"
+  },
+  "DimmerCurve": {
+    "symbol": "waveform.path"
+  },
+  "BlackoutMode": {
+    "symbol": "moonphase.new.moon"
+  },
+  "LEDFrequency": {
+    "symbol": "waveform"
+  },
+  "LEDZoneMode": {
+    "symbol": "square.grid.2x2"
+  },
+  "PixelMode": {
+    "symbol": "square.grid.3x3"
+  },
+  "PanMode": {
+    "symbol": "arrow.left.and.right"
+  },
+  "TiltMode": {
+    "symbol": "arrow.up.and.down"
+  },
+  "PanTiltMode": {
+    "symbol": "move.3d"
+  },
+  "PositionModes": {
+    "symbol": "location.circle"
+  },
+  "Gobo(n)WheelMode": {
+    "symbol": "gearshape.circle"
+  },
+  "GoboWheelShortcutMode": {
+    "symbol": "arrow.uturn.left"
+  },
+  "AnimationWheel(n)Mode": {
+    "symbol": "film.circle"
+  },
+  "AnimationWheelShortcutMode": {
+    "symbol": "arrow.uturn.left"
+  },
+  "Color(n)Mode": {
+    "symbol": "paintpalette"
+  },
+  "ColorWheelShortcutMode": {
+    "symbol": "arrow.uturn.left"
+  },
+  "CyanMode": {
+    "symbol": "drop",
+    "r": 0,
+    "g": 1,
+    "b": 1
+  },
+  "MagentaMode": {
+    "symbol": "drop",
+    "r": 1,
+    "g": 0,
+    "b": 1
+  },
+  "YellowMode": {
+    "symbol": "drop",
+    "r": 1,
+    "g": 1,
+    "b": 0
+  },
+  "ColorMixMode": {
+    "symbol": "paintbrush"
+  },
+  "ChromaticMode": {
+    "symbol": "rainbow"
+  },
+  "ColorCalibrationMode": {
+    "symbol": "gearshape.2"
+  },
+  "ColorConsistency": {
+    "symbol": "checkmark.circle"
+  },
+  "ColorControl": {
+    "symbol": "slider.vertical.3"
+  },
+  "ColorModelMode": {
+    "symbol": "paintpalette"
+  },
+  "ColorSettingsReset": {
+    "symbol": "arrow.counterclockwise"
+  },
+  "ColorUniformity": {
+    "symbol": "square.on.square"
+  },
+  "CRIMode": {
+    "symbol": "eyeglasses"
+  },
+  "CustomColor": {
+    "symbol": "paintpalette.fill"
+  },
+  "UVStability": {
+    "symbol": "sun.dust"
+  },
+  "WaveLengthCorrection": {
+    "symbol": "waveform.path"
+  },
+  "WhiteCount": {
+    "symbol": "circle.fill",
+    "r": 1,
+    "g": 1,
+    "b": 1
+  },
+  "StrobeMode": {
+    "symbol": "bolt"
+  },
+  "ZoomMode": {
+    "symbol": "magnifyingglass.circle"
+  },
+  "FocusMode": {
+    "symbol": "camera.metering.center.weighted"
+  },
+  "IrisMode": {
+    "symbol": "circle.dotted"
+  },
+  "FanMode": {
+    "symbol": "fan"
+  },
+  "FollowSpotMode": {
+    "symbol": "figure.walk.circle"
+  },
+  "BeamEffectIndexRotateMode": {
+    "symbol": "rotate.3d"
+  },
+  "IntensityMSpeed": {
+    "symbol": "speedometer"
+  },
+  "PositionMSpeed": {
+    "symbol": "speedometer"
+  },
+  "ColorMixMSpeed": {
+    "symbol": "speedometer"
+  },
+  "ColorWheelSelectMSpeed": {
+    "symbol": "speedometer"
+  },
+  "GoboWheel(n)MSpeed": {
+    "symbol": "speedometer"
+  },
+  "IrisMSpeed": {
+    "symbol": "speedometer"
+  },
+  "Prism(n)MSpeed": {
+    "symbol": "speedometer"
+  },
+  "FocusMSpeed": {
+    "symbol": "speedometer"
+  },
+  "Frost(n)MSpeed": {
+    "symbol": "speedometer"
+  },
+  "ZoomMSpeed": {
+    "symbol": "speedometer"
+  },
+  "FrameMSpeed": {
+    "symbol": "speedometer"
+  },
+  "GlobalMSpeed": {
+    "symbol": "speedometer"
+  },
+  "ReflectorAdjust": {
+    "symbol": "lightbulb.led"
+  },
+  "FixtureGlobalReset": {
+    "symbol": "arrow.counterclockwise.circle"
+  },
+  "DimmerReset": {
+    "symbol": "arrow.counterclockwise"
+  },
+  "ShutterReset": {
+    "symbol": "arrow.counterclockwise"
+  },
+  "BeamReset": {
+    "symbol": "arrow.counterclockwise"
+  },
+  "ColorMixReset": {
+    "symbol": "arrow.counterclockwise"
+  },
+  "ColorWheelReset": {
+    "symbol": "arrow.counterclockwise"
+  },
+  "FocusReset": {
+    "symbol": "arrow.counterclockwise"
+  },
+  "FrameReset": {
+    "symbol": "arrow.counterclockwise"
+  },
+  "GoboWheelReset": {
+    "symbol": "arrow.counterclockwise"
+  },
+  "IntensityReset": {
+    "symbol": "arrow.counterclockwise"
+  },
+  "IrisReset": {
+    "symbol": "arrow.counterclockwise"
+  },
+  "PositionReset": {
+    "symbol": "arrow.counterclockwise"
+  },
+  "PanReset": {
+    "symbol": "arrow.counterclockwise"
+  },
+  "TiltReset": {
+    "symbol": "arrow.counterclockwise"
+  },
+  "ZoomReset": {
+    "symbol": "arrow.counterclockwise"
+  },
+  "CTBReset": {
+    "symbol": "arrow.counterclockwise"
+  },
+  "CTOReset": {
+    "symbol": "arrow.counterclockwise"
+  },
+  "CTCReset": {
+    "symbol": "arrow.counterclockwise"
+  },
+  "AnimationSystemReset": {
+    "symbol": "arrow.counterclockwise"
+  },
+  "FixtureCalibrationReset": {
+    "symbol": "arrow.counterclockwise"
+  },
+  "Function": {
+    "symbol": "gearshape"
+  },
+  "LampControl": {
+    "symbol": "lightbulb"
+  },
+  "DisplayIntensity": {
+    "symbol": "display"
+  },
+  "DMXInput": {
+    "symbol": "cable.connector"
+  },
+  "NoFeature": {
+    "symbol": "xmark.circle"
+  },
+  "Dummy": {
+    "symbol": "rectangle.dashed"
+  },
+  "Blower(n)": {
+    "symbol": "wind"
+  },
+  "Fan(n)": {
+    "symbol": "fan"
+  },
+  "Fog(n)": {
+    "symbol": "cloud.fog"
+  },
+  "Haze(n)": {
+    "symbol": "cloud.fog.fill"
+  },
+  "LampPowerMode": {
+    "symbol": "bolt.batteryblock"
+  },
+  "Fans": {
+    "symbol": "fan.fill"
+  },
+  "Blade(n)A": {
+    "symbol": "square.split.diagonal"
+  },
+  "Blade(n)B": {
+    "symbol": "square.split.diagonal"
+  },
+  "Blade(n)Rot": {
+    "symbol": "rotate.left"
+  },
+  "ShaperRot": {
+    "symbol": "rotate.3d"
+  },
+  "ShaperMacros": {
+    "symbol": "wand.and.rays"
+  },
+  "ShaperMacrosSpeed": {
+    "symbol": "speedometer"
+  },
+  "BladeSoft(n)A": {
+    "symbol": "square.split.diagonal.fill"
+  },
+  "BladeSoft(n)B": {
+    "symbol": "square.split.diagonal.fill"
+  },
+  "KeyStone(n)A": {
+    "symbol": "trapezoid.and.line.horizontal"
+  },
+  "KeyStone(n)B": {
+    "symbol": "trapezoid.and.line.horizontal"
+  },
+  "Video": {
+    "symbol": "play.rectangle"
+  },
+  "VideoEffect(n)Type": {
+    "symbol": "wand.and.stars"
+  },
+  "VideoEffect(n)Parameter(m)": {
+    "symbol": "slider.horizontal.3"
+  },
+  "VideoCamera(n)": {
+    "symbol": "camera"
+  },
+  "FieldOfView": {
+    "symbol": "viewfinder"
+  },
+  "InputSource": {
+    "symbol": "cable.connector.horizontal"
+  },
+  "VideoBlendMode": {
+    "symbol": "square.on.square.dashed"
+  },
+  "VideoSoundVolume(n)": {
+    "symbol": "speaker.wave.2"
+  }
 }

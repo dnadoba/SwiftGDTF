@@ -69,10 +69,42 @@ public struct AttributeDescription: Decodable, Identifiable, Sendable, Equatable
 
     public var name: AttributeType.Canonical
     public var prettyName: String
-    public var feature: String
+    public struct Feature: Decodable, Sendable, Hashable {
+        public var group: CanonicalFeatureGroup
+        public var feature: CanonicalFeature
+
+        public init(from decoder: any Decoder) throws {
+            let decoder = try decoder.singleValueContainer()
+            let string = try decoder.decode(String.self)
+            let split = string.split(separator: ".")
+            guard split.count == 2 else {
+                throw DecodingError.dataCorruptedError(
+                    in: decoder,
+                    debugDescription: "Couldn't split string into group and feature: \(string)"
+                )
+            }
+            let groupString = split[0]
+            guard let group = CanonicalFeatureGroup(rawValue: String(groupString)) else {
+                throw DecodingError.dataCorruptedError(
+                    in: decoder,
+                    debugDescription: "Couldn't create CanonicalFeatureGroup from \(groupString)"
+                )
+            }
+            let featureString = split[1]
+            guard let feature = CanonicalFeature(rawValue: String(featureString)) else {
+                throw DecodingError.dataCorruptedError(
+                    in: decoder,
+                    debugDescription: "Couldn't create CanonicalFeature from \(featureString)"
+                )
+            }
+            self.group = group
+            self.feature = feature
+        }
+    }
+    public var feature: Feature
     public var physicalUnit: PhysicalUnit?
     public var mainAttribute: String?
-    public var activationGroup: String?
+    public var activationGroup: CanonicalActivationGroup?
     private var _subPhysicalUnits: [SubPhysicalUnit]?
     public var subPhysicalUnits: [SubPhysicalUnit] {
         get { _subPhysicalUnits ?? [] }
@@ -119,6 +151,189 @@ struct LosslessDouble: Decodable, Sendable, Equatable {
     }
 }
 
+/// Represents individual activation group names as used in GDTF / fixture profiles
+public enum CanonicalActivationGroup: String, CaseIterable, Codable, Hashable, Sendable {
+    case panTilt       = "PanTilt"
+    case xyz           = "XYZ"
+    case rotXYZ        = "Rot_XYZ"
+    case scaleXYZ      = "Scale_XYZ"
+    case colorRGB      = "ColorRGB"
+    case colorHSB      = "ColorHSB"
+    case colorCIE      = "ColorCIE"
+    case colorIndirect = "ColorIndirect"
+    case goboN         = "Gobo(n)"
+    case goboNPos      = "Gobo(n)Pos"
+    case animationWheelN         = "AnimationWheel(n)"
+    case animationWheelNPos      = "AnimationWheel(n)Pos"
+    case animationSystemN        = "AnimationSystem(n)"
+    case animationSystemNPos     = "AnimationSystem(n)Pos"
+    case prism         = "Prism"
+    case beamShaper    = "BeamShaper"
+    case shaper        = "Shaper"
+
+    // Helper to support indexed versions (Gobo(n), AnimationWheel(n), etc.)
+    public func withIndex(_ index: Int) -> String {
+        switch self {
+        case .goboN:                return "Gobo\(index)"
+        case .goboNPos:             return "Gobo\(index)Pos"
+        case .animationWheelN:      return "AnimationWheel\(index)"
+        case .animationWheelNPos:   return "AnimationWheel\(index)Pos"
+        case .animationSystemN:     return "AnimationSystem\(index)"
+        case .animationSystemNPos:  return "AnimationSystem\(index)Pos"
+        default:
+            return self.rawValue
+        }
+    }
+
+    // Reverse lookup – tries to detect indexed pattern and return base case + index
+    public static func from(name: String) -> (CanonicalActivationGroup, index: Int?) {
+        // Check exact matches first
+        if let exact = CanonicalActivationGroup(rawValue: name) {
+            return (exact, nil)
+        }
+
+        // Check indexed patterns
+        if name.hasPrefix("Gobo") {
+            if name.hasSuffix("Pos"), let idx = Int(name.dropFirst(4).dropLast(3)) {
+                return (.goboNPos, idx)
+            }
+            if let idx = Int(name.dropFirst(4)) {
+                return (.goboN, idx)
+            }
+        }
+
+        if name.hasPrefix("AnimationWheel") {
+            if name.hasSuffix("Pos"), let idx = Int(name.dropFirst(14).dropLast(3)) {
+                return (.animationWheelNPos, idx)
+            }
+            if let idx = Int(name.dropFirst(14)) {
+                return (.animationWheelN, idx)
+            }
+        }
+
+        if name.hasPrefix("AnimationSystem") {
+            if name.hasSuffix("Pos"), let idx = Int(name.dropFirst(15).dropLast(3)) {
+                return (.animationSystemNPos, idx)
+            }
+            if let idx = Int(name.dropFirst(15)) {
+                return (.animationSystemN, idx)
+            }
+        }
+
+        // Fallback – unknown
+        return (.panTilt, nil) // or throw / return optional
+    }
+}
+
+// ────────────────────────────────────────────────
+
+/// High-level feature categories (mostly match GDTF FeatureGroup)
+public enum CanonicalFeatureGroup: String, CaseIterable, Codable, Hashable, Sendable, Comparable {
+    public static func <(lhs: Self, rhs: Self) -> Bool {
+        lhs.integerValue < rhs.integerValue
+    }
+    case dimmer    = "Dimmer"
+    case position  = "Position"
+    case gobo      = "Gobo"
+    case color     = "Color"
+    case beam      = "Beam"
+    case focus     = "Focus"
+    case control   = "Control"
+    case shapers   = "Shapers"
+    case video     = "Video"
+
+    var integerValue: Int {
+        switch self {
+        case .dimmer: 0
+        case .position: 1
+        case .gobo: 2
+        case .color: 3
+        case .beam: 4
+        case .focus: 5
+        case .control: 6
+        case .shapers: 7
+        case .video: 8
+        }
+    }
+}
+
+// ────────────────────────────────────────────────
+
+/// Individual feature names inside FeatureGroups
+public enum CanonicalFeature: String, CaseIterable, Codable, Hashable, Sendable {
+    // Dimmer
+    case dimmer    = "Dimmer"
+
+    // Position
+    case panTilt   = "PanTilt"
+    case xyz       = "XYZ"
+    case rotation  = "Rotation"
+    case scale     = "Scale"
+
+    // Gobo
+    case gobo      = "Gobo"
+    case media     = "Media"
+
+    // Color
+    case color           = "Color"
+    case rgb             = "RGB"
+    case hsb             = "HSB"
+    case cie             = "CIE"
+    case indirect        = "Indirect"
+    case colorCorrection = "ColorCorrection"
+    case hsbcShift       = "HSBC_Shift"
+    case colorKey        = "ColorKey"
+
+    // Beam
+    case beam      = "Beam"
+
+    // Focus
+    case focus     = "Focus"
+
+    // Control
+    case control   = "Control"
+
+    // Shapers
+    case shapers   = "Shapers"
+
+    // Video
+    case video     = "Video"
+}
+
+// ────────────────────────────────────────────────
+// Optional: static collections / lookup helpers
+
+extension ActivationGroup {
+    public static let allNonIndexed: [CanonicalActivationGroup] = [
+        .panTilt, .xyz, .rotXYZ, .scaleXYZ,
+        .colorRGB, .colorHSB, .colorCIE, .colorIndirect,
+        .prism, .beamShaper, .shaper
+    ]
+
+    public static let indexedOnes: [CanonicalActivationGroup] = [
+        .goboN, .goboNPos,
+        .animationWheelN, .animationWheelNPos,
+        .animationSystemN, .animationSystemNPos
+    ]
+}
+
+extension CanonicalFeatureGroup {
+    // You can add relationships if needed, e.g.:
+    public var typicalFeatures: [CanonicalFeature] {
+        switch self {
+        case .dimmer:    return [.dimmer]
+        case .position:  return [.panTilt, .xyz, .rotation, .scale]
+        case .gobo:      return [.gobo, .media]
+        case .color:     return [.color, .rgb, .hsb, .cie, .indirect, .colorCorrection, .hsbcShift, .colorKey]
+        case .beam:      return [.beam]
+        case .focus:     return [.focus]
+        case .control:   return [.control]
+        case .shapers:   return [.shapers]
+        case .video:     return [.video]
+        }
+    }
+}
+
 
 
 public struct AttributeIcon: Codable, Sendable {
@@ -129,27 +344,23 @@ public struct AttributeIcon: Codable, Sendable {
         return try! decoder.decode([AttributeType.Canonical: AttributeIcon].self, from: attributesData)
     }()
     public var symbol: String
-    public var category: String
-    public var style: String?
-    public var color: String?
+    //public var category: String
+    //public var style: String?
+    public var r: Double?
+    public var g: Double?
+    public var b: Double?
 }
 
 #if canImport(SwiftUI)
 import SwiftUI
 extension AttributeIcon {
     public var swiftUIColor: Color? {
-        guard let color = color else { return nil }
-        switch color.lowercased() {
-        case "red": return .red
-        case "green": return .green
-        case "blue": return .blue
-        case "yellow": return .yellow
-        case "orange", "amber": return .orange
-        case "cyan", "teal", "lightblue": return .teal
-        case "magenta", "pink": return .pink
-        case "purple": return .purple
-        case "white", "warmwhite", "coolwhite": return .white
-        default: return .primary
+        guard let r, let g, let b else { return nil }
+        return switch (r, g, b) {
+        case (1, 0, 0): .red
+        case (0, 1, 0): .green
+        case (0, 0, 1): .blue
+        default: Color(.sRGB, red: r, green: g, blue: b)
         }
     }
 }

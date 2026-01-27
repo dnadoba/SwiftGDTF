@@ -523,7 +523,7 @@ extension DMXChannel {
             self.highlight = DMXValue(from: highlight)
         }
         
-        self.geometry = try element.attribute(named: "Geometry").text.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.geometry = try element.attribute(named: "Geometry").text
     }
 }
 

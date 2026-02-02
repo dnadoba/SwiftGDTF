@@ -7,7 +7,22 @@
 
 extension AttributeType {
     /// Canonical representation of AttributeType cases without associated values (except custom)
-    public enum Canonical: Hashable, Codable, Sendable, CodingKeyRepresentable {
+    public enum Canonical: Hashable, Codable, Sendable, CodingKeyRepresentable, Comparable {
+        public static func <(lhs: Self, rhs: Self) -> Bool {
+            switch (lhs, rhs) {
+            case (.custom(let lhs), .custom(let rhs)):
+                return lhs < rhs
+            case (.custom, _):
+                return false
+            case (_, .custom):
+                return true
+            default:
+                assert(!lhs.isCustom && !rhs.isCustom)
+                let lhs = AttributeDescription.attributes.keys.firstIndex(of: lhs)!
+                let rhs = AttributeDescription.attributes.keys.firstIndex(of: rhs)!
+                return lhs < rhs
+            }
+        }
         public static let allCases: [Self] = [
             .dimmer,
             .pan,

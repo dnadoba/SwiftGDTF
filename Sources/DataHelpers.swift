@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OrderedCollections
 
 extension FixtureType {
     public func getDMXMode(mode: String) -> DMXMode? {
@@ -15,9 +16,17 @@ extension FixtureType {
 
 extension DMXMode {
     public var dmxFootprint: Int {
-        self.channels.lazy.flatMap {
-            $0.offset
-        }.max() ?? 0
+        dmxFootprintForBreak.values.reduce(0, +)
+    }
+    public var dmxFootprintForBreak: OrderedDictionary<DMXChannel.Break, Int> {
+        OrderedDictionary(
+            self.channels.lazy.compactMap { channel in
+                channel.offset.max().map {
+                    (channel.dmxBreak, $0)
+                }
+            },
+            uniquingKeysWith: { max($0, $1) }
+        )
     }
 
 }

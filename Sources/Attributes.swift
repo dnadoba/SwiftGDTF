@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OrderedCollections
 
 private struct AttributeDescriptions: Decodable, Sendable {
     let attributes: [AttributeDescription]
@@ -18,12 +19,12 @@ private struct AttributeDescriptions: Decodable, Sendable {
 public struct AttributeDescription: Decodable, Identifiable, Sendable, Equatable {
     /// TODO: we should be able to optimize this to just an array and add some kind of integer value to AttributeType
     /// potentially the better solution is to just have this in memory anyway
-    public static let attributes: [AttributeType.Canonical: AttributeDescription] = {
+    public static let attributes: OrderedDictionary<AttributeType.Canonical, AttributeDescription> = {
         let attributesURL = Bundle.module.url(forResource: "gdtf_attributes_with_description", withExtension: "json")!
         let attributesData = try! Data(contentsOf: attributesURL)
         let decoder = JSONDecoder()
         let attributes = try! decoder.decode(AttributeDescriptions.self, from: attributesData)
-        let attributesDict = Dictionary(uniqueKeysWithValues: attributes.attributes.lazy.map { ($0.name, $0) })
+        let attributesDict = OrderedDictionary(uniqueKeysWithValues: attributes.attributes.lazy.map { ($0.name, $0) })
         return attributesDict
     }()
 

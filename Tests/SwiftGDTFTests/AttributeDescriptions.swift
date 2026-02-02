@@ -1,5 +1,5 @@
 import Testing
-import SwiftGDTF
+@testable import SwiftGDTF
 
 @Suite
 struct AttributeTests {
@@ -17,6 +17,12 @@ struct AttributeTests {
         for (attribute, symbol) in all {
             #expect(!attribute.isCustom, "attribute \(attribute) should be known but it is custom. Symbol: \(symbol)")
         }
+    }
+    
+    @Test func checkThatAllAttributesHaveATemplateName() {
+        let a = Set(AttributeDescription.attributes.keys)
+        let b = Set(AttributeDescription.attributeTemplateNames.keys)
+        #expect(a == b)
     }
 }
 

@@ -25,6 +25,7 @@ public struct AttributeDescription: Decodable, Identifiable, Sendable, Equatable
         let decoder = JSONDecoder()
         let attributes = try! decoder.decode(AttributeDescriptions.self, from: attributesData)
         let attributesDict = OrderedDictionary(uniqueKeysWithValues: attributes.attributes.lazy.map { ($0.name, $0) })
+        print("attributesDict.count", attributesDict.count)
         return attributesDict
     }()
 
@@ -376,5 +377,71 @@ extension AttributeType.Canonical {
 extension AttributeType {
     public var iconDescription: AttributeIcon? {
         canonical.iconDescription
+    }
+}
+
+extension AttributeDescription {
+    internal static let attributeTemplateNames: [AttributeType.Canonical: String] = {
+        let attributesURL = Bundle.module.url(forResource: "gdtf_attributes_with_template_name", withExtension: "json")!
+        let attributesData = try! Data(contentsOf: attributesURL)
+        let decoder = JSONDecoder()
+        let attributes = try! decoder.decode([AttributeType.Canonical: String].self, from: attributesData)
+        print("attributeTemplateNames.count:", attributes.count)
+        return attributes
+    }()
+}
+
+extension AttributeType {
+    public var displayName: String {
+        if let attributeTemplateName = AttributeDescription.attributeTemplateNames[self.canonical] {
+            if let nm = getNM() {
+                let n = nm.n
+                if let m = nm.m {
+                    return attributeTemplateName
+                        .replacing("(n)", with: n.description)
+                        .replacing("(m)", with: m.description)
+                } else {
+                    return attributeTemplateName
+                        .replacing("(n)", with: n.description)
+                }
+            } else {
+                return attributeTemplateName
+            }
+        } else {
+            return self.description
+        }
+    }
+    public func displayName(showNM: Bool) -> String {
+        if showNM {
+            displayName
+        } else {
+            attributeDescription?.label ?? description
+        }
+    }
+    public var explanation: String? {
+        self.attributeDescription?.explanation
+    }
+    public var definition: String? {
+        self.attributeDescription?.definition
+    }
+}
+
+extension AttributeType.Canonical {
+    public var displayName: String {
+        if let label = self.attributeDescription?.label {
+            return label
+        } else {
+            if case let .custom(name) = self {
+                return name
+            } else {
+                return String(describing: self)
+            }
+        }
+    }
+    public var explanation: String? {
+        self.attributeDescription?.explanation
+    }
+    public var definition: String? {
+        self.attributeDescription?.definition
     }
 }

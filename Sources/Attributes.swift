@@ -25,7 +25,6 @@ public struct AttributeDescription: Decodable, Identifiable, Sendable, Equatable
         let decoder = JSONDecoder()
         let attributes = try! decoder.decode(AttributeDescriptions.self, from: attributesData)
         let attributesDict = OrderedDictionary(uniqueKeysWithValues: attributes.attributes.lazy.map { ($0.name, $0) })
-        print("attributesDict.count", attributesDict.count)
         return attributesDict
     }()
 

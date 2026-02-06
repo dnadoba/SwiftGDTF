@@ -85,7 +85,12 @@ public struct GDTFShare {
         public let creator: String
         
         // Does not change across revisions
-        public let uuid: UUID
+        public let _uuid: UUID?
+        public var uuid: UUID {
+            // UUID can be nil but this might be a bug on the GDTF Share side
+            // https://gdtf-share.com/forum/index.php?/topic/1735-missing-uuid/
+            _uuid ?? UUID(uuid: (0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0))
+        }
         
         public let filesize: Int
         public let modes: [DMXMode]
@@ -101,7 +106,7 @@ public struct GDTFShare {
             case ratingString = "rating"
             case version
             case creator
-            case uuid
+            case _uuid = "uuid"
             case filesize
             case modes
         }

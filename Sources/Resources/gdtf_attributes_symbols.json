@@ -54,7 +54,7 @@
     "symbol": "scale.3d"
   },
   "Gobo(n)": {
-    "symbol": "circle.grid.3x3"
+    "symbol": "circle.hexagonpath"
   },
   "Gobo(n)SelectSpin": {
     "symbol": "arrow.clockwise.circle"
@@ -177,10 +177,7 @@
     "symbol": "speedometer"
   },
   "ColorEffects(n)": {
-    "symbol": "paintpalette",
-    "r": 0.5,
-    "g": 0.5,
-    "b": 0.5
+    "symbol": "camera.filters"
   },
   "Color(n)": {
     "symbol": "paintpalette"
@@ -531,7 +528,7 @@
     "symbol": "wand.and.stars"
   },
   "Iris": {
-    "symbol": "circle.dotted"
+    "symbol": "camera.aperture"
   },
   "IrisStrobe": {
     "symbol": "bolt.circle"
@@ -624,7 +621,7 @@
     "symbol": "magnifyingglass.circle"
   },
   "Focus(n)": {
-    "symbol": "camera.aperture"
+    "symbol": "circle.dotted"
   },
   "Focus(n)Adjust": {
     "symbol": "slider.horizontal.3"
@@ -753,7 +750,7 @@
     "symbol": "camera.metering.center.weighted"
   },
   "IrisMode": {
-    "symbol": "circle.dotted"
+    "symbol": "camera.aperture"
   },
   "FanMode": {
     "symbol": "fan"

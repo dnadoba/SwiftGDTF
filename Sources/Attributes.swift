@@ -154,6 +154,9 @@ struct LosslessDouble: Decodable, Sendable, Equatable {
 
 /// Represents individual activation group names as used in GDTF / fixture profiles
 public enum CanonicalActivationGroup: String, CaseIterable, Codable, Hashable, Sendable {
+    public static func <(lhs: Self, rhs: Self) -> Bool {
+        lhs.integerValue < rhs.integerValue
+    }
     case panTilt       = "PanTilt"
     case xyz           = "XYZ"
     case rotXYZ        = "Rot_XYZ"
@@ -171,58 +174,26 @@ public enum CanonicalActivationGroup: String, CaseIterable, Codable, Hashable, S
     case prism         = "Prism"
     case beamShaper    = "BeamShaper"
     case shaper        = "Shaper"
-
-    // Helper to support indexed versions (Gobo(n), AnimationWheel(n), etc.)
-    public func withIndex(_ index: Int) -> String {
+    var integerValue: Int {
         switch self {
-        case .goboN:                return "Gobo\(index)"
-        case .goboNPos:             return "Gobo\(index)Pos"
-        case .animationWheelN:      return "AnimationWheel\(index)"
-        case .animationWheelNPos:   return "AnimationWheel\(index)Pos"
-        case .animationSystemN:     return "AnimationSystem\(index)"
-        case .animationSystemNPos:  return "AnimationSystem\(index)Pos"
-        default:
-            return self.rawValue
+        case .panTilt: 0
+        case .xyz: 1
+        case .rotXYZ: 2
+        case .scaleXYZ: 3
+        case .colorRGB: 4
+        case .colorHSB: 5
+        case .colorCIE: 6
+        case .colorIndirect: 7
+        case .goboN: 8
+        case .goboNPos: 9
+        case .animationWheelN: 10
+        case .animationWheelNPos: 11
+        case .animationSystemN: 12
+        case .animationSystemNPos: 13
+        case .prism: 14
+        case .beamShaper: 15
+        case .shaper: 16
         }
-    }
-
-    // Reverse lookup – tries to detect indexed pattern and return base case + index
-    public static func from(name: String) -> (CanonicalActivationGroup, index: Int?) {
-        // Check exact matches first
-        if let exact = CanonicalActivationGroup(rawValue: name) {
-            return (exact, nil)
-        }
-
-        // Check indexed patterns
-        if name.hasPrefix("Gobo") {
-            if name.hasSuffix("Pos"), let idx = Int(name.dropFirst(4).dropLast(3)) {
-                return (.goboNPos, idx)
-            }
-            if let idx = Int(name.dropFirst(4)) {
-                return (.goboN, idx)
-            }
-        }
-
-        if name.hasPrefix("AnimationWheel") {
-            if name.hasSuffix("Pos"), let idx = Int(name.dropFirst(14).dropLast(3)) {
-                return (.animationWheelNPos, idx)
-            }
-            if let idx = Int(name.dropFirst(14)) {
-                return (.animationWheelN, idx)
-            }
-        }
-
-        if name.hasPrefix("AnimationSystem") {
-            if name.hasSuffix("Pos"), let idx = Int(name.dropFirst(15).dropLast(3)) {
-                return (.animationSystemNPos, idx)
-            }
-            if let idx = Int(name.dropFirst(15)) {
-                return (.animationSystemN, idx)
-            }
-        }
-
-        // Fallback – unknown
-        return (.panTilt, nil) // or throw / return optional
     }
 }
 

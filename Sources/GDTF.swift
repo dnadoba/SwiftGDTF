@@ -345,7 +345,13 @@ public struct ChannelSet: Codable {
     public var dmxFrom: DMXValue
     public var physicalFrom: Double
     public var physicalTo: Double
-    public var wheelSlotIndex: Int?
+    /// If the channel function has a link to a wheel, a corresponding slot index shall be specified. The wheel slot index results from the order of slots of the wheel which is linked in the channel function. The wheel slot index is normalized to 1.
+    var _wheelSlotIndex: Int?
+    /// The wheel slot index starting from zero so you can use it directly to index into the whell slot.
+    public var wheelSlotIndex: Int? {
+        get { _wheelSlotIndex.map { $0 - 1 } }
+        set { _wheelSlotIndex = newValue.map { $0 + 1 } }
+    }
 }
 
 public struct SubChannelSet: Codable {

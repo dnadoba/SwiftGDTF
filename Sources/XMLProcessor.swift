@@ -611,7 +611,7 @@ extension ChannelSet {
         self.dmxFrom = DMXValue(from: element.attribute(by: "DMXFrom")?.text ?? "0/1")
         self.physicalFrom = element.attribute(by: "PhysicalFrom")?.double ?? parentPhysicalFrom ?? 0
         self.physicalTo = element.attribute(by: "PhysicalTo")?.double ?? parentPhysicalTo ?? 1
-        self.wheelSlotIndex = element.attribute(by: "WheelSlotIndex")?.int
+        self._wheelSlotIndex = element.attribute(by: "WheelSlotIndex")?.int
     }
 }
 

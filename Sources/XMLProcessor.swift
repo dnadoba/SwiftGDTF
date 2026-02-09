@@ -609,8 +609,11 @@ extension ChannelSet {
         
         self.name = element.attribute(by: "Name")?.text ?? ""
         self.dmxFrom = DMXValue(from: element.attribute(by: "DMXFrom")?.text ?? "0/1")
-        self.physicalFrom = element.attribute(by: "PhysicalFrom")?.double ?? parentPhysicalFrom ?? 0
-        self.physicalTo = element.attribute(by: "PhysicalTo")?.double ?? parentPhysicalTo ?? 1
+        let physicalFrom = element.attribute(by: "PhysicalFrom")?.double
+        self.physicalFrom = physicalFrom ?? parentPhysicalFrom ?? 0
+        let physicalTo = element.attribute(by: "PhysicalTo")?.double
+        self.physicalTo = physicalTo ?? parentPhysicalTo ?? 1
+        self.hasInhertiedPhysicalValues = physicalFrom == nil || physicalTo == nil
         self._wheelSlotIndex = element.attribute(by: "WheelSlotIndex")?.int
     }
 }

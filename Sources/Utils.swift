@@ -33,6 +33,7 @@ public enum XMLParsingError: Error {
     case unexpectedChannelChild(String)
     case fixtureAttributeReuqireForSubChannelSet
     case duplicateSubPhysicalUnit(first: SubPhysicalUnit, second: SubPhysicalUnit)
+    case unexpectedCountOfNumbersForPoint(count: Int)
 }
 
 extension XMLAttribute {

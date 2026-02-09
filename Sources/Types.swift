@@ -475,6 +475,12 @@ public struct Rotation {
 }
 
 extension Rotation {
+    public var transform: CGAffineTransform {
+        CGAffineTransform(a: matrix[0, 0], b: matrix[1, 0], c: matrix[0, 1], d: matrix[1, 1], tx: matrix[0, 2], ty: -matrix[1, 2])
+    }
+}
+
+extension Rotation {
     private struct ParseError: Error, CustomStringConvertible {
         var unexpectedCount: Int
         var description: String {

@@ -210,10 +210,14 @@ extension PrismFacet: XMLDecodable {
 extension AnimationSystem: XMLDecodable {
     init(xml: XMLIndexer, tree: XMLIndexer) throws {
         guard let element = xml.element else { throw XMLParsingError.elementMissing }
-        
-        self.p1 = try element.attribute(named: "P1").text.split(separator: ",").map { Double($0) ?? 0 }
-        self.p2 = try element.attribute(named: "P2").text.split(separator: ",").map { Double($0) ?? 0 }
-        self.p3 = try element.attribute(named: "P3").text.split(separator: ",").map { Double($0) ?? 0 }
+        func parsePoint(named: String) throws -> SIMD2<Double> {
+            let points = try element.attribute(named: "P1").text.split(separator: ",").map { Double($0) ?? 0 }
+            guard points.count == 2 else { throw XMLParsingError.unexpectedCountOfNumbersForPoint(count: points.count) }
+            return .init(points[0], points[1])
+        }
+        self.p1 = try parsePoint(named: "P1")
+        self.p2 = try parsePoint(named: "P2")
+        self.p3 = try parsePoint(named: "P3")
         
         self.radius = try Double(element.attribute(named: "Radius").text) ?? 0
     }

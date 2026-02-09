@@ -155,9 +155,9 @@ public struct PrismFacet: Codable {
 }
 
 public struct AnimationSystem: Codable {
-    public var p1: [Double]
-    public var p2: [Double]
-    public var p3: [Double]
+    public var p1: SIMD2<Double>
+    public var p2: SIMD2<Double>
+    public var p3: SIMD2<Double>
     
     public var radius: Double
 }

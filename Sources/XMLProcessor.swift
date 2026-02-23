@@ -48,6 +48,7 @@ extension FixtureType: XMLDecodable {
         self.attributeDefinitions = try xml["AttributeDefinitions"].parse(tree: tree)
         self.physicalDescriptions = try xml["PhysicalDescriptions"].parse(tree: tree)
         self.wheels = try xml["Wheels"].parseChildrenToArray(tree: tree)
+        self.models = try xml["Models"].parseChildrenToArray(tree: tree)
         let dmxModeParseDependencies = DMXMode.ParseDependencies(
             wheels: self.wheels,
             attributeDefinitions: self.attributeDefinitions,
@@ -746,6 +747,24 @@ extension RDM.DMXPersonality {
         guard let element = xml.element else { throw XMLParsingError.elementMissing }
         self.id = try element.attribute(named: "Value").requiredHexInt()
         self.dmxMode = try element.attribute(named: "DMXMode").text
+    }
+}
+
+extension GDTFModel: XMLDecodable {
+    init(xml: XMLIndexer, tree: XMLIndexer) throws {
+        guard let element = xml.element else { throw XMLParsingError.elementMissing }
+        self.name = try element.attribute(named: "Name").text
+        self.length = element.attribute(by: "Length")?.double ?? 0
+        self.width = element.attribute(by: "Width")?.double ?? 0
+        self.height = element.attribute(by: "Height")?.double ?? 0
+        self.primitiveType = element.attribute(by: "PrimitiveType").flatMap { PrimitiveType(rawValue: $0.text) } ?? .undefined
+        self.file = element.attribute(by: "File")?.text
+        self.svgOffsetX = element.attribute(by: "SVGOffsetX")?.double ?? 0
+        self.svgOffsetY = element.attribute(by: "SVGOffsetY")?.double ?? 0
+        self.svgSideOffsetX = element.attribute(by: "SVGSideOffsetX")?.double ?? 0
+        self.svgSideOffsetY = element.attribute(by: "SVGSideOffsetY")?.double ?? 0
+        self.svgFrontOffsetX = element.attribute(by: "SVGFrontOffsetX")?.double ?? 0
+        self.svgFrontOffsetY = element.attribute(by: "SVGFrontOffsetY")?.double ?? 0
     }
 }
 

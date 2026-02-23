@@ -3,22 +3,6 @@ import Foundation
 
 let env = ProcessInfo.processInfo.environment
 
-// These fixtures have known issues with their profiles
-// and should be ignored in reguards to validating this library
-// as they do not follow proper spec
-
-let FIXTURE_BLACKLIST = [
-    "S380H IP_Terbly_D3950060-1900-4193-97A5-24FEDFD38E73.gdtf",
-    "S380H_Terbly_EDB6335A-E04D-40AC-871F-234419A60D6B.gdtf",
-    "TMH S-200_Eurolite_CC902559-910C-46E3-92FF-5D4F460C12B3.gdtf",
-    "Gemini 1x1 Hard_Litepanels_C06B8887-F9CD-49B0-9A05-F735D19B228B.gdtf",
-    "Gemini 1x1 Soft_Litepanels_2319CD84-61C3-4AE6-830C-E5284BF9A4AB.gdtf",
-    "Moonlight Kugel 60cm_Boehlke Beleuchtung_8B5119CF-4C53-4BBE-8CA9-657C67729691.gdtf",
-    "Gemini 2x1 Soft_Litepanels_E5EB68B1-680A-48AA-A0F9-F26DC612985C.gdtf",
-    "Gemini 2x1 Hard_Litepanels_6D5063F5-9B6A-42D2-8D8C-21BCF5B06BF8.gdtf",
-    "LED TMH-S200_Eurolite_9D17D5E9-3776-4315-8104-14BE1BDE8AA4.gdtf"
-]
-
 // MARK: - Credentials
 
 struct Credentials {
@@ -36,7 +20,7 @@ struct Fixture: Decodable {
     var creationDate: Int
     
     func filename() -> String {
-        return "\(self.fixture)_\(self.manufacturer)_\(self.uuid).gdtf".replacingOccurrences(of: "/", with: "_")
+        return "\(self.rid).gdtf"
     }
 }
 
@@ -232,11 +216,6 @@ class GDTFValidator {
             for fileURL in gdtfFiles {
                 let filename = fileURL.lastPathComponent
 
-                if (FIXTURE_BLACKLIST.contains(filename)) {
-                    print("Skipping " + filename)
-                    continue
-                }
-                
                 group.addTask {
                     do {
                         _ = try loadGDTF(url: fileURL)
@@ -287,22 +266,148 @@ class GDTFValidator {
 
 @Suite
 struct GDTFShare {
-    let downloadFolder = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-        //.appendingPathComponent(".cache")
+    let downloadFolder = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("SwiftGDTF")
         .appendingPathComponent("Fixtures")
 
     let credentials = Credentials(username: "SwiftGDTF", password: "hedti4-wadjer-wihtAk")
-    
-    @Test func parseAllFixtures() async throws {
-        
+
+    @Test(.disabled("Downloads all fixtures from GDTF Share — run manually")) func parseAllFixtures() async throws {
+        print("Download Folder: \(downloadFolder)")
         let downloader = GDTFDownloader(credentials: credentials, downloadDirectory: downloadFolder)
         try await downloader.start()
 
         try await GDTFValidator(fixturesDirectory: downloadFolder).validateAll()
     }
-    
+
     // Useful for debugging
 //    @Test func testIndividual() async throws {
 //        _ = try loadGDTF(url: downloadFolder.appending(component: "Reflect Color Studio_Brother Brother and Sons_379FE751-C45E-4734-A6C8-843A2BF28F42.gdtf"))
 //    }
+}
+
+// MARK: - Cached Fixture Tests (no network, reads from local cache)
+
+/// Tests that run against whatever fixtures are already cached locally.
+/// Run parseAllFixtures() first to populate the cache.
+@Suite("Cached Fixtures")
+struct CachedFixtures {
+    let fixturesFolder = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("SwiftGDTF")
+        .appendingPathComponent("Fixtures")
+
+    /// Iterates every cached GDTF, finds all models that have a .3ds file entry, and
+    /// asserts that `ThreeDSFile.parse` succeeds. Additional sanity checks are run on the
+    /// returned data when possible.
+    @Test func parse3DSModels() async throws {
+        let fileURLs = try FileManager.default.contentsOfDirectory(
+            at: fixturesFolder,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        )
+        let gdtfFiles = fileURLs.filter { $0.pathExtension.lowercased() == "gdtf" }
+
+        guard !gdtfFiles.isEmpty else {
+            print("No GDTF files found in \(fixturesFolder) — run parseAllFixtures first.")
+            return
+        }
+
+        struct ModelResult {
+            var parsed: Int
+            var failures: [(file: String, model: String, error: String)]
+            var fixturesWithThreeDS: [(rid: String, name: String)]
+        }
+
+        let results = await withTaskGroup(of: ModelResult.self) { group in
+            for fileURL in gdtfFiles {
+                group.addTask {
+                    let gdtfData: Data
+                    let gdtf: GDTF
+                    do {
+                        gdtfData = try Data(contentsOf: fileURL)
+                        gdtf = try loadGDTF(data: gdtfData)
+                    } catch {
+                        return ModelResult(parsed: 0, failures: [], fixturesWithThreeDS: [])
+                    }
+
+                    var parsed = 0
+                    var failures: [(file: String, model: String, error: String)] = []
+                    var hasThreeDS = false
+
+                    for model in gdtf.fixtureType.models {
+                        for lod in GDTFModel.LOD.allCases {
+                            guard let raw = model.resolveFile(gdtf: gdtfData, format: .threeds, lod: lod) else {
+                                continue
+                            }
+                            do {
+                                let threeds = try ThreeDSFile.parse(data: raw)
+                                hasThreeDS = true
+
+                                // Basic sanity: if there are objects they should have vertices
+                                for object in threeds.objects {
+                                    #expect(!object.vertices.isEmpty,
+                                            "Object '\(object.name)' in '\(model.name)' has no vertices")
+                                    #expect(!object.faces.isEmpty,
+                                            "Object '\(object.name)' in '\(model.name)' has no faces")
+                                    // UV coordinates are optional, but if present must match vertex count
+                                    if !object.textureCoordinates.isEmpty {
+                                        #expect(object.textureCoordinates.count == object.vertices.count,
+                                                "UV count mismatch in '\(object.name)'")
+                                    }
+                                    // All face indices must be within bounds
+                                    for face in object.faces {
+                                        #expect(Int(face.x) < object.vertices.count, "Face index out of bounds in '\(object.name)'")
+                                        #expect(Int(face.y) < object.vertices.count, "Face index out of bounds in '\(object.name)'")
+                                        #expect(Int(face.z) < object.vertices.count, "Face index out of bounds in '\(object.name)'")
+                                    }
+                                }
+
+                                parsed += 1
+                            } catch {
+                                failures.append((
+                                    file: fileURL.lastPathComponent,
+                                    model: "\(model.name) (\(lod))",
+                                    error: "\(error)"
+                                ))
+                            }
+                        }
+                    }
+
+                    let rid = fileURL.deletingPathExtension().lastPathComponent
+                    let fixtureName = "\(gdtf.fixtureType.manufacturer) \(gdtf.fixtureType.name)"
+                    let fixturesWithThreeDS: [(rid: String, name: String)] = hasThreeDS
+                        ? [(rid: rid, name: fixtureName)]
+                        : []
+                    return ModelResult(parsed: parsed, failures: failures, fixturesWithThreeDS: fixturesWithThreeDS)
+                }
+            }
+
+            var combined = ModelResult(parsed: 0, failures: [], fixturesWithThreeDS: [])
+            for await result in group {
+                combined.parsed += result.parsed
+                combined.failures += result.failures
+                combined.fixturesWithThreeDS += result.fixturesWithThreeDS
+            }
+            return combined
+        }
+
+        let total = results.parsed + results.failures.count
+        print("\n3DS Model Parsing Summary:")
+        print("  Total .3ds entries found : \(total)")
+        print("  Successfully parsed      : \(results.parsed)")
+        print("  Parse failures           : \(results.failures.count)")
+        if !results.failures.isEmpty {
+            for failure in results.failures {
+                print("  ❌ \(failure.file) / \(failure.model): \(failure.error)")
+            }
+        }
+
+        let sorted = results.fixturesWithThreeDS.sorted { $0.rid < $1.rid }
+        print("\nFixtures with .3ds models (\(sorted.count) total):")
+        for fixture in sorted {
+            print("  rid: \(fixture.rid)  name: \(fixture.name)")
+        }
+
+        #expect(results.failures.isEmpty, "Some .3ds models failed to parse — see output above.")
+    }
 }

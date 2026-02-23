@@ -62,6 +62,7 @@ public struct FixtureType: Codable {
     public var attributeDefinitions: AttributeDefinitions
     public var wheels: [Wheel]
     public var physicalDescriptions: PhysicalDescriptions
+    public var models: [GDTFModel]
     public var dmxModes: [DMXMode]
     public var geometries: [Geometry]
     public var protocols: [FixtureProtocol]
@@ -442,4 +443,95 @@ public struct Revision: Codable {
     public var userID: Int
     /// Name of the software that modified this revision; Default value: empty
     public var modifiedBy: String
+}
+
+///
+/// Model Collect Schema
+///
+
+/// Defines the type and dimensions of a 3D model used by geometries.
+///
+/// Models are referenced by name from geometry nodes. The actual 3D mesh files
+/// are stored in the GDTF ZIP archive under `models/3ds/`, `models/gltf/`, etc.
+public struct GDTFModel: Codable {
+    /// The unique name of the model
+    public var name: String
+    /// Dimension on the X axis; Unit: meter; Default value: 0
+    public var length: Double
+    /// Dimension on the Y axis; Unit: meter; Default value: 0
+    public var width: Double
+    /// Dimension on the Z axis; Unit: meter; Default value: 0
+    public var height: Double
+    /// Type of 3D model primitive; Default value: .undefined
+    public var primitiveType: PrimitiveType
+    /// Optional file name without extension and without subfolder containing the 3D model description.
+    /// The resource files are located in subfolders of `./models` (e.g. `./models/3ds/`, `./models/gltf/`).
+    public var file: String?
+    /// Offset in X from the 0,0 point to the desired insertion point of the top view SVG; Default value: 0
+    public var svgOffsetX: Double
+    /// Offset in Y from the 0,0 point to the desired insertion point of the top view SVG; Default value: 0
+    public var svgOffsetY: Double
+    /// Offset in X from the 0,0 point to the desired insertion point of the side view SVG; Default value: 0
+    public var svgSideOffsetX: Double
+    /// Offset in Y from the 0,0 point to the desired insertion point of the side view SVG; Default value: 0
+    public var svgSideOffsetY: Double
+    /// Offset in X from the 0,0 point to the desired insertion point of the front view SVG; Default value: 0
+    public var svgFrontOffsetX: Double
+    /// Offset in Y from the 0,0 point to the desired insertion point of the front view SVG; Default value: 0
+    public var svgFrontOffsetY: Double
+}
+
+extension GDTFModel {
+    /// Level of detail for a 3D model file.
+    public enum LOD: String, CaseIterable {
+        /// Default mesh used for real-time visualization; stored in `models/3ds/` or `models/gltf/`.
+        case `default`
+        /// Low quality mesh (~30% of default vertex count); stored in `models/3ds_low/` or `models/gltf_low/`.
+        case low
+        /// High quality mesh (unlimited vertices); stored in `models/3ds_high/` or `models/gltf_high/`.
+        case high
+
+        fileprivate func folderName(format: ModelFileFormat) -> String {
+            switch (self, format) {
+            case (.default, .threeds): "models/3ds"
+            case (.low,     .threeds): "models/3ds_low"
+            case (.high,    .threeds): "models/3ds_high"
+            case (.default, .glb):    "models/gltf"
+            case (.low,     .glb):    "models/gltf_low"
+            case (.high,    .glb):    "models/gltf_high"
+            case (.default, .svg):    "models/svg"
+            case (.low,     .svg):    "models/svg"
+            case (.high,    .svg):    "models/svg"
+            }
+        }
+    }
+
+    /// Supported 3D / 2D model file formats within a GDTF archive.
+    public enum ModelFileFormat: String, CaseIterable {
+        /// 3D Studio binary format (.3ds)
+        case threeds = "3ds"
+        /// GLTF binary format (.glb)
+        case glb
+        /// Scalable Vector Graphics (.svg)
+        case svg
+
+        var fileExtension: String { rawValue }
+    }
+
+    /// Returns the ZIP-relative path for a given format and LOD, or `nil` if this model has no `file`.
+    public func archivePath(format: ModelFileFormat, lod: LOD = .default) -> String? {
+        guard let file else { return nil }
+        return "\(lod.folderName(format: format))/\(file).\(format.fileExtension)"
+    }
+
+    /// Extracts the raw bytes of this model from the GDTF ZIP data for the given format and LOD.
+    /// Returns `nil` if the model has no `file`, the entry does not exist in the archive,
+    /// or the entry is empty (zero-byte placeholder).
+    public func resolveFile(gdtf: Data, format: ModelFileFormat, lod: LOD = .default) -> Data? {
+        guard let file else { return nil }
+        let folder = lod.folderName(format: format)
+        guard let data = FileResource(name: "\(folder)/\(file)", fileExtension: format.fileExtension)?.resolve(gdtf: gdtf),
+              !data.isEmpty else { return nil }
+        return data
+    }
 }

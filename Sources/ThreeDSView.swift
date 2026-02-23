@@ -387,14 +387,18 @@ private func buildScene(node: SCNNode) -> SCNScene {
     let scene = SCNScene()
     scene.rootNode.addChildNode(node)
 
-    // Camera — slightly above and in front, looking at origin
+    // Camera — looking at the origin from front-right, slightly above.
     // GDTF coordinate system: Z up, Y into screen, X right.
+    // Place camera at -Y (in front) with a small X and Z offset for a 3/4 view.
     let cameraNode = SCNNode()
     cameraNode.camera = SCNCamera()
     cameraNode.camera?.zNear = 0.001
     cameraNode.camera?.zFar = 100
-    cameraNode.position = SCNVector3(0, -2.5, 0.5)
-    cameraNode.eulerAngles = SCNVector3(-Float.pi / 2 * 0.2, 0, 0)
+    cameraNode.position = SCNVector3(0.3, -1.5, 0.3)
+    // Point at the origin using a look-at constraint.
+    let lookAt = SCNLookAtConstraint(target: scene.rootNode)
+    lookAt.isGimbalLockEnabled = true
+    cameraNode.constraints = [lookAt]
     scene.rootNode.addChildNode(cameraNode)
 
     // Key light (warm, upper-right-front)

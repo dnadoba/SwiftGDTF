@@ -119,7 +119,13 @@ extension ThreeDSFile {
 
             if let matName = object.materialName, let mat = materialMap[matName] {
                 scnMaterial.diffuse.contents = mat.diffuseColor.map {
-                    PlatformColor(red: CGFloat($0.x), green: CGFloat($0.y), blue: CGFloat($0.z), alpha: 1)
+                    // Apply a minimum brightness so very dark fixtures are still
+                    // visible in the preview.  Preserves the hue of the original.
+                    let minBrightness: Float = 0.15
+                    let r = max($0.x, minBrightness)
+                    let g = max($0.y, minBrightness)
+                    let b = max($0.z, minBrightness)
+                    return PlatformColor(red: CGFloat(r), green: CGFloat(g), blue: CGFloat(b), alpha: 1)
                 } ?? PlatformColor.lightGray
                 if let a = mat.ambientColor {
                     scnMaterial.ambient.contents = PlatformColor(
@@ -236,28 +242,12 @@ public struct FixtureSceneBuilder {
             SIMD4<Float>(0, 0,  0, 1)
         )
 
-        // Some GDTF files have meshes in shared fixture space (transforms are
-        // animation pivots only), others have meshes in per-part local space
-        // (transforms are spatial placement). Build both variants and keep the
-        // one that produces a tighter bounding box — a correct assembly is
-        // compact, a wrong one has parts flying apart.
-        let rootWith = SCNNode()
-        rootWith.name = rootGeometry.name
+        let root = SCNNode()
+        root.name = rootGeometry.name
         context.walk(rootGeometry, worldTransform: gdtfToSceneKit,
-                     into: rootWith, modelOverride: nil, depth: 0,
-                     applyPositionTransforms: true)
+                     into: root, modelOverride: nil, depth: 0)
 
-        let rootWithout = SCNNode()
-        rootWithout.name = rootGeometry.name
-        context.walk(rootGeometry, worldTransform: gdtfToSceneKit,
-                     into: rootWithout, modelOverride: nil, depth: 0,
-                     applyPositionTransforms: false)
-
-        let spanWith = worldAABBSpan(rootWith)
-        let spanWithout = worldAABBSpan(rootWithout)
-        let root = spanWith <= spanWithout ? rootWith : rootWithout
-
-        // Normalise using the chosen assembly's AABB.
+        // Normalise: scale so the longest AABB axis == 1, then centre.
         let (worldMin, worldMax) = worldAABB(root)
         let span = worldMax - worldMin
         let maxDim = span.max()
@@ -303,12 +293,6 @@ public struct FixtureSceneBuilder {
         return (wMin, wMax)
     }
 
-    /// Returns the length of the longest axis of the world-space AABB.
-    private func worldAABBSpan(_ node: SCNNode) -> Float {
-        let (wMin, wMax) = worldAABB(node)
-        return (wMax - wMin).max()
-    }
-
     // MARK: - Build context (captures shared state)
 
     private struct BuildContext {
@@ -318,49 +302,36 @@ public struct FixtureSceneBuilder {
 
         /// Walks `geometry` and its children, adding mesh nodes to `root`.
         ///
-        /// - Parameters:
-        ///   - geometry: Current geometry node to process.
-        ///   - worldTransform: Accumulated transform from all ancestor geometries.
-        ///     Identity for the root geometry of the tree being rendered.
-        ///   - root: Destination node; all mesh nodes are added as direct children.
-        ///   - modelOverride: Model name override from a `GeometryReference` parent.
-        ///   - depth: Guard against infinite recursion in malformed files.
+        /// Per the GDTF spec, each geometry's Position matrix defines its
+        /// offset relative to its parent.  The mesh is scaled per-axis to
+        /// match the model's declared Length (X), Width (Y), Height (Z)
+        /// dimensions in metres.
         func walk(
             _ geometry: Geometry,
             worldTransform: simd_float4x4,
             into root: SCNNode,
             modelOverride: String?,
-            depth: Int,
-            applyPositionTransforms: Bool = true
+            depth: Int
         ) {
             guard depth < 64 else { return }
 
             switch geometry {
             case .reference(let ref):
-                // References always apply their position (they place copies).
                 walkReference(ref, parentTransform: worldTransform, into: root,
-                              depth: depth, applyPositionTransforms: applyPositionTransforms)
+                              depth: depth)
             default:
-                let combined: simd_float4x4
-                if applyPositionTransforms {
-                    combined = worldTransform * geometry.position.matrix.float4x4
-                } else {
-                    combined = worldTransform
-                }
+                let combined = worldTransform * geometry.position.matrix.float4x4
 
                 let modelName = modelOverride ?? geometry.model
                 if let modelName, let gdtfModel = modelMap[modelName],
                    let meshNode = makeMeshNode(gdtfModel: gdtfModel) {
-                    let vertexScale = meshToMetresScale(gdtfModel: gdtfModel, meshNode: meshNode)
-                    let scaleMat = simd_float4x4(diagonal: SIMD4<Float>(vertexScale, vertexScale, vertexScale, 1))
-                    meshNode.simdTransform = combined * scaleMat
+                    meshNode.simdTransform = combined * meshScaleMatrix(gdtfModel: gdtfModel, meshNode: meshNode)
                     root.addChildNode(meshNode)
                 }
 
                 for child in geometry.children {
                     walk(child, worldTransform: combined, into: root,
-                         modelOverride: nil, depth: depth + 1,
-                         applyPositionTransforms: applyPositionTransforms)
+                         modelOverride: nil, depth: depth + 1)
                 }
             }
         }
@@ -369,21 +340,16 @@ public struct FixtureSceneBuilder {
             _ ref: GeometryReference,
             parentTransform: simd_float4x4,
             into root: SCNNode,
-            depth: Int,
-            applyPositionTransforms: Bool
+            depth: Int
         ) {
             guard let targetName = ref.geometry,
                   let target = topLevelMap[targetName] else { return }
 
-            // References always apply their own position — they place
-            // copies of a geometry at specific locations.
-            let refTransform = ref.position.matrix.float4x4
-            let combined = parentTransform * refTransform
+            let combined = parentTransform * ref.position.matrix.float4x4
 
             let tempRoot = SCNNode()
             walk(target, worldTransform: combined,
-                 into: tempRoot, modelOverride: ref.model, depth: depth + 1,
-                 applyPositionTransforms: applyPositionTransforms)
+                 into: tempRoot, modelOverride: ref.model, depth: depth + 1)
 
             for child in tempRoot.childNodes {
                 child.removeFromParentNode()
@@ -406,41 +372,43 @@ public struct FixtureSceneBuilder {
             return file.sceneNodeRaw()
         }
 
-        /// Computes the uniform scale that converts mesh vertex units to metres.
+        /// Builds a 4×4 matrix that scales the mesh so that its bounding box
+        /// matches the model's declared dimensions (Length→X, Width→Y,
+        /// Height→Z in metres).
         ///
-        /// The GDTF spec defines model dimensions (Length = X, Width = Y,
-        /// Height = Z) in metres. The `.3ds` vertices may be authored in mm,
-        /// cm, or any other unit. We compare the largest declared dimension
-        /// against the mesh's actual bounding-box span along the same axis to
-        /// derive the conversion factor.
-        ///
-        /// Falls back to 0.001 (mm → m) when the declared dimensions are zero
-        /// or the mesh is degenerate.
-        private func meshToMetresScale(gdtfModel: GDTFModel, meshNode: SCNNode) -> Float {
+        /// Per the GDTF spec (§ Model Collect): "The mesh is explicitly
+        /// scaled to this dimension."  Each axis is scaled independently
+        /// so that the mesh's bounding-box span on that axis equals the
+        /// declared dimension in metres.
+        private func meshScaleMatrix(gdtfModel: GDTFModel, meshNode: SCNNode) -> simd_float4x4 {
             let (mn, mx) = meshNode.boundingBox
-            let meshSpanX = Double(mx.x) - Double(mn.x)
-            let meshSpanY = Double(mx.y) - Double(mn.y)
-            let meshSpanZ = Double(mx.z) - Double(mn.z)
+            let meshSpan = SIMD3<Double>(
+                Double(mx.x) - Double(mn.x),
+                Double(mx.y) - Double(mn.y),
+                Double(mx.z) - Double(mn.z)
+            )
 
-            // GDTFModel: length = X, width = Y, height = Z (all in metres)
-            let pairs: [(declared: Double, mesh: Double)] = [
-                (gdtfModel.length, meshSpanX),
-                (gdtfModel.width,  meshSpanY),
-                (gdtfModel.height, meshSpanZ),
-            ]
+            // Declared dimensions in metres: Length=X, Width=Y, Height=Z
+            let declared = SIMD3<Double>(gdtfModel.length, gdtfModel.width, gdtfModel.height)
 
-            // Use the axis with the largest declared dimension for the best
-            // numerical stability.
-            var bestScale: Double?
-            var bestDeclared = 0.0
-            for (declared, mesh) in pairs {
-                if declared > bestDeclared && mesh > 0.0001 {
-                    bestDeclared = declared
-                    bestScale = declared / mesh
+            // Per-axis scale.  Fall back to the best uniform scale for axes
+            // where the declared dimension is zero.
+            var fallbackScale = 0.001
+            for i in 0..<3 {
+                if declared[i] > 0 && meshSpan[i] > 0.0001 {
+                    fallbackScale = declared[i] / meshSpan[i]
+                    break
                 }
             }
 
-            return Float(bestScale ?? 0.001)
+            var scale = SIMD3<Double>(repeating: fallbackScale)
+            for i in 0..<3 {
+                if declared[i] > 0 && meshSpan[i] > 0.0001 {
+                    scale[i] = declared[i] / meshSpan[i]
+                }
+            }
+
+            return simd_float4x4(diagonal: SIMD4<Float>(Float(scale.x), Float(scale.y), Float(scale.z), 1))
         }
     }
 }
@@ -469,25 +437,25 @@ private func buildScene(node: SCNNode) -> SCNScene {
     let keyLight = SCNNode()
     keyLight.light = SCNLight()
     keyLight.light!.type = .omni
-    keyLight.light!.intensity = 800
-    keyLight.light!.color = PlatformColor(red: 1.0, green: 0.95, blue: 0.88, alpha: 1)
+    keyLight.light!.intensity = 1200
+    keyLight.light!.color = PlatformColor(red: 1.0, green: 0.97, blue: 0.92, alpha: 1)
     keyLight.position = SCNVector3(1.5, 2, 1.5)
     scene.rootNode.addChildNode(keyLight)
 
-    // Fill light (cool, lower-left-back)
+    // Fill light (cool, opposite side)
     let fillLight = SCNNode()
     fillLight.light = SCNLight()
     fillLight.light!.type = .omni
-    fillLight.light!.intensity = 300
-    fillLight.light!.color = PlatformColor(red: 0.8, green: 0.88, blue: 1.0, alpha: 1)
-    fillLight.position = SCNVector3(-1.5, -0.5, -1)
+    fillLight.light!.intensity = 800
+    fillLight.light!.color = PlatformColor(red: 0.85, green: 0.9, blue: 1.0, alpha: 1)
+    fillLight.position = SCNVector3(-1.5, 0.5, -1)
     scene.rootNode.addChildNode(fillLight)
 
-    // Ambient fill
+    // Ambient fill — strong enough to reveal dark-bodied fixtures
     let ambientNode = SCNNode()
     ambientNode.light = SCNLight()
     ambientNode.light!.type = .ambient
-    ambientNode.light!.intensity = 200
+    ambientNode.light!.intensity = 600
     ambientNode.light!.color = PlatformColor.white
     scene.rootNode.addChildNode(ambientNode)
 
@@ -764,9 +732,17 @@ private struct GDTFFixturePickerPreview: View {
         }
 
         let builder = FixtureSceneBuilder(gdtf: gdtf, gdtfData: gdtfData)
-        let geometryNames = gdtf.fixtureType.geometries.map { $0.name }
+        let geometries = gdtf.fixtureType.geometries
+        let geometryNames = geometries.map { $0.name }
         state = .loaded(builder, geometryNames)
-        selectedGeometry = geometryNames.first ?? ""
+
+        // Default to the geometry with the most descendants — that's typically
+        // the full fixture body, not an instanced sub-component.
+        func descendantCount(_ g: Geometry) -> Int {
+            1 + g.children.reduce(0) { $0 + descendantCount($1) }
+        }
+        let best = geometries.max(by: { descendantCount($0) < descendantCount($1) })
+        selectedGeometry = best?.name ?? geometryNames.first ?? ""
     }
 }
 

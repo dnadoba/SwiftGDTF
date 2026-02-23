@@ -225,53 +225,46 @@ public struct FixtureSceneBuilder {
         }
 
         let context = BuildContext(gdtfData: gdtfData, modelMap: modelMap, topLevelMap: topLevelMap)
-        let root = SCNNode()
-        root.name = rootGeometry.name
 
-        // GDTF uses Z-up; SceneKit uses Y-up.
-        // Rotate -90° around X: (x, y, z) → (x, -z, y).
+        // GDTF uses Z-up (X right, Y into screen, Z up).
+        // SceneKit uses Y-up (X right, Y up, Z toward camera).
+        // Mapping: (x, y, z)_GDTF → (x, z, -y)_SceneKit
         let gdtfToSceneKit = simd_float4x4(
-            SIMD4<Float>(1,  0, 0, 0),
-            SIMD4<Float>(0,  0, 1, 0),
-            SIMD4<Float>(0, -1, 0, 0),
-            SIMD4<Float>(0,  0, 0, 1)
+            SIMD4<Float>(1, 0,  0, 0),
+            SIMD4<Float>(0, 0, -1, 0),
+            SIMD4<Float>(0, 1,  0, 0),
+            SIMD4<Float>(0, 0,  0, 1)
         )
+
+        // Some GDTF files have meshes in shared fixture space (transforms are
+        // animation pivots only), others have meshes in per-part local space
+        // (transforms are spatial placement). Build both variants and keep the
+        // one that produces a tighter bounding box — a correct assembly is
+        // compact, a wrong one has parts flying apart.
+        let rootWith = SCNNode()
+        rootWith.name = rootGeometry.name
         context.walk(rootGeometry, worldTransform: gdtfToSceneKit,
-                     into: root, modelOverride: nil, depth: 0)
+                     into: rootWith, modelOverride: nil, depth: 0,
+                     applyPositionTransforms: true)
 
-        // Compute world-space bounding box by transforming each mesh node's
-        // local AABB by its accumulated world transform.
-        var worldMin = SIMD3<Float>(repeating:  Float.infinity)
-        var worldMax = SIMD3<Float>(repeating: -Float.infinity)
+        let rootWithout = SCNNode()
+        rootWithout.name = rootGeometry.name
+        context.walk(rootGeometry, worldTransform: gdtfToSceneKit,
+                     into: rootWithout, modelOverride: nil, depth: 0,
+                     applyPositionTransforms: false)
 
-        func accumulate(_ node: SCNNode) {
-            if node.geometry != nil {
-                let (localMin, localMax) = node.boundingBox
-                let wt = node.simdWorldTransform
-                for dx in [Float(localMin.x), Float(localMax.x)] {
-                    for dy in [Float(localMin.y), Float(localMax.y)] {
-                        for dz in [Float(localMin.z), Float(localMax.z)] {
-                            let lp = SIMD4<Float>(dx, dy, dz, 1)
-                            let wp = wt * lp
-                            let wp3 = SIMD3<Float>(wp.x, wp.y, wp.z)
-                            worldMin = min(worldMin, wp3)
-                            worldMax = max(worldMax, wp3)
-                        }
-                    }
-                }
-            }
-            for child in node.childNodes { accumulate(child) }
-        }
-        accumulate(root)
+        let spanWith = worldAABBSpan(rootWith)
+        let spanWithout = worldAABBSpan(rootWithout)
+        let root = spanWith <= spanWithout ? rootWith : rootWithout
 
+        // Normalise using the chosen assembly's AABB.
+        let (worldMin, worldMax) = worldAABB(root)
         let span = worldMax - worldMin
         let maxDim = span.max()
         if maxDim > 0 {
             let s = CGFloat(1.0 / maxDim)
             let centre = (worldMin + worldMax) * 0.5
-            root.simdPosition = simd_float3(-centre.x, -centre.y, -centre.z)
             root.scale = SCNVector3(s, s, s)
-            // Re-apply centring at the new scale
             root.simdPosition = simd_float3(
                 -centre.x * Float(s),
                 -centre.y * Float(s),
@@ -282,31 +275,46 @@ public struct FixtureSceneBuilder {
         return root
     }
 
+    // MARK: - AABB helpers
+
+    /// Computes the world-space axis-aligned bounding box of all geometry
+    /// nodes in the subtree rooted at `node`.
+    private func worldAABB(_ node: SCNNode) -> (min: SIMD3<Float>, max: SIMD3<Float>) {
+        var wMin = SIMD3<Float>(repeating:  Float.infinity)
+        var wMax = SIMD3<Float>(repeating: -Float.infinity)
+
+        func accumulate(_ n: SCNNode) {
+            if n.geometry != nil {
+                let (localMin, localMax) = n.boundingBox
+                let wt = n.simdWorldTransform
+                for dx in [Float(localMin.x), Float(localMax.x)] {
+                    for dy in [Float(localMin.y), Float(localMax.y)] {
+                        for dz in [Float(localMin.z), Float(localMax.z)] {
+                            let wp = wt * SIMD4<Float>(dx, dy, dz, 1)
+                            wMin = min(wMin, SIMD3(wp.x, wp.y, wp.z))
+                            wMax = max(wMax, SIMD3(wp.x, wp.y, wp.z))
+                        }
+                    }
+                }
+            }
+            for child in n.childNodes { accumulate(child) }
+        }
+        accumulate(node)
+        return (wMin, wMax)
+    }
+
+    /// Returns the length of the longest axis of the world-space AABB.
+    private func worldAABBSpan(_ node: SCNNode) -> Float {
+        let (wMin, wMax) = worldAABB(node)
+        return (wMax - wMin).max()
+    }
+
     // MARK: - Build context (captures shared state)
 
     private struct BuildContext {
         let gdtfData: Data
         let modelMap: [String: GDTFModel]
         let topLevelMap: [String: Geometry]
-
-        /// Walks the geometry tree and collects all mesh nodes into `root`,
-        /// each positioned by the cumulative world transform at that geometry.
-        ///
-        /// The `.3ds` vertex coordinates are already in the fixture's local
-        /// coordinate space (authored in mm relative to the fixture origin).
-        /// The GDTF `position` matrices define the pivot/default pose for
-        /// DMX-driven animation — they must *not* be stacked on top of the
-        /// mesh vertices for a static render. Instead we apply the accumulated
-        /// transform only when the same geometry is instanced via a
-        /// `GeometryReference`, which genuinely places a copy at a new location.
-        func collectMeshNodes(into root: SCNNode) {
-            for geo in topLevelMap.values.sorted(by: { $0.name < $1.name }) {
-                // Only process geometries that are top-level roots (not referenced ones
-                // used only as templates). We process the full tree from the
-                // caller-selected root instead.
-                _ = geo
-            }
-        }
 
         /// Walks `geometry` and its children, adding mesh nodes to `root`.
         ///
@@ -322,23 +330,27 @@ public struct FixtureSceneBuilder {
             worldTransform: simd_float4x4,
             into root: SCNNode,
             modelOverride: String?,
-            depth: Int
+            depth: Int,
+            applyPositionTransforms: Bool = true
         ) {
             guard depth < 64 else { return }
 
             switch geometry {
             case .reference(let ref):
-                walkReference(ref, parentTransform: worldTransform, into: root, depth: depth)
+                // References always apply their position (they place copies).
+                walkReference(ref, parentTransform: worldTransform, into: root,
+                              depth: depth, applyPositionTransforms: applyPositionTransforms)
             default:
-                // Accumulate this geometry's local transform (metres).
-                let combined = worldTransform * geometry.position.matrix.float4x4
+                let combined: simd_float4x4
+                if applyPositionTransforms {
+                    combined = worldTransform * geometry.position.matrix.float4x4
+                } else {
+                    combined = worldTransform
+                }
 
                 let modelName = modelOverride ?? geometry.model
                 if let modelName, let gdtfModel = modelMap[modelName],
                    let meshNode = makeMeshNode(gdtfModel: gdtfModel) {
-                    // Determine the scale that converts mesh vertex units to metres.
-                    // Compare the mesh bounding box against the GDTFModel's declared
-                    // physical dimensions (Length/Width/Height, stored in metres).
                     let vertexScale = meshToMetresScale(gdtfModel: gdtfModel, meshNode: meshNode)
                     let scaleMat = simd_float4x4(diagonal: SIMD4<Float>(vertexScale, vertexScale, vertexScale, 1))
                     meshNode.simdTransform = combined * scaleMat
@@ -347,7 +359,8 @@ public struct FixtureSceneBuilder {
 
                 for child in geometry.children {
                     walk(child, worldTransform: combined, into: root,
-                         modelOverride: nil, depth: depth + 1)
+                         modelOverride: nil, depth: depth + 1,
+                         applyPositionTransforms: applyPositionTransforms)
                 }
             }
         }
@@ -356,17 +369,21 @@ public struct FixtureSceneBuilder {
             _ ref: GeometryReference,
             parentTransform: simd_float4x4,
             into root: SCNNode,
-            depth: Int
+            depth: Int,
+            applyPositionTransforms: Bool
         ) {
             guard let targetName = ref.geometry,
                   let target = topLevelMap[targetName] else { return }
 
+            // References always apply their own position — they place
+            // copies of a geometry at specific locations.
             let refTransform = ref.position.matrix.float4x4
             let combined = parentTransform * refTransform
 
             let tempRoot = SCNNode()
             walk(target, worldTransform: combined,
-                 into: tempRoot, modelOverride: ref.model, depth: depth + 1)
+                 into: tempRoot, modelOverride: ref.model, depth: depth + 1,
+                 applyPositionTransforms: applyPositionTransforms)
 
             for child in tempRoot.childNodes {
                 child.removeFromParentNode()

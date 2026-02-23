@@ -441,7 +441,7 @@ private func buildScene(node: SCNNode) -> SCNScene {
     cameraNode.camera = SCNCamera()
     cameraNode.camera?.zNear = 0.001
     cameraNode.camera?.zFar = 100
-    cameraNode.position = SCNVector3(0.3, -1.5, 0.3)
+    cameraNode.position = SCNVector3(0.3, 0.8, 1.5)
     // Point at the origin using a look-at constraint.
     let lookAt = SCNLookAtConstraint(target: scene.rootNode)
     lookAt.isGimbalLockEnabled = true
@@ -454,7 +454,7 @@ private func buildScene(node: SCNNode) -> SCNScene {
     keyLight.light!.type = .omni
     keyLight.light!.intensity = 800
     keyLight.light!.color = PlatformColor(red: 1.0, green: 0.95, blue: 0.88, alpha: 1)
-    keyLight.position = SCNVector3(1.5, -1.5, 2)
+    keyLight.position = SCNVector3(1.5, 2, 1.5)
     scene.rootNode.addChildNode(keyLight)
 
     // Fill light (cool, lower-left-back)
@@ -463,7 +463,7 @@ private func buildScene(node: SCNNode) -> SCNScene {
     fillLight.light!.type = .omni
     fillLight.light!.intensity = 300
     fillLight.light!.color = PlatformColor(red: 0.8, green: 0.88, blue: 1.0, alpha: 1)
-    fillLight.position = SCNVector3(-1.5, 0.5, -1)
+    fillLight.position = SCNVector3(-1.5, -0.5, -1)
     scene.rootNode.addChildNode(fillLight)
 
     // Ambient fill

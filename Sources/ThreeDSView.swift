@@ -652,19 +652,29 @@ private enum PreviewLoadState {
 }
 
 private struct GDTFFixturePickerPreview: View {
-    @State private var selectedFixture: FixtureEntry = previewFixtures[0]
+    @State private var selectedIndex: Int = 0
     @State private var state: PreviewLoadState = .loading
     @State private var selectedGeometry: String = ""
+
+    private var selectedFixture: FixtureEntry { previewFixtures[selectedIndex] }
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Picker("Fixture", selection: $selectedFixture) {
-                    ForEach(previewFixtures) { entry in
-                        Text(entry.name).tag(entry)
+                Stepper(
+                    "\(selectedIndex + 1)/\(previewFixtures.count)",
+                    value: $selectedIndex,
+                    in: 0...(previewFixtures.count - 1)
+                )
+                .fixedSize()
+
+                Picker("Fixture", selection: $selectedIndex) {
+                    ForEach(Array(previewFixtures.enumerated()), id: \.offset) { i, entry in
+                        Text(entry.name).tag(i)
                     }
                 }
                 .pickerStyle(.menu)
+                .labelsHidden()
 
                 if case .loaded(_, let names) = state, !names.isEmpty {
                     Picker("Root Geometry", selection: $selectedGeometry) {
@@ -674,6 +684,11 @@ private struct GDTFFixturePickerPreview: View {
                     }
                     .pickerStyle(.menu)
                 }
+
+                Link(destination: URL(string: "https://fixturebuilder.gdtf-share.com/load/?rid=\(selectedFixture.rid)")!) {
+                    Label("GDTF Builder", systemImage: "safari")
+                }
+                .buttonStyle(.borderless)
             }
             .padding(8)
 

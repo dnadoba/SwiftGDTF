@@ -327,11 +327,12 @@ public struct FixtureSceneBuilder {
                 let modelName = modelOverride ?? geometry.model
                 if let modelName, let gdtfModel = modelMap[modelName],
                    let meshNode = makeMeshNode(gdtfModel: gdtfModel) {
-                    // .3ds vertices are in mm; GDTF transforms are in metres.
-                    // Combine: place pivot at GDTF world position, then scale
-                    // the mm vertices to metres.
-                    let mmToM = simd_float4x4(diagonal: SIMD4<Float>(0.001, 0.001, 0.001, 1))
-                    meshNode.simdTransform = combined * mmToM
+                    // Determine the scale that converts mesh vertex units to metres.
+                    // Compare the mesh bounding box against the GDTFModel's declared
+                    // physical dimensions (Length/Width/Height, stored in metres).
+                    let vertexScale = meshToMetresScale(gdtfModel: gdtfModel, meshNode: meshNode)
+                    let scaleMat = simd_float4x4(diagonal: SIMD4<Float>(vertexScale, vertexScale, vertexScale, 1))
+                    meshNode.simdTransform = combined * scaleMat
                     root.addChildNode(meshNode)
                 }
 
@@ -377,6 +378,43 @@ public struct FixtureSceneBuilder {
             guard let data = raw,
                   let file = try? ThreeDSFile.parse(data: data) else { return nil }
             return file.sceneNodeRaw()
+        }
+
+        /// Computes the uniform scale that converts mesh vertex units to metres.
+        ///
+        /// The GDTF spec defines model dimensions (Length = X, Width = Y,
+        /// Height = Z) in metres. The `.3ds` vertices may be authored in mm,
+        /// cm, or any other unit. We compare the largest declared dimension
+        /// against the mesh's actual bounding-box span along the same axis to
+        /// derive the conversion factor.
+        ///
+        /// Falls back to 0.001 (mm → m) when the declared dimensions are zero
+        /// or the mesh is degenerate.
+        private func meshToMetresScale(gdtfModel: GDTFModel, meshNode: SCNNode) -> Float {
+            let (mn, mx) = meshNode.boundingBox
+            let meshSpanX = Double(mx.x) - Double(mn.x)
+            let meshSpanY = Double(mx.y) - Double(mn.y)
+            let meshSpanZ = Double(mx.z) - Double(mn.z)
+
+            // GDTFModel: length = X, width = Y, height = Z (all in metres)
+            let pairs: [(declared: Double, mesh: Double)] = [
+                (gdtfModel.length, meshSpanX),
+                (gdtfModel.width,  meshSpanY),
+                (gdtfModel.height, meshSpanZ),
+            ]
+
+            // Use the axis with the largest declared dimension for the best
+            // numerical stability.
+            var bestScale: Double?
+            var bestDeclared = 0.0
+            for (declared, mesh) in pairs {
+                if declared > bestDeclared && mesh > 0.0001 {
+                    bestDeclared = declared
+                    bestScale = declared / mesh
+                }
+            }
+
+            return Float(bestScale ?? 0.001)
         }
     }
 }

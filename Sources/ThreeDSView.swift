@@ -227,7 +227,16 @@ public struct FixtureSceneBuilder {
         let context = BuildContext(gdtfData: gdtfData, modelMap: modelMap, topLevelMap: topLevelMap)
         let root = SCNNode()
         root.name = rootGeometry.name
-        context.walk(rootGeometry, worldTransform: simd_float4x4(diagonal: .one),
+
+        // GDTF uses Z-up; SceneKit uses Y-up.
+        // Rotate -90° around X: (x, y, z) → (x, -z, y).
+        let gdtfToSceneKit = simd_float4x4(
+            SIMD4<Float>(1,  0, 0, 0),
+            SIMD4<Float>(0,  0, 1, 0),
+            SIMD4<Float>(0, -1, 0, 0),
+            SIMD4<Float>(0,  0, 0, 1)
+        )
+        context.walk(rootGeometry, worldTransform: gdtfToSceneKit,
                      into: root, modelOverride: nil, depth: 0)
 
         // Compute world-space bounding box by transforming each mesh node's

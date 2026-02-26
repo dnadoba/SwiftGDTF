@@ -584,3 +584,163 @@ func calculateStatistics() async throws {
     let results = await statistics.collect()
     print(results)
 }
+
+// MARK: - GLB Format Statistics
+
+/// Collects statistics about GLB file usage across all cached GDTF fixtures.
+/// Print-only — no assertions.
+@Test
+func glbFormatStatistics() async throws {
+    let fixturesFolder = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("SwiftGDTF")
+        .appendingPathComponent("Fixtures")
+
+    let fileURLs = try FileManager.default.contentsOfDirectory(
+        at: fixturesFolder,
+        includingPropertiesForKeys: nil,
+        options: [.skipsHiddenFiles]
+    )
+    let gdtfFiles = fileURLs.filter { $0.pathExtension.lowercased() == "gdtf" }
+
+    guard !gdtfFiles.isEmpty else {
+        print("No GDTF files found — run parseAllFixtures first.")
+        return
+    }
+
+    struct FixtureGLBStats: Sendable {
+        var fixturesWithGLB = 0
+        var fixturesGLBOnly = 0
+        var fixturesMixed = 0
+        var fixturesPerModelMixed = 0  // same fixture has some models in 3ds only, some in glb only
+        var totalGLBFiles = 0
+        var totalGLBObjects = 0
+        var parseSuccesses = 0
+        var parseFailures = 0
+        var objectsWithNormals = 0
+        var objectsWithTexCoords = 0
+        var maxVerticesInObject = 0
+        var maxFacesInObject = 0
+        var totalVertices = 0
+        var totalFaces = 0
+        var objectsWithMaterial = 0
+        var materialsWithBaseColor = 0
+        var totalMaterials = 0
+
+        mutating func merge(_ other: FixtureGLBStats) {
+            fixturesWithGLB += other.fixturesWithGLB
+            fixturesGLBOnly += other.fixturesGLBOnly
+            fixturesMixed += other.fixturesMixed
+            fixturesPerModelMixed += other.fixturesPerModelMixed
+            totalGLBFiles += other.totalGLBFiles
+            totalGLBObjects += other.totalGLBObjects
+            parseSuccesses += other.parseSuccesses
+            parseFailures += other.parseFailures
+            objectsWithNormals += other.objectsWithNormals
+            objectsWithTexCoords += other.objectsWithTexCoords
+            maxVerticesInObject = max(maxVerticesInObject, other.maxVerticesInObject)
+            maxFacesInObject = max(maxFacesInObject, other.maxFacesInObject)
+            totalVertices += other.totalVertices
+            totalFaces += other.totalFaces
+            objectsWithMaterial += other.objectsWithMaterial
+            materialsWithBaseColor += other.materialsWithBaseColor
+            totalMaterials += other.totalMaterials
+        }
+    }
+
+    let results = await withTaskGroup(of: FixtureGLBStats.self) { group in
+        for fileURL in gdtfFiles {
+            group.addTask {
+                var stats = FixtureGLBStats()
+
+                guard let gdtfData = try? Data(contentsOf: fileURL),
+                      let gdtf = try? loadGDTF(data: gdtfData) else {
+                    return stats
+                }
+
+                var hasAnyGLB = false
+                var hasAny3DS = false
+                var modelsWithGLBOnly = 0
+                var modelsWith3DSOnly = 0
+
+                for model in gdtf.fixtureType.models {
+                    let has3DS = GDTFModel.LOD.allCases.contains {
+                        model.resolveFile(gdtf: gdtfData, format: .threeds, lod: $0) != nil
+                    }
+                    let hasGLB = GDTFModel.LOD.allCases.contains {
+                        model.resolveFile(gdtf: gdtfData, format: .glb, lod: $0) != nil
+                    }
+
+                    if has3DS { hasAny3DS = true }
+                    if hasGLB { hasAnyGLB = true }
+                    if hasGLB && !has3DS { modelsWithGLBOnly += 1 }
+                    if has3DS && !hasGLB { modelsWith3DSOnly += 1 }
+
+                    // Parse each GLB at default LOD
+                    if let raw = model.resolveFile(gdtf: gdtfData, format: .glb, lod: .default) {
+                        stats.totalGLBFiles += 1
+                        do {
+                            let glb = try GLBFile.parse(data: raw)
+                            stats.parseSuccesses += 1
+
+                            for obj in glb.objects {
+                                stats.totalGLBObjects += 1
+                                stats.totalVertices += obj.vertices.count
+                                stats.totalFaces += obj.faces.count
+                                stats.maxVerticesInObject = max(stats.maxVerticesInObject, obj.vertices.count)
+                                stats.maxFacesInObject = max(stats.maxFacesInObject, obj.faces.count)
+                                if !obj.normals.isEmpty { stats.objectsWithNormals += 1 }
+                                if !obj.textureCoordinates.isEmpty { stats.objectsWithTexCoords += 1 }
+                                if obj.materialIndex != nil { stats.objectsWithMaterial += 1 }
+                            }
+
+                            stats.totalMaterials += glb.materials.count
+                            stats.materialsWithBaseColor += glb.materials.filter { $0.baseColor != nil }.count
+                        } catch {
+                            stats.parseFailures += 1
+                        }
+                    }
+                }
+
+                if hasAnyGLB {
+                    stats.fixturesWithGLB = 1
+                    if !hasAny3DS { stats.fixturesGLBOnly = 1 }
+                    else { stats.fixturesMixed = 1 }
+                }
+                if modelsWithGLBOnly > 0 && modelsWith3DSOnly > 0 {
+                    stats.fixturesPerModelMixed = 1
+                }
+
+                return stats
+            }
+        }
+
+        var combined = FixtureGLBStats()
+        for await result in group {
+            combined.merge(result)
+        }
+        return combined
+    }
+
+    print("\n=== GLB Format Statistics (\(gdtfFiles.count) fixtures) ===")
+    print("Fixtures with GLB files:   \(results.fixturesWithGLB)")
+    print("  GLB-only (no 3DS):       \(results.fixturesGLBOnly)")
+    print("  Mixed (GLB + 3DS):       \(results.fixturesMixed)")
+    print("  Per-model mixed:         \(results.fixturesPerModelMixed)")
+    print()
+    print("Total GLB files (default): \(results.totalGLBFiles)")
+    print("  Parse successes:         \(results.parseSuccesses)")
+    print("  Parse failures:          \(results.parseFailures)")
+    print()
+    print("Total GLB objects:         \(results.totalGLBObjects)")
+    print("  With normals:            \(results.objectsWithNormals)")
+    print("  With texcoords:          \(results.objectsWithTexCoords)")
+    print("  With material ref:       \(results.objectsWithMaterial)")
+    print()
+    print("Total vertices:            \(results.totalVertices)")
+    print("Total faces:               \(results.totalFaces)")
+    print("Max vertices in object:    \(results.maxVerticesInObject)")
+    print("Max faces in object:       \(results.maxFacesInObject)")
+    print()
+    print("Total materials:           \(results.totalMaterials)")
+    print("  With base colour:        \(results.materialsWithBaseColor)")
+}

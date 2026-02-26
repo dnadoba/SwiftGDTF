@@ -8,8 +8,8 @@
 //
 //  • GDTFFixtureView — assembles a full fixture by walking the GDTF
 //    geometry tree, resolving GeometryReference nodes, looking up each
-//    geometry's GDTFModel, extracting the matching .3ds file from the
-//    GDTF ZIP, and building an SCNNode hierarchy with each geometry's
+//    geometry's GDTFModel, extracting the matching .3ds or .glb file from
+//    the GDTF ZIP, and building an SCNNode hierarchy with each geometry's
 //    Position matrix applied as the node transform.
 //
 //  The scene is lit with a key + fill + ambient rig so the mesh is always
@@ -154,6 +154,77 @@ extension ThreeDSFile {
     }
 }
 
+extension GLBFile {
+    /// Converts this GLB file into an `SCNNode` hierarchy, one child per
+    /// mesh primitive.  No normalisation — the caller handles that.
+    func sceneNodeRaw() -> SCNNode {
+        let root = SCNNode()
+
+        for object in objects {
+            guard !object.vertices.isEmpty, !object.faces.isEmpty else { continue }
+
+            // --- Vertex positions ---
+            let positionSource = SCNGeometrySource(
+                vertices: object.vertices.map { SCNVector3($0.x, $0.y, $0.z) }
+            )
+
+            // --- Face indices ---
+            var indices: [Int32] = []
+            indices.reserveCapacity(object.faces.count * 3)
+            for face in object.faces {
+                indices.append(Int32(face.x))
+                indices.append(Int32(face.y))
+                indices.append(Int32(face.z))
+            }
+            let element = SCNGeometryElement(indices: indices, primitiveType: .triangles)
+
+            // --- Sources ---
+            var sources: [SCNGeometrySource] = [positionSource]
+
+            // --- Normals (optional, must match vertex count) ---
+            if object.normals.count == object.vertices.count {
+                let normalSource = SCNGeometrySource(
+                    normals: object.normals.map { SCNVector3($0.x, $0.y, $0.z) }
+                )
+                sources.append(normalSource)
+            }
+
+            // --- UV texture coordinates (optional, must match vertex count) ---
+            if object.textureCoordinates.count == object.vertices.count {
+                let uvData = object.textureCoordinates.withUnsafeBytes { Data($0) }
+                let uvSource = SCNGeometrySource(
+                    data: uvData,
+                    semantic: .texcoord,
+                    vectorCount: object.textureCoordinates.count,
+                    usesFloatComponents: true,
+                    componentsPerVector: 2,
+                    bytesPerComponent: MemoryLayout<Float>.size,
+                    dataOffset: 0,
+                    dataStride: MemoryLayout<SIMD2<Float>>.stride
+                )
+                sources.append(uvSource)
+            }
+
+            let geometry = SCNGeometry(sources: sources, elements: [element])
+
+            // --- Material ---
+            let scnMaterial = SCNMaterial()
+            scnMaterial.lightingModel = .phong
+            scnMaterial.isDoubleSided = true
+            scnMaterial.diffuse.contents = PlatformColor(white: 0.2, alpha: 1)
+            scnMaterial.specular.contents = PlatformColor(white: 0.4, alpha: 1)
+
+            geometry.materials = [scnMaterial]
+
+            let node = SCNNode(geometry: geometry)
+            node.name = object.name
+            root.addChildNode(node)
+        }
+
+        return root
+    }
+}
+
 extension simd_double4x4 {
     /// Lossy conversion to single-precision for use with SceneKit / SIMD APIs.
     fileprivate var float4x4: simd_float4x4 {
@@ -188,7 +259,7 @@ extension Matrix {
 
 /// Assembles an `SCNNode` hierarchy for a GDTF fixture by walking the geometry
 /// tree, resolving `GeometryReference` nodes, and attaching the corresponding
-/// `.3ds` mesh to each node.
+/// `.3ds` or `.glb` mesh to each node.
 public struct FixtureSceneBuilder {
     /// The parsed GDTF descriptor.
     public let gdtf: GDTF
@@ -304,6 +375,20 @@ public struct FixtureSceneBuilder {
         let modelMap: [String: GDTFModel]
         let topLevelMap: [String: Geometry]
 
+        /// Inverse of gdtfToSceneKit.  Converts SceneKit Y-up back to GDTF
+        /// Z-up: (x, y, z)_SceneKit → (x, -z, y)_GDTF.
+        /// Applied to GLB mesh nodes whose vertices are already Y-up, so that
+        /// the root gdtfToSceneKit transform cancels out.
+        let sceneKitToGdtf = simd_float4x4(
+            SIMD4<Float>(1,  0, 0, 0),
+            SIMD4<Float>(0,  0, 1, 0),
+            SIMD4<Float>(0, -1, 0, 0),
+            SIMD4<Float>(0,  0, 0, 1)
+        )
+
+        /// Whether a mesh came from a Z-up format (.3ds) or Y-up format (.glb).
+        private enum MeshCoordSystem { case zUp, yUp }
+
         /// Walks `geometry` and its children, adding mesh nodes to `root`.
         ///
         /// Per the GDTF spec, each geometry's Position matrix defines its
@@ -328,8 +413,17 @@ public struct FixtureSceneBuilder {
 
                 let modelName = modelOverride ?? geometry.model
                 if let modelName, let gdtfModel = modelMap[modelName],
-                   let meshNode = makeMeshNode(gdtfModel: gdtfModel) {
-                    meshNode.simdTransform = combined * meshScaleMatrix(gdtfModel: gdtfModel, meshNode: meshNode)
+                   let (meshNode, coordSystem) = makeMeshNode(gdtfModel: gdtfModel) {
+                    let scale = meshScaleMatrix(gdtfModel: gdtfModel, meshNode: meshNode, coordSystem: coordSystem)
+                    if coordSystem == .yUp {
+                        // GLB vertices are Y-up but the walk's worldTransform
+                        // includes gdtfToSceneKit (Z-up→Y-up).  Apply the
+                        // inverse (Y-up→Z-up) so the two cancel out and the
+                        // GLB vertices end up in their native Y-up orientation.
+                        meshNode.simdTransform = combined * scale * sceneKitToGdtf
+                    } else {
+                        meshNode.simdTransform = combined * scale
+                    }
                     root.addChildNode(meshNode)
                 }
 
@@ -361,19 +455,25 @@ public struct FixtureSceneBuilder {
             }
         }
 
-        /// Extracts the `.3ds` file for `gdtfModel` from the ZIP and builds
+        /// Extracts the mesh file for `gdtfModel` from the ZIP and builds
         /// a flat `SCNNode` containing all mesh objects (no extra hierarchy).
-        private func makeMeshNode(gdtfModel: GDTFModel) -> SCNNode? {
-            var raw: Data?
+        /// Tries .3ds first, then falls back to .glb.
+        private func makeMeshNode(gdtfModel: GDTFModel) -> (SCNNode, MeshCoordSystem)? {
+            // Try .3ds first (Z-up, matching GDTF coordinate system)
             for lod in GDTFModel.LOD.allCases {
-                if let data = gdtfModel.resolveFile(gdtf: gdtfData, format: .threeds, lod: lod) {
-                    raw = data
-                    break
+                if let data = gdtfModel.resolveFile(gdtf: gdtfData, format: .threeds, lod: lod),
+                   let file = try? ThreeDSFile.parse(data: data) {
+                    return (file.sceneNodeRaw(), .zUp)
                 }
             }
-            guard let data = raw,
-                  let file = try? ThreeDSFile.parse(data: data) else { return nil }
-            return file.sceneNodeRaw()
+            // Fall back to .glb (Y-up, glTF coordinate system)
+            for lod in GDTFModel.LOD.allCases {
+                if let data = gdtfModel.resolveFile(gdtf: gdtfData, format: .glb, lod: lod),
+                   let file = try? GLBFile.parse(data: data) {
+                    return (file.sceneNodeRaw(), .yUp)
+                }
+            }
+            return nil
         }
 
         /// Builds a 4×4 matrix that scales the mesh so that its bounding box
@@ -384,7 +484,13 @@ public struct FixtureSceneBuilder {
         /// scaled to this dimension."  Each axis is scaled independently
         /// so that the mesh's bounding-box span on that axis equals the
         /// declared dimension in metres.
-        private func meshScaleMatrix(gdtfModel: GDTFModel, meshNode: SCNNode) -> simd_float4x4 {
+        ///
+        /// For GLB meshes (Y-up), the mesh axes are swapped relative to
+        /// GDTF's Z-up convention:
+        ///   - mesh X → GDTF Length (X)
+        ///   - mesh Y → GDTF Height (Z)
+        ///   - mesh Z → GDTF Width (Y)
+        private func meshScaleMatrix(gdtfModel: GDTFModel, meshNode: SCNNode, coordSystem: MeshCoordSystem) -> simd_float4x4 {
             let (mn, mx) = meshNode.boundingBox
             let meshSpan = SIMD3<Double>(
                 Double(mx.x) - Double(mn.x),
@@ -392,8 +498,15 @@ public struct FixtureSceneBuilder {
                 Double(mx.z) - Double(mn.z)
             )
 
-            // Declared dimensions in metres: Length=X, Width=Y, Height=Z
-            let declared = SIMD3<Double>(gdtfModel.length, gdtfModel.width, gdtfModel.height)
+            // Declared dimensions in metres: Length=X, Width=Y, Height=Z (GDTF Z-up)
+            // For GLB (Y-up), mesh Y=Height and mesh Z=Width
+            let declared: SIMD3<Double>
+            switch coordSystem {
+            case .zUp:
+                declared = SIMD3<Double>(gdtfModel.length, gdtfModel.width, gdtfModel.height)
+            case .yUp:
+                declared = SIMD3<Double>(gdtfModel.length, gdtfModel.height, gdtfModel.width)
+            }
 
             // Per-axis scale.  Fall back to the best uniform scale for axes
             // where the declared dimension is zero.
@@ -642,24 +755,25 @@ private enum PreviewLoadState {
 }
 
 private struct GDTFFixturePickerPreview: View {
-    @State private var selectedIndex: Int = 29
+    let fixtures: [FixtureEntry]
+    @State private var selectedIndex: Int = 0
     @State private var state: PreviewLoadState = .loading
     @State private var selectedGeometry: String = ""
 
-    private var selectedFixture: FixtureEntry { previewFixtures[selectedIndex] }
+    private var selectedFixture: FixtureEntry { fixtures[selectedIndex] }
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
                 Stepper(
-                    "\(selectedIndex + 1)/\(previewFixtures.count)",
+                    "\(selectedIndex + 1)/\(fixtures.count)",
                     value: $selectedIndex,
-                    in: 0...(previewFixtures.count - 1)
+                    in: 0...(fixtures.count - 1)
                 )
                 .fixedSize()
 
                 Picker("Fixture", selection: $selectedIndex) {
-                    ForEach(Array(previewFixtures.enumerated()), id: \.offset) { i, entry in
+                    ForEach(Array(fixtures.enumerated()), id: \.offset) { i, entry in
                         Text(entry.name).tag(i)
                     }
                 }
@@ -695,7 +809,7 @@ private struct GDTFFixturePickerPreview: View {
                     )
                 case .unavailable(let message):
                     ContentUnavailableView(
-                        "No .3ds models",
+                        "No 3D models",
                         systemImage: "cube.transparent",
                         description: Text(message)
                     )
@@ -724,15 +838,16 @@ private struct GDTFFixturePickerPreview: View {
             return
         }
 
-        // Check that at least one top-level geometry has a .3ds model somewhere
-        // in its subtree (otherwise it will render as empty).
-        let hasAny3DS = gdtf.fixtureType.models.contains { model in
+        // Check that at least one model has a mesh file (3DS or GLB)
+        // somewhere in the archive (otherwise it will render as empty).
+        let hasAnyModel = gdtf.fixtureType.models.contains { model in
             GDTFModel.LOD.allCases.contains { lod in
-                model.resolveFile(gdtf: gdtfData, format: .threeds, lod: lod) != nil
+                model.resolveFile(gdtf: gdtfData, format: .threeds, lod: lod) != nil ||
+                model.resolveFile(gdtf: gdtfData, format: .glb, lod: lod) != nil
             }
         }
-        guard hasAny3DS else {
-            state = .unavailable("Fixture \(rid) has no .3ds models.\nRun parseAllFixtures() to find a fixture with .3ds support.")
+        guard hasAnyModel else {
+            state = .unavailable("Fixture \(rid) has no 3D models.")
             return
         }
 
@@ -751,7 +866,30 @@ private struct GDTFFixturePickerPreview: View {
     }
 }
 
+private let glbPreviewFixtures: [FixtureEntry] = [
+    FixtureEntry(rid: "100110",  name: "PR Lighting P12 PR"),
+    FixtureEntry(rid: "100255",  name: "Elation Flaris Blade"),
+    FixtureEntry(rid: "100358",  name: "Robe Robin Esprite"),
+    FixtureEntry(rid: "100447",  name: "Claypaky Xtylos"),
+    FixtureEntry(rid: "102634",  name: "GLP S24"),
+    FixtureEntry(rid: "48499",   name: "Chauvet Rogue Outcast 2X Wash"),
+    FixtureEntry(rid: "52541",   name: "Chauvet Maverick Storm 3 BeamWash"),
+    FixtureEntry(rid: "60992",   name: "Chauvet Maverick Force 2 BeamWash"),
+    FixtureEntry(rid: "86884",   name: "MegaLite Viceroy"),
+    FixtureEntry(rid: "88050",   name: "Cameo Matrix Panel 3WW"),
+    FixtureEntry(rid: "91603",   name: "American DJ Ultra Bar 12"),
+    FixtureEntry(rid: "115628",  name: "Prolights AstraWash19PIX"),
+    FixtureEntry(rid: "117468",  name: "Martin MAC Viper XIP"),
+    FixtureEntry(rid: "120130",  name: "Martin MAC Encore Two"),
+    FixtureEntry(rid: "121479",  name: "Briteq BTX-Skyran"),
+    FixtureEntry(rid: "122187",  name: "MARK BEAM LED 64"),
+]
+
 #Preview("GDTF Fixture Assembler") {
-    GDTFFixturePickerPreview()
+    GDTFFixturePickerPreview(fixtures: previewFixtures)
+}
+
+#Preview("GLB Fixture Assembler") {
+    GDTFFixturePickerPreview(fixtures: glbPreviewFixtures)
 }
 #endif

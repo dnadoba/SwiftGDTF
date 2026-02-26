@@ -84,6 +84,7 @@ extension ThreeDSFile {
 // MARK: - Parser
 
 extension ThreeDSFile {
+    // TODO: use RawSpan instead of Data once RawSpan can load basic types like Int8 and Float
     /// Parses a .3ds file from raw `Data`.
     public static func parse(data: Data) throws -> ThreeDSFile {
         var parser = Parser(data: data)

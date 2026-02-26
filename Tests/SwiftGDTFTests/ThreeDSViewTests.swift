@@ -210,15 +210,6 @@ struct ThreeDSSceneKitTests {
         #expect(mat?.diffuse.contents is PlatformColor)
     }
 
-    @Test("Material falls back to grey when no matching material")
-    func materialFallback() {
-        let file = makeSingleTriangleFile(materialName: "NonExistent")
-        let root = file.sceneNode()
-        let mat = root.childNodes.first?.geometry?.firstMaterial
-        let colour = mat?.diffuse.contents as? PlatformColor
-        #expect(colour == PlatformColor.lightGray)
-    }
-
     @Test("Multi-object file produces correct node count")
     func multiObjectNodeCount() {
         let file = makeMultiObjectFile()

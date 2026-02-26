@@ -665,9 +665,10 @@ public struct FixtureSceneBuilder {
 
             // Per-axis scale.  Fall back to the best uniform scale for axes
             // where the declared dimension is zero.
+            let minSpan = 1e-9  // guard against division by zero
             var fallbackScale = 0.001
             for i in 0..<3 {
-                if declared[i] > 0 && meshSpan[i] > 0.0001 {
+                if declared[i] > 0 && meshSpan[i] > minSpan {
                     fallbackScale = declared[i] / meshSpan[i]
                     break
                 }
@@ -675,7 +676,7 @@ public struct FixtureSceneBuilder {
 
             var scale = SIMD3<Double>(repeating: fallbackScale)
             for i in 0..<3 {
-                if declared[i] > 0 && meshSpan[i] > 0.0001 {
+                if declared[i] > 0 && meshSpan[i] > minSpan {
                     scale[i] = declared[i] / meshSpan[i]
                 }
             }
@@ -918,13 +919,14 @@ private struct GDTFFixturePickerPreview: View {
     private var selectedFixture: FixtureEntry { fixtures[selectedIndex] }
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Stepper(
                     "\(selectedIndex + 1)/\(fixtures.count)",
                     value: $selectedIndex,
                     in: 0...(fixtures.count - 1)
                 )
+                //.font(.default.monospacedDigit())
                 .fixedSize()
 
                 Picker("Fixture", selection: $selectedIndex) {
@@ -1023,6 +1025,8 @@ private struct GDTFFixturePickerPreview: View {
 }
 
 private let glbPreviewFixtures: [FixtureEntry] = [
+    // --- Debugging ---
+    FixtureEntry(rid: "71555",   name: "Ayrton WildSun K25-TC"),
     // --- Original GLB test fixtures ---
     FixtureEntry(rid: "100110",  name: "PR Lighting P12 PR"),
     FixtureEntry(rid: "100255",  name: "Elation Flaris Blade"),

@@ -462,7 +462,8 @@ public struct FixtureSceneBuilder {
 
         /// Extracts the mesh file for `gdtfModel` from the ZIP and builds
         /// a flat `SCNNode` containing all mesh objects (no extra hierarchy).
-        /// Tries .3ds first, then falls back to .glb.
+        /// Tries .3ds first, then .glb, then falls back to the model's
+        /// `primitiveType` (bundled spec meshes or SceneKit primitives).
         /// Auto-detects the coordinate system by comparing mesh extents to
         /// declared model dimensions.
         private func makeMeshNode(gdtfModel: GDTFModel) -> (SCNNode, MeshCoordSystem)? {
@@ -482,7 +483,92 @@ public struct FixtureSceneBuilder {
                     return (node, detectCoordSystem(gdtfModel: gdtfModel, meshNode: node))
                 }
             }
+            // Fall back to primitive type
+            if gdtfModel.primitiveType != .undefined,
+               let node = Self.makePrimitiveNode(gdtfModel.primitiveType) {
+                return (node, .zUp)
+            }
             return nil
+        }
+
+        /// Creates an `SCNNode` for a GDTF primitive type.
+        ///
+        /// Complex primitives (Base, Yoke, Head, Scanner, Conventional and
+        /// their 1.1 variants) are loaded from bundled .3ds meshes provided
+        /// by the GDTF spec.  Simple primitives (Cube, Cylinder, Sphere,
+        /// Pigtail) use SceneKit built-in geometry at unit size.
+        ///
+        /// All meshes are in Z-up space and roughly unit-sized.  The caller's
+        /// `meshScaleMatrix` scales them to the declared model dimensions.
+        private static func makePrimitiveNode(_ primitiveType: PrimitiveType) -> SCNNode? {
+            switch primitiveType {
+            case .undefined:
+                return nil
+
+            // --- SceneKit built-in primitives (unit size, Z-up) ---
+            case .cube:
+                // SCNBox length is along Z in SceneKit (Y-up), but we're in Z-up
+                // context. Create a unit box; meshScaleMatrix handles dimensions.
+                let node = SCNNode(geometry: SCNBox(width: 1, height: 1, length: 1, chamferRadius: 0))
+                applyPrimitiveMaterial(node)
+                return node
+
+            case .cylinder:
+                // SCNCylinder is Y-up (height along Y). Rotate -90° around X
+                // to make height along Z (Z-up).
+                let geo = SCNCylinder(radius: 0.5, height: 1)
+                let node = SCNNode(geometry: geo)
+                node.simdEulerAngles.x = -.pi / 2
+                applyPrimitiveMaterial(node)
+                let wrapper = SCNNode()
+                wrapper.addChildNode(node)
+                return wrapper
+
+            case .sphere:
+                let node = SCNNode(geometry: SCNSphere(radius: 0.5))
+                applyPrimitiveMaterial(node)
+                return node
+
+            case .pigtail:
+                // Pigtail is a small cable connector — use a short cylinder
+                let geo = SCNCylinder(radius: 0.5, height: 1)
+                let node = SCNNode(geometry: geo)
+                node.simdEulerAngles.x = -.pi / 2
+                applyPrimitiveMaterial(node)
+                let wrapper = SCNNode()
+                wrapper.addChildNode(node)
+                return wrapper
+
+            // --- Bundled .3ds spec meshes ---
+            case .base:          return loadBundledPrimitive("base")
+            case .yoke:          return loadBundledPrimitive("yoke")
+            case .head:          return loadBundledPrimitive("head")
+            case .scanner:       return loadBundledPrimitive("scanner")
+            case .conventional:  return loadBundledPrimitive("conventional")
+            case .base1_1:       return loadBundledPrimitive("base_1_1")
+            case .scanner1_1:    return loadBundledPrimitive("scanner_1_1")
+            case .conventional1_1: return loadBundledPrimitive("conventional_1_1")
+            }
+        }
+
+        /// Loads a .3ds primitive mesh from the bundle's resources.
+        private static func loadBundledPrimitive(_ name: String) -> SCNNode? {
+            guard let url = Bundle.module.url(forResource: name, withExtension: "3ds"),
+                  let data = try? Data(contentsOf: url),
+                  let file = try? ThreeDSFile.parse(data: data) else {
+                return nil
+            }
+            return file.sceneNodeRaw()
+        }
+
+        /// Applies the standard dark-grey material to a SceneKit primitive node.
+        private static func applyPrimitiveMaterial(_ node: SCNNode) {
+            let material = SCNMaterial()
+            material.lightingModel = .phong
+            material.isDoubleSided = true
+            material.diffuse.contents = PlatformColor(white: 0.2, alpha: 1)
+            material.specular.contents = PlatformColor(white: 0.4, alpha: 1)
+            node.geometry?.materials = [material]
         }
 
         /// Determines whether a mesh's vertices are in Z-up or Y-up by
@@ -907,9 +993,10 @@ private struct GDTFFixturePickerPreview: View {
             return
         }
 
-        // Check that at least one model has a mesh file (3DS or GLB)
-        // somewhere in the archive (otherwise it will render as empty).
+        // Check that at least one model has a mesh file (3DS, GLB, or
+        // a non-undefined primitive type).
         let hasAnyModel = gdtf.fixtureType.models.contains { model in
+            model.primitiveType != .undefined ||
             GDTFModel.LOD.allCases.contains { lod in
                 model.resolveFile(gdtf: gdtfData, format: .threeds, lod: lod) != nil ||
                 model.resolveFile(gdtf: gdtfData, format: .glb, lod: lod) != nil
@@ -986,11 +1073,28 @@ private let glbPreviewFixtures: [FixtureEntry] = [
     FixtureEntry(rid: "129164",  name: "Ayrton Nando 602"),
 ]
 
+private let primitivePreviewFixtures: [FixtureEntry] = [
+    FixtureEntry(rid: "96454",   name: "Silver Star NH1"),
+    FixtureEntry(rid: "80580",   name: "MANIAC M4 TILT 4415"),
+    FixtureEntry(rid: "119308",  name: "Algam BAR WASH 244"),
+    FixtureEntry(rid: "50698",   name: "BeamZ WBP612IP"),
+    FixtureEntry(rid: "102817",  name: "Prolights Equinox Fusion 260ZR"),
+    FixtureEntry(rid: "118149",  name: "Lucendi Retro 7"),
+    FixtureEntry(rid: "126918",  name: "Sagitter J-Bar8Bat"),
+    FixtureEntry(rid: "112114",  name: "Contest STB 520"),
+    FixtureEntry(rid: "97750",   name: "Varytec Colors StarBar 12"),
+    FixtureEntry(rid: "125267",  name: "Chauvet DJ FXpar 9"),
+]
+
 #Preview("GDTF Fixture Assembler") {
     GDTFFixturePickerPreview(fixtures: previewFixtures)
 }
 
 #Preview("GLB Fixture Assembler") {
     GDTFFixturePickerPreview(fixtures: glbPreviewFixtures)
+}
+
+#Preview("Primitive Fixture Assembler") {
+    GDTFFixturePickerPreview(fixtures: primitivePreviewFixtures)
 }
 #endif

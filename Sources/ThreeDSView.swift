@@ -918,7 +918,7 @@ private let glbPreviewFixtures: [FixtureEntry] = [
     FixtureEntry(rid: "88050",   name: "Cameo Matrix Panel 3WW"),
     FixtureEntry(rid: "91603",   name: "American DJ Ultra Bar 12"),
     FixtureEntry(rid: "115628",  name: "Prolights AstraWash19PIX"),
-    FixtureEntry(rid: "121479",  name: "Briteq BTX-Skyran"),
+    FixtureEntry(rid: "95272",   name: "Chauvet FX Par 9"),
     FixtureEntry(rid: "122187",  name: "MARK BEAM LED 64"),
     // --- Robe ---
     FixtureEntry(rid: "119741",  name: "Robe Robin Tarrantula"),

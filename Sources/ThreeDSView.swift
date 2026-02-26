@@ -377,7 +377,7 @@ public struct FixtureSceneBuilder {
 
         /// Inverse of gdtfToSceneKit.  Converts SceneKit Y-up back to GDTF
         /// Z-up: (x, y, z)_SceneKit → (x, -z, y)_GDTF.
-        /// Applied to GLB mesh nodes whose vertices are already Y-up, so that
+        /// Applied to GLB mesh nodes whose vertices are Y-up, so that
         /// the root gdtfToSceneKit transform cancels out.
         let sceneKitToGdtf = simd_float4x4(
             SIMD4<Float>(1,  0, 0, 0),
@@ -386,7 +386,8 @@ public struct FixtureSceneBuilder {
             SIMD4<Float>(0,  0, 0, 1)
         )
 
-        /// Whether a mesh came from a Z-up format (.3ds) or Y-up format (.glb).
+        /// Whether a mesh's vertices are in Z-up (GDTF/.3ds) or Y-up (glTF)
+        /// coordinate space.
         private enum MeshCoordSystem { case zUp, yUp }
 
         /// Walks `geometry` and its children, adding mesh nodes to `root`.
@@ -414,7 +415,7 @@ public struct FixtureSceneBuilder {
                 let modelName = modelOverride ?? geometry.model
                 if let modelName, let gdtfModel = modelMap[modelName],
                    let (meshNode, coordSystem) = makeMeshNode(gdtfModel: gdtfModel) {
-                    let scale = meshScaleMatrix(gdtfModel: gdtfModel, meshNode: meshNode, coordSystem: coordSystem)
+                    let scale = meshScaleMatrix(gdtfModel: gdtfModel, meshNode: meshNode)
                     if coordSystem == .yUp {
                         // GLB vertices are Y-up but the walk's worldTransform
                         // includes gdtfToSceneKit (Z-up→Y-up).  Apply the
@@ -458,22 +459,61 @@ public struct FixtureSceneBuilder {
         /// Extracts the mesh file for `gdtfModel` from the ZIP and builds
         /// a flat `SCNNode` containing all mesh objects (no extra hierarchy).
         /// Tries .3ds first, then falls back to .glb.
+        /// Auto-detects the coordinate system by comparing mesh extents to
+        /// declared model dimensions.
         private func makeMeshNode(gdtfModel: GDTFModel) -> (SCNNode, MeshCoordSystem)? {
-            // Try .3ds first (Z-up, matching GDTF coordinate system)
+            // Try .3ds first
             for lod in GDTFModel.LOD.allCases {
                 if let data = gdtfModel.resolveFile(gdtf: gdtfData, format: .threeds, lod: lod),
                    let file = try? ThreeDSFile.parse(data: data) {
-                    return (file.sceneNodeRaw(), .zUp)
+                    let node = file.sceneNodeRaw()
+                    return (node, detectCoordSystem(gdtfModel: gdtfModel, meshNode: node))
                 }
             }
-            // Fall back to .glb (Y-up, glTF coordinate system)
+            // Fall back to .glb
             for lod in GDTFModel.LOD.allCases {
                 if let data = gdtfModel.resolveFile(gdtf: gdtfData, format: .glb, lod: lod),
                    let file = try? GLBFile.parse(data: data) {
-                    return (file.sceneNodeRaw(), .yUp)
+                    let node = file.sceneNodeRaw()
+                    return (node, detectCoordSystem(gdtfModel: gdtfModel, meshNode: node))
                 }
             }
             return nil
+        }
+
+        /// Determines whether a mesh's vertices are in Z-up or Y-up by
+        /// comparing mesh bounding-box spans to declared GDTF dimensions
+        /// under both axis mappings and picking the one whose per-axis
+        /// scale ratios are most uniform.
+        private func detectCoordSystem(gdtfModel: GDTFModel, meshNode: SCNNode) -> MeshCoordSystem {
+            let (mn, mx) = meshNode.boundingBox
+            let span = SIMD3<Double>(
+                Double(mx.x) - Double(mn.x),
+                Double(mx.y) - Double(mn.y),
+                Double(mx.z) - Double(mn.z)
+            )
+
+            // Z-up mapping: mesh (X,Y,Z) → declared (Length, Width, Height)
+            let zUpDeclared = SIMD3<Double>(gdtfModel.length, gdtfModel.width, gdtfModel.height)
+            // Y-up mapping: mesh (X,Y,Z) → declared (Length, Height, Width)
+            let yUpDeclared = SIMD3<Double>(gdtfModel.length, gdtfModel.height, gdtfModel.width)
+
+            func scaleVariance(_ declared: SIMD3<Double>) -> Double {
+                // Compute valid per-axis scale ratios and measure how uniform they are
+                var ratios: [Double] = []
+                for i in 0..<3 {
+                    if declared[i] > 0 && span[i] > 0.0001 {
+                        ratios.append(declared[i] / span[i])
+                    }
+                }
+                guard ratios.count >= 2 else { return 0 }
+                let mean = ratios.reduce(0, +) / Double(ratios.count)
+                return ratios.reduce(0) { $0 + ($1 - mean) * ($1 - mean) } / Double(ratios.count)
+            }
+
+            let zUpVar = scaleVariance(zUpDeclared)
+            let yUpVar = scaleVariance(yUpDeclared)
+            return yUpVar < zUpVar ? .yUp : .zUp
         }
 
         /// Builds a 4×4 matrix that scales the mesh so that its bounding box
@@ -485,12 +525,11 @@ public struct FixtureSceneBuilder {
         /// so that the mesh's bounding-box span on that axis equals the
         /// declared dimension in metres.
         ///
-        /// For GLB meshes (Y-up), the mesh axes are swapped relative to
-        /// GDTF's Z-up convention:
-        ///   - mesh X → GDTF Length (X)
-        ///   - mesh Y → GDTF Height (Z)
-        ///   - mesh Z → GDTF Width (Y)
-        private func meshScaleMatrix(gdtfModel: GDTFModel, meshNode: SCNNode, coordSystem: MeshCoordSystem) -> simd_float4x4 {
+        /// The axis mapping depends on the detected coordinate system:
+        ///   Z-up: mesh (X,Y,Z) → declared (Length, Width, Height)
+        ///   Y-up: mesh (X,Y,Z) → declared (Length, Height, Width)
+        private func meshScaleMatrix(gdtfModel: GDTFModel, meshNode: SCNNode) -> simd_float4x4 {
+            let coordSystem = detectCoordSystem(gdtfModel: gdtfModel, meshNode: meshNode)
             let (mn, mx) = meshNode.boundingBox
             let meshSpan = SIMD3<Double>(
                 Double(mx.x) - Double(mn.x),
@@ -498,8 +537,7 @@ public struct FixtureSceneBuilder {
                 Double(mx.z) - Double(mn.z)
             )
 
-            // Declared dimensions in metres: Length=X, Width=Y, Height=Z (GDTF Z-up)
-            // For GLB (Y-up), mesh Y=Height and mesh Z=Width
+            // Declared dimensions in metres mapped to mesh axes
             let declared: SIMD3<Double>
             switch coordSystem {
             case .zUp:

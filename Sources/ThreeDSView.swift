@@ -117,29 +117,32 @@ extension ThreeDSFile {
             scnMaterial.lightingModel = .phong
             scnMaterial.isDoubleSided = true
 
-            if let matName = object.materialName, let mat = materialMap[matName] {
-                scnMaterial.diffuse.contents = mat.diffuseColor.map {
-                    // Apply a minimum brightness so very dark fixtures are still
-                    // visible in the preview.  Preserves the hue of the original.
-                    let minBrightness: Float = 0.15
-                    let r = max($0.x, minBrightness)
-                    let g = max($0.y, minBrightness)
-                    let b = max($0.z, minBrightness)
-                    return PlatformColor(red: CGFloat(r), green: CGFloat(g), blue: CGFloat(b), alpha: 1)
-                } ?? PlatformColor.lightGray
-                if let a = mat.ambientColor {
-                    scnMaterial.ambient.contents = PlatformColor(
-                        red: CGFloat(a.x), green: CGFloat(a.y), blue: CGFloat(a.z), alpha: 1
-                    )
-                }
-                if let s = mat.specularColor {
-                    scnMaterial.specular.contents = PlatformColor(
-                        red: CGFloat(s.x), green: CGFloat(s.y), blue: CGFloat(s.z), alpha: 1
-                    )
-                }
-            } else {
-                scnMaterial.diffuse.contents = PlatformColor.lightGray
-            }
+//            if let matName = object.materialName, let mat = materialMap[matName] {
+//                scnMaterial.diffuse.contents = mat.diffuseColor.map {
+//                    // Apply a minimum brightness so very dark fixtures are still
+//                    // visible in the preview.  Preserves the hue of the original.
+//                    let minBrightness: Float = 0.15
+//                    let r = max($0.x, minBrightness)
+//                    let g = max($0.y, minBrightness)
+//                    let b = max($0.z, minBrightness)
+//                    return PlatformColor(red: CGFloat(r), green: CGFloat(g), blue: CGFloat(b), alpha: 1)
+//                } ?? PlatformColor(white: 0.05, alpha: 1)
+//                if let a = mat.ambientColor {
+//                    scnMaterial.ambient.contents = PlatformColor(
+//                        red: CGFloat(a.x), green: CGFloat(a.y), blue: CGFloat(a.z), alpha: 1
+//                    )
+//                }
+//                if let s = mat.specularColor {
+//                    scnMaterial.specular.contents = PlatformColor(
+//                        red: CGFloat(s.x), green: CGFloat(s.y), blue: CGFloat(s.z), alpha: 1
+//                    )
+//                }
+//            } else {
+//                scnMaterial.diffuse.contents = PlatformColor(white: 0.2, alpha: 1)
+//            }
+            scnMaterial.diffuse.contents = PlatformColor(white: 0.2, alpha: 1)
+            scnMaterial.specular.contents = PlatformColor(white: 0.4, alpha: 1)
+            
             geometry.materials = [scnMaterial]
 
             let node = SCNNode(geometry: geometry)
@@ -168,9 +171,10 @@ extension simd_double4x4 {
 extension Matrix {
     /// Converts the GDTF 4×4 transform matrix to an `SCNMatrix4`.
     ///
-    /// The GDTF `Matrix` stores a `simd_double4x4` initialised with
-    /// `.init(rows:)`, so `matrix[col, row]` gives the element at that
-    /// column and row.  Translation is in column 3 (rows 0-2).
+    /// The GDTF `Matrix` stores a `simd_double4x4` where each raw data row
+    /// becomes a SIMD column (no rotation transposition).  Translation is
+    /// in column 3.  `matrix[col, row]` gives the element at that column
+    /// and row.
     ///
     /// `SCNMatrix4` uses the same column-major convention as SIMD, so we
     /// convert via `simd_float4x4` and let `SCNMatrix4.init` copy the
@@ -627,6 +631,7 @@ private let previewFixtures: [FixtureEntry] = [
     FixtureEntry(rid: "98126",  name: "Elation Platinum Spot 15R Pro"),
     FixtureEntry(rid: "98187",  name: "Clay Paky Arolla Profile HP"),
     FixtureEntry(rid: "99743",  name: "Martin Professional MAC One"),
+    FixtureEntry(rid: "129856", name: "129856"),
     FixtureEntry(rid: "130017", name: "High End Systems SolaFrame Theatre"),
 ]
 
@@ -637,7 +642,7 @@ private enum PreviewLoadState {
 }
 
 private struct GDTFFixturePickerPreview: View {
-    @State private var selectedIndex: Int = 0
+    @State private var selectedIndex: Int = 29
     @State private var state: PreviewLoadState = .loading
     @State private var selectedGeometry: String = ""
 

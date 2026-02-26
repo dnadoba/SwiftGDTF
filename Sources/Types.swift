@@ -489,11 +489,13 @@ extension Rotation {
     }
     private init(from flatMatrix: borrowing [Double]) throws {
         guard flatMatrix.count == 9 else { throw ParseError(unexpectedCount: flatMatrix.count) }
-        self.matrix = .init(rows: [
+        // Same layout as Matrix: raw rows become SIMD columns directly
+        // (no transposition of the rotation).
+        self.matrix = .init(
             .init(flatMatrix[0], flatMatrix[1], flatMatrix[2]),
             .init(flatMatrix[3], flatMatrix[4], flatMatrix[5]),
-            .init(flatMatrix[6], flatMatrix[7], flatMatrix[8]),
-        ])
+            .init(flatMatrix[6], flatMatrix[7], flatMatrix[8])
+        )
     }
     init(from rawValue: String) throws {
         var strMatrix = rawValue
@@ -535,12 +537,27 @@ public struct Matrix {
     }
     private init(from flatMatrix: borrowing [Double]) throws {
         guard flatMatrix.count == 16 else { throw ParseError(unexpectedCount: flatMatrix.count) }
-        self.matrix = .init(rows: [
-            .init(flatMatrix[00], flatMatrix[01], flatMatrix[02], flatMatrix[03]),
-            .init(flatMatrix[04], flatMatrix[05], flatMatrix[06], flatMatrix[07]),
-            .init(flatMatrix[08], flatMatrix[09], flatMatrix[10], flatMatrix[11]),
-            .init(flatMatrix[12], flatMatrix[13], flatMatrix[14], flatMatrix[15]),
-        ])
+        // GDTF stores the matrix in row-major order.  Each {…} group in the
+        // XML attribute is one row of the mathematical matrix:
+        //
+        //   row 0: flatMatrix[0…3]     {r00  r01  r02  tx}
+        //   row 1: flatMatrix[4…7]     {r10  r11  r12  ty}
+        //   row 2: flatMatrix[8…11]    {r20  r21  r22  tz}
+        //   row 3: flatMatrix[12…15]   { 0    0    0    1}
+        //
+        // The rotation is stored such that each raw data row represents the
+        // image of a basis vector (row-vector convention: v' = v · M).  To
+        // convert to SIMD's column-vector convention (v' = M · v), each raw
+        // row becomes a SIMD column directly (no transposition of the 3×3
+        // rotation block).  Translation lives in elements [3], [7], [11] and
+        // goes into SIMD column 3.
+        let tx = flatMatrix[03], ty = flatMatrix[07], tz = flatMatrix[11]
+        self.matrix = .init(
+            .init(flatMatrix[00], flatMatrix[01], flatMatrix[02], 0),
+            .init(flatMatrix[04], flatMatrix[05], flatMatrix[06], 0),
+            .init(flatMatrix[08], flatMatrix[09], flatMatrix[10], 0),
+            .init(tx, ty, tz, 1)
+        )
     }
     init(from rawValue: String) throws {
         var strMatrix = rawValue
@@ -559,11 +576,15 @@ extension Matrix: Codable {
     }
     public func encode(to encoder: any Encoder) throws {
         var encoder = encoder.singleValueContainer()
+        // Reconstruct the original row-major flat array.
+        // Each row = (rotation elements from col 0..2, translation from col 3).
+        // Row j: (matrix[0,j], matrix[1,j], matrix[2,j], matrix[3,j])
+        let m = matrix
         let array = [
-            matrix[0, 0], matrix[0, 1], matrix[0, 2], matrix[0, 3],
-            matrix[1, 0], matrix[1, 1], matrix[1, 2], matrix[1, 3],
-            matrix[2, 0], matrix[2, 1], matrix[2, 2], matrix[2, 3],
-            matrix[3, 0], matrix[3, 1], matrix[3, 2], matrix[3, 3],
+            m[0, 0], m[1, 0], m[2, 0], m[3, 0],   // row 0
+            m[0, 1], m[1, 1], m[2, 1], m[3, 1],   // row 1
+            m[0, 2], m[1, 2], m[2, 2], m[3, 2],   // row 2
+            m[0, 3], m[1, 3], m[2, 3], m[3, 3],   // row 3
         ]
         try encoder.encode(array)
     }

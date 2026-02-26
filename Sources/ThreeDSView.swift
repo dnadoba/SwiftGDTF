@@ -905,6 +905,7 @@ private struct GDTFFixturePickerPreview: View {
 }
 
 private let glbPreviewFixtures: [FixtureEntry] = [
+    // --- Original GLB test fixtures ---
     FixtureEntry(rid: "100110",  name: "PR Lighting P12 PR"),
     FixtureEntry(rid: "100255",  name: "Elation Flaris Blade"),
     FixtureEntry(rid: "100358",  name: "Robe Robin Esprite"),
@@ -917,10 +918,41 @@ private let glbPreviewFixtures: [FixtureEntry] = [
     FixtureEntry(rid: "88050",   name: "Cameo Matrix Panel 3WW"),
     FixtureEntry(rid: "91603",   name: "American DJ Ultra Bar 12"),
     FixtureEntry(rid: "115628",  name: "Prolights AstraWash19PIX"),
-    FixtureEntry(rid: "117468",  name: "Martin MAC Viper XIP"),
-    FixtureEntry(rid: "120130",  name: "Martin MAC Encore Two"),
     FixtureEntry(rid: "121479",  name: "Briteq BTX-Skyran"),
     FixtureEntry(rid: "122187",  name: "MARK BEAM LED 64"),
+    // --- Robe ---
+    FixtureEntry(rid: "119741",  name: "Robe Robin Tarrantula"),
+    FixtureEntry(rid: "129297",  name: "Robe Robin SVB1 RGBA"),
+    FixtureEntry(rid: "119734",  name: "Robe Robin iSpiiderX"),
+    FixtureEntry(rid: "119729",  name: "Robe Robin Spiider"),
+    FixtureEntry(rid: "93825",   name: "Robe Robin T1 Profile FS"),
+    FixtureEntry(rid: "41461",   name: "Robe Robin T2 Profile FS"),
+    FixtureEntry(rid: "121635",  name: "Robe Robin iForte LTX FS"),
+    FixtureEntry(rid: "121463",  name: "Robe Robin WTF"),
+    FixtureEntry(rid: "41709",   name: "Robe Robin BMFL FollowSpot"),
+    FixtureEntry(rid: "119732",  name: "Robe Robin Spiider RGBA"),
+    // --- Martin ---
+    FixtureEntry(rid: "120130",  name: "Martin MAC Encore Two"),
+    FixtureEntry(rid: "117468",  name: "Martin MAC Viper XIP"),
+    FixtureEntry(rid: "117469",  name: "Martin ELP Manet 8F"),
+    FixtureEntry(rid: "120566",  name: "Martin MAC One"),
+    FixtureEntry(rid: "93699",   name: "Martin MAC Quantum Wash"),
+    FixtureEntry(rid: "68977",   name: "Martin MAC Aura"),
+    FixtureEntry(rid: "117897",  name: "Martin MAC Aura XIP"),
+    FixtureEntry(rid: "110898",  name: "Martin MAC 101 RGB"),
+    FixtureEntry(rid: "36848",   name: "Martin MAC Allure Wash PC"),
+    FixtureEntry(rid: "117999",  name: "Martin MAC Aura Raven XIP"),
+    // --- Ayrton ---
+    FixtureEntry(rid: "129171",  name: "Ayrton Zonda 9 FX"),
+    FixtureEntry(rid: "129078",  name: "Ayrton Argo 6 FX"),
+    FixtureEntry(rid: "129159",  name: "Ayrton Zonda 3 FX"),
+    FixtureEntry(rid: "70202",   name: "Ayrton AlienPix RS"),
+    FixtureEntry(rid: "121985",  name: "Ayrton MagicDot Neo"),
+    FixtureEntry(rid: "113010",  name: "Ayrton Zonda 9 WASH"),
+    FixtureEntry(rid: "129163",  name: "Ayrton Nando 502"),
+    FixtureEntry(rid: "110521",  name: "Ayrton Nando 502 (v2)"),
+    FixtureEntry(rid: "129160",  name: "Ayrton Zonda 3 WASH"),
+    FixtureEntry(rid: "129164",  name: "Ayrton Nando 602"),
 ]
 
 #Preview("GDTF Fixture Assembler") {

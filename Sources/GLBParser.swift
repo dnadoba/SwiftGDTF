@@ -16,6 +16,7 @@
 //
 
 import Foundation
+import simd
 
 // MARK: - Public types
 
@@ -76,12 +77,18 @@ extension GLBFile {
     // MARK: - JSON schema types (Decodable)
 
     private struct GLTFRoot: Decodable {
+        var scene: Int?
+        var scenes: [GLTFScene]?
         var meshes: [GLTFMesh]?
         var accessors: [GLTFAccessor]?
         var bufferViews: [GLTFBufferView]?
         var buffers: [GLTFBuffer]?
         var materials: [GLTFMaterial]?
         var nodes: [GLTFNode]?
+    }
+
+    private struct GLTFScene: Decodable {
+        var nodes: [Int]?
     }
 
     private struct GLTFMesh: Decodable {
@@ -128,6 +135,59 @@ extension GLBFile {
         var name: String?
         var mesh: Int?
         var children: [Int]?
+        var translation: SIMD3<Float>?
+        var rotation: simd_quatf?      // [x, y, z, w]
+        var scale: SIMD3<Float>?
+        var matrix: [Float]?           // column-major 4×4 (16 elements)
+
+        /// Computes the local transform matrix for this node.
+        ///
+        /// Per the glTF spec, if `matrix` is present it is used directly.
+        /// Otherwise the transform is composed from `T * R * S`.
+        var localTransform: simd_float4x4 {
+            if let m = matrix, m.count == 16 {
+                // glTF stores matrices in column-major order
+                return simd_float4x4(
+                    SIMD4(m[0],  m[1],  m[2],  m[3]),
+                    SIMD4(m[4],  m[5],  m[6],  m[7]),
+                    SIMD4(m[8],  m[9],  m[10], m[11]),
+                    SIMD4(m[12], m[13], m[14], m[15])
+                )
+            }
+
+            let s = scale ?? SIMD3<Float>(1, 1, 1)
+            let r = rotation ?? simd_quatf(ix: 0, iy: 0, iz: 0, r: 1)
+            let t = translation ?? SIMD3<Float>(0, 0, 0)
+
+            let scaleMatrix = simd_float4x4(diagonal: SIMD4(s.x, s.y, s.z, 1))
+            let rotMatrix = simd_float4x4(r)
+            var trs = rotMatrix * scaleMatrix
+            trs[3] = SIMD4(t.x, t.y, t.z, 1)
+            return trs
+        }
+
+        // Custom Decodable to parse SIMD types from JSON arrays
+        private enum CodingKeys: String, CodingKey {
+            case name, mesh, children, translation, rotation, scale, matrix
+        }
+
+        init(from decoder: any Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            name = try container.decodeIfPresent(String.self, forKey: .name)
+            mesh = try container.decodeIfPresent(Int.self, forKey: .mesh)
+            children = try container.decodeIfPresent([Int].self, forKey: .children)
+            matrix = try container.decodeIfPresent([Float].self, forKey: .matrix)
+
+            if let t = try container.decodeIfPresent([Float].self, forKey: .translation), t.count >= 3 {
+                translation = SIMD3(t[0], t[1], t[2])
+            }
+            if let r = try container.decodeIfPresent([Float].self, forKey: .rotation), r.count >= 4 {
+                rotation = simd_quatf(ix: r[0], iy: r[1], iz: r[2], r: r[3])
+            }
+            if let s = try container.decodeIfPresent([Float].self, forKey: .scale), s.count >= 3 {
+                scale = SIMD3(s[0], s[1], s[2])
+            }
+        }
     }
 
     // MARK: - Internal parser
@@ -197,40 +257,101 @@ extension GLBFile {
                 return GLBMaterial(name: mat.name ?? "", baseColor: baseColor)
             }
 
-            // --- Extract mesh primitives ---
+            // --- Extract mesh primitives by walking the node hierarchy ---
+            // Each node may have a transform (TRS or matrix) that must be
+            // applied to its mesh vertices.  The scene graph is walked to
+            // accumulate world transforms.
             let accessors = root.accessors ?? []
             let bufferViews = root.bufferViews ?? []
+            let nodes = root.nodes ?? []
+            let meshes = root.meshes ?? []
+
+            // Determine root nodes: those in the default scene, or all nodes
+            // not referenced as children of other nodes.
+            var rootNodeIndices: [Int]
+            if let scenes = root.scenes, let sceneIndex = root.scene,
+               sceneIndex < scenes.count, let sceneNodes = scenes[sceneIndex].nodes {
+                rootNodeIndices = sceneNodes
+            } else {
+                var childSet = Set<Int>()
+                for node in nodes {
+                    for c in node.children ?? [] { childSet.insert(c) }
+                }
+                rootNodeIndices = (0..<nodes.count).filter { !childSet.contains($0) }
+            }
+
+            // Walk the node tree to collect (meshIndex, worldTransform) pairs
+            var meshInstances: [(meshIndex: Int, worldTransform: simd_float4x4)] = []
+
+            func walkNode(_ nodeIndex: Int, worldTransform: simd_float4x4) {
+                guard nodeIndex >= 0, nodeIndex < nodes.count else { return }
+                let node = nodes[nodeIndex]
+                let localTransform = worldTransform * node.localTransform
+
+                if let meshIndex = node.mesh, meshIndex < meshes.count {
+                    meshInstances.append((meshIndex, localTransform))
+                }
+
+                for childIndex in node.children ?? [] {
+                    walkNode(childIndex, worldTransform: localTransform)
+                }
+            }
+
+            for rootIndex in rootNodeIndices {
+                walkNode(rootIndex, worldTransform: .init(1))
+            }
+
+            // If no scene graph, fall back to meshes without transforms
+            if meshInstances.isEmpty {
+                for i in meshes.indices {
+                    meshInstances.append((i, .init(1)))
+                }
+            }
 
             var objects: [GLBObject] = []
 
-            for mesh in root.meshes ?? [] {
+            for (meshIndex, worldTransform) in meshInstances {
+                let mesh = meshes[meshIndex]
                 let meshName = mesh.name ?? ""
 
                 for (primIndex, primitive) in mesh.primitives.enumerated() {
-                    // Only handle triangles (mode 4, the default)
                     let mode = primitive.mode ?? 4
                     guard mode == 4 else { continue }
 
-                    // --- Positions (required) ---
                     guard let posAccessorIndex = primitive.attributes["POSITION"],
                           posAccessorIndex < accessors.count else { continue }
-                    let posAccessor = accessors[posAccessorIndex]
 
-                    let vertices: [SIMD3<Float>] = try extractVec3(
-                        accessor: posAccessor, bufferViews: bufferViews, binData: binData
+                    var vertices: [SIMD3<Float>] = try extractVec3(
+                        accessor: accessors[posAccessorIndex], bufferViews: bufferViews, binData: binData
                     )
                     guard !vertices.isEmpty else { continue }
 
-                    // --- Normals (optional) ---
+                    // Apply world transform to vertex positions
+                    for i in vertices.indices {
+                        let v = worldTransform * SIMD4<Float>(vertices[i].x, vertices[i].y, vertices[i].z, 1)
+                        vertices[i] = SIMD3(v.x, v.y, v.z)
+                    }
+
+                    // Normals (optional) — transform by the upper-left 3×3
                     var normals: [SIMD3<Float>] = []
                     if let normalIndex = primitive.attributes["NORMAL"],
                        normalIndex < accessors.count {
                         normals = try extractVec3(
                             accessor: accessors[normalIndex], bufferViews: bufferViews, binData: binData
                         )
+                        if !normals.isEmpty {
+                            let normalMatrix = simd_float3x3(
+                                SIMD3(worldTransform[0].x, worldTransform[0].y, worldTransform[0].z),
+                                SIMD3(worldTransform[1].x, worldTransform[1].y, worldTransform[1].z),
+                                SIMD3(worldTransform[2].x, worldTransform[2].y, worldTransform[2].z)
+                            )
+                            for i in normals.indices {
+                                normals[i] = normalize(normalMatrix * normals[i])
+                            }
+                        }
                     }
 
-                    // --- Texture coordinates (optional) ---
+                    // Texture coordinates (optional) — no transform needed
                     var texCoords: [SIMD2<Float>] = []
                     if let uvIndex = primitive.attributes["TEXCOORD_0"],
                        uvIndex < accessors.count {
@@ -239,21 +360,18 @@ extension GLBFile {
                         )
                     }
 
-                    // --- Indices ---
+                    // Indices
                     var faces: [SIMD3<UInt32>] = []
                     if let indicesIndex = primitive.indices, indicesIndex < accessors.count {
-                        let indexAccessor = accessors[indicesIndex]
                         let rawIndices: [UInt32] = try extractScalarIndices(
-                            accessor: indexAccessor, bufferViews: bufferViews, binData: binData
+                            accessor: accessors[indicesIndex], bufferViews: bufferViews, binData: binData
                         )
-                        // Group into triangles
                         let triCount = rawIndices.count / 3
                         faces.reserveCapacity(triCount)
                         for i in 0..<triCount {
                             faces.append(SIMD3(rawIndices[i * 3], rawIndices[i * 3 + 1], rawIndices[i * 3 + 2]))
                         }
                     } else {
-                        // Non-indexed: generate sequential indices
                         let triCount = vertices.count / 3
                         faces.reserveCapacity(triCount)
                         for i in 0..<triCount {

@@ -415,14 +415,18 @@ public struct FixtureSceneBuilder {
                 let modelName = modelOverride ?? geometry.model
                 if let modelName, let gdtfModel = modelMap[modelName],
                    let (meshNode, coordSystem) = makeMeshNode(gdtfModel: gdtfModel) {
-                    let scale = meshScaleMatrix(gdtfModel: gdtfModel, meshNode: meshNode)
                     if coordSystem == .yUp {
-                        // GLB vertices are Y-up but the walk's worldTransform
-                        // includes gdtfToSceneKit (Z-up→Y-up).  Apply the
-                        // inverse (Y-up→Z-up) so the two cancel out and the
-                        // GLB vertices end up in their native Y-up orientation.
-                        meshNode.simdTransform = combined * scale * sceneKitToGdtf
+                        // GLB vertices are Y-up.  First convert to Z-up via
+                        // sceneKitToGdtf, then scale using Z-up declared
+                        // dimensions.  The walk's worldTransform already
+                        // includes gdtfToSceneKit which converts back to
+                        // SceneKit Y-up for rendering.
+                        let scaleInZUp = meshScaleMatrix(gdtfModel: gdtfModel, meshNode: meshNode,
+                                                         coordRotation: sceneKitToGdtf)
+                        meshNode.simdTransform = combined * scaleInZUp * sceneKitToGdtf
                     } else {
+                        let scale = meshScaleMatrix(gdtfModel: gdtfModel, meshNode: meshNode,
+                                                     coordRotation: nil)
                         meshNode.simdTransform = combined * scale
                     }
                     root.addChildNode(meshNode)
@@ -482,9 +486,12 @@ public struct FixtureSceneBuilder {
         }
 
         /// Determines whether a mesh's vertices are in Z-up or Y-up by
-        /// comparing mesh bounding-box spans to declared GDTF dimensions
-        /// under both axis mappings and picking the one whose per-axis
-        /// scale ratios are most uniform.
+        /// comparing the rank order of mesh bounding-box spans to declared
+        /// GDTF dimensions under both axis mappings.  The mapping where the
+        /// largest declared dimension aligns with the largest mesh span
+        /// (and smallest with smallest) is preferred, because per-axis
+        /// scaling can adjust magnitudes but a mismatched rank order would
+        /// produce distorted proportions.
         private func detectCoordSystem(gdtfModel: GDTFModel, meshNode: SCNNode) -> MeshCoordSystem {
             let (mn, mx) = meshNode.boundingBox
             let span = SIMD3<Double>(
@@ -495,56 +502,80 @@ public struct FixtureSceneBuilder {
 
             // Z-up mapping: mesh (X,Y,Z) → declared (Length, Width, Height)
             let zUpDeclared = SIMD3<Double>(gdtfModel.length, gdtfModel.width, gdtfModel.height)
-            // Y-up mapping: mesh (X,Y,Z) → declared (Length, Height, Width)
-            let yUpDeclared = SIMD3<Double>(gdtfModel.length, gdtfModel.height, gdtfModel.width)
+            // Y-up mapping (after sceneKitToGdtf rotation): mesh (X,Y,Z) → rotated AABB
+            // sceneKitToGdtf maps (x,y,z)→(x,-z,y), so the rotated bounding box has:
+            //   X span unchanged, Y span = Z span, Z span = Y span
+            let yUpSpan = SIMD3<Double>(span.x, span.z, span.y)
 
-            func scaleVariance(_ declared: SIMD3<Double>) -> Double {
-                // Compute valid per-axis scale ratios and measure how uniform they are
-                var ratios: [Double] = []
-                for i in 0..<3 {
-                    if declared[i] > 0 && span[i] > 0.0001 {
-                        ratios.append(declared[i] / span[i])
-                    }
+            /// Returns how well the rank order of `declared` matches `meshSpan`.
+            /// Lower is better (0 = perfect match).
+            func rankMismatch(_ declared: SIMD3<Double>, _ meshSpan: SIMD3<Double>) -> Int {
+                // Sort indices by value to get rank order
+                func rankOrder(_ v: SIMD3<Double>) -> [Int] {
+                    let indexed = [(0, v.x), (1, v.y), (2, v.z)]
+                    return indexed.sorted { $0.1 < $1.1 }.map { $0.0 }
                 }
-                guard ratios.count >= 2 else { return 0 }
-                let mean = ratios.reduce(0, +) / Double(ratios.count)
-                return ratios.reduce(0) { $0 + ($1 - mean) * ($1 - mean) } / Double(ratios.count)
+                let dRank = rankOrder(declared)
+                let mRank = rankOrder(meshSpan)
+                // Count how many positions have the same axis
+                var matches = 0
+                for i in 0..<3 {
+                    if dRank[i] == mRank[i] { matches += 1 }
+                }
+                return 3 - matches
             }
 
-            let zUpVar = scaleVariance(zUpDeclared)
-            let yUpVar = scaleVariance(yUpDeclared)
-            return yUpVar < zUpVar ? .yUp : .zUp
+            let zUpMismatch = rankMismatch(zUpDeclared, span)
+            let yUpMismatch = rankMismatch(zUpDeclared, yUpSpan)
+            return yUpMismatch < zUpMismatch ? .yUp : .zUp
         }
 
         /// Builds a 4×4 matrix that scales the mesh so that its bounding box
         /// matches the model's declared dimensions (Length→X, Width→Y,
-        /// Height→Z in metres).
+        /// Height→Z in GDTF Z-up metres).
         ///
         /// Per the GDTF spec (§ Model Collect): "The mesh is explicitly
         /// scaled to this dimension."  Each axis is scaled independently
         /// so that the mesh's bounding-box span on that axis equals the
         /// declared dimension in metres.
         ///
-        /// The axis mapping depends on the detected coordinate system:
-        ///   Z-up: mesh (X,Y,Z) → declared (Length, Width, Height)
-        ///   Y-up: mesh (X,Y,Z) → declared (Length, Height, Width)
-        private func meshScaleMatrix(gdtfModel: GDTFModel, meshNode: SCNNode) -> simd_float4x4 {
-            let coordSystem = detectCoordSystem(gdtfModel: gdtfModel, meshNode: meshNode)
+        /// When `coordRotation` is provided, the mesh bounding box is first
+        /// rotated into GDTF Z-up space before comparing with declared dims.
+        /// The returned scale matrix operates in the ROTATED coordinate space.
+        private func meshScaleMatrix(gdtfModel: GDTFModel, meshNode: SCNNode,
+                                     coordRotation: simd_float4x4?) -> simd_float4x4 {
             let (mn, mx) = meshNode.boundingBox
-            let meshSpan = SIMD3<Double>(
-                Double(mx.x) - Double(mn.x),
-                Double(mx.y) - Double(mn.y),
-                Double(mx.z) - Double(mn.z)
-            )
 
-            // Declared dimensions in metres mapped to mesh axes
-            let declared: SIMD3<Double>
-            switch coordSystem {
-            case .zUp:
-                declared = SIMD3<Double>(gdtfModel.length, gdtfModel.width, gdtfModel.height)
-            case .yUp:
-                declared = SIMD3<Double>(gdtfModel.length, gdtfModel.height, gdtfModel.width)
+            // If a coordinate rotation is provided, transform the bounding box
+            // corners to find the AABB in the rotated space.
+            let meshSpan: SIMD3<Double>
+            if let rot = coordRotation {
+                var rMin = SIMD3<Float>(repeating:  Float.infinity)
+                var rMax = SIMD3<Float>(repeating: -Float.infinity)
+                for dx in [Float(mn.x), Float(mx.x)] {
+                    for dy in [Float(mn.y), Float(mx.y)] {
+                        for dz in [Float(mn.z), Float(mx.z)] {
+                            let rp = rot * SIMD4<Float>(dx, dy, dz, 1)
+                            rMin = min(rMin, SIMD3(rp.x, rp.y, rp.z))
+                            rMax = max(rMax, SIMD3(rp.x, rp.y, rp.z))
+                        }
+                    }
+                }
+                meshSpan = SIMD3<Double>(
+                    Double(rMax.x) - Double(rMin.x),
+                    Double(rMax.y) - Double(rMin.y),
+                    Double(rMax.z) - Double(rMin.z)
+                )
+            } else {
+                meshSpan = SIMD3<Double>(
+                    Double(mx.x) - Double(mn.x),
+                    Double(mx.y) - Double(mn.y),
+                    Double(mx.z) - Double(mn.z)
+                )
             }
+
+            // Always use Z-up declared dimensions: Length→X, Width→Y, Height→Z
+            let declared = SIMD3<Double>(gdtfModel.length, gdtfModel.width, gdtfModel.height)
 
             // Per-axis scale.  Fall back to the best uniform scale for axes
             // where the declared dimension is zero.

@@ -386,9 +386,10 @@ public struct FixtureSceneBuilder {
             SIMD4<Float>(0,  0, 0, 1)
         )
 
-        /// Whether a mesh's vertices are in Z-up (GDTF/.3ds) or Y-up (glTF)
-        /// coordinate space.
-        private enum MeshCoordSystem { case zUp, yUp }
+        /// Whether a mesh's vertices are in Y-up (glTF/.glb) coordinate
+        /// space.  Determined by file format: .3ds → false, .glb → true,
+        /// primitive → false.
+        private typealias IsYUp = Bool
 
         /// Walks `geometry` and its children, adding mesh nodes to `root`.
         ///
@@ -414,8 +415,8 @@ public struct FixtureSceneBuilder {
 
                 let modelName = modelOverride ?? geometry.model
                 if let modelName, let gdtfModel = modelMap[modelName],
-                   let (meshNode, coordSystem) = makeMeshNode(gdtfModel: gdtfModel) {
-                    if coordSystem == .yUp {
+                   let (meshNode, isYUp) = makeMeshNode(gdtfModel: gdtfModel) {
+                    if isYUp {
                         // GLB vertices are Y-up.  First convert to Z-up via
                         // sceneKitToGdtf, then scale using Z-up declared
                         // dimensions.  The walk's worldTransform already
@@ -464,29 +465,29 @@ public struct FixtureSceneBuilder {
         /// a flat `SCNNode` containing all mesh objects (no extra hierarchy).
         /// Tries .3ds first, then .glb, then falls back to the model's
         /// `primitiveType` (bundled spec meshes or SceneKit primitives).
-        /// Auto-detects the coordinate system by comparing mesh extents to
-        /// declared model dimensions.
-        private func makeMeshNode(gdtfModel: GDTFModel) -> (SCNNode, MeshCoordSystem)? {
-            // Try .3ds first
+        /// The coordinate system is determined by file format:
+        /// .3ds → Z-up (GDTF native), .glb → Y-up (glTF spec), primitive → Z-up.
+        private func makeMeshNode(gdtfModel: GDTFModel) -> (SCNNode, IsYUp)? {
+            // Try .3ds first — always Z-up per GDTF spec
             for lod in GDTFModel.LOD.allCases {
                 if let data = gdtfModel.resolveFile(gdtf: gdtfData, format: .threeds, lod: lod),
                    let file = try? ThreeDSFile.parse(data: data) {
                     let node = file.sceneNodeRaw()
-                    return (node, detectCoordSystem(gdtfModel: gdtfModel, meshNode: node))
+                    return (node, false)
                 }
             }
-            // Fall back to .glb
+            // Fall back to .glb — always Y-up per glTF 2.0 spec
             for lod in GDTFModel.LOD.allCases {
                 if let data = gdtfModel.resolveFile(gdtf: gdtfData, format: .glb, lod: lod),
                    let file = try? GLBFile.parse(data: data) {
                     let node = file.sceneNodeRaw()
-                    return (node, detectCoordSystem(gdtfModel: gdtfModel, meshNode: node))
+                    return (node, true)
                 }
             }
-            // Fall back to primitive type
+            // Fall back to primitive type — Z-up (built that way)
             if gdtfModel.primitiveType != .undefined,
                let node = Self.makePrimitiveNode(gdtfModel.primitiveType) {
-                return (node, .zUp)
+                return (node, false)
             }
             return nil
         }
@@ -569,51 +570,6 @@ public struct FixtureSceneBuilder {
             material.diffuse.contents = PlatformColor(white: 0.2, alpha: 1)
             material.specular.contents = PlatformColor(white: 0.4, alpha: 1)
             node.geometry?.materials = [material]
-        }
-
-        /// Determines whether a mesh's vertices are in Z-up or Y-up by
-        /// comparing the rank order of mesh bounding-box spans to declared
-        /// GDTF dimensions under both axis mappings.  The mapping where the
-        /// largest declared dimension aligns with the largest mesh span
-        /// (and smallest with smallest) is preferred, because per-axis
-        /// scaling can adjust magnitudes but a mismatched rank order would
-        /// produce distorted proportions.
-        private func detectCoordSystem(gdtfModel: GDTFModel, meshNode: SCNNode) -> MeshCoordSystem {
-            let (mn, mx) = meshNode.boundingBox
-            let span = SIMD3<Double>(
-                Double(mx.x) - Double(mn.x),
-                Double(mx.y) - Double(mn.y),
-                Double(mx.z) - Double(mn.z)
-            )
-
-            // Z-up mapping: mesh (X,Y,Z) → declared (Length, Width, Height)
-            let zUpDeclared = SIMD3<Double>(gdtfModel.length, gdtfModel.width, gdtfModel.height)
-            // Y-up mapping (after sceneKitToGdtf rotation): mesh (X,Y,Z) → rotated AABB
-            // sceneKitToGdtf maps (x,y,z)→(x,-z,y), so the rotated bounding box has:
-            //   X span unchanged, Y span = Z span, Z span = Y span
-            let yUpSpan = SIMD3<Double>(span.x, span.z, span.y)
-
-            /// Returns how well the rank order of `declared` matches `meshSpan`.
-            /// Lower is better (0 = perfect match).
-            func rankMismatch(_ declared: SIMD3<Double>, _ meshSpan: SIMD3<Double>) -> Int {
-                // Sort indices by value to get rank order
-                func rankOrder(_ v: SIMD3<Double>) -> [Int] {
-                    let indexed = [(0, v.x), (1, v.y), (2, v.z)]
-                    return indexed.sorted { $0.1 < $1.1 }.map { $0.0 }
-                }
-                let dRank = rankOrder(declared)
-                let mRank = rankOrder(meshSpan)
-                // Count how many positions have the same axis
-                var matches = 0
-                for i in 0..<3 {
-                    if dRank[i] == mRank[i] { matches += 1 }
-                }
-                return 3 - matches
-            }
-
-            let zUpMismatch = rankMismatch(zUpDeclared, span)
-            let yUpMismatch = rankMismatch(zUpDeclared, yUpSpan)
-            return yUpMismatch < zUpMismatch ? .yUp : .zUp
         }
 
         /// Builds a 4×4 matrix that scales the mesh so that its bounding box
@@ -872,6 +828,7 @@ private struct FixtureEntry: Identifiable, Hashable {
 
 private let previewFixtures: [FixtureEntry] = [
     FixtureEntry(rid: "9913",   name: "ARRI Orbiter"),
+    FixtureEntry(rid: "69633",  name: "Ayrton Versapix 100"),
     FixtureEntry(rid: "80120",  name: "Cameo H1 FC"),
     FixtureEntry(rid: "80253",  name: "Clay Paky HY B-EYE K25"),
     FixtureEntry(rid: "80618",  name: "ETC S4 Series 2 Lustr"),
@@ -1027,6 +984,7 @@ private struct GDTFFixturePickerPreview: View {
 private let glbPreviewFixtures: [FixtureEntry] = [
     // --- Debugging ---
     FixtureEntry(rid: "71555",   name: "Ayrton WildSun K25-TC"),
+    FixtureEntry(rid: "123451",  name: "Robe Robin LEDBeam 350 FW"),
     // --- Original GLB test fixtures ---
     FixtureEntry(rid: "100110",  name: "PR Lighting P12 PR"),
     FixtureEntry(rid: "100255",  name: "Elation Flaris Blade"),

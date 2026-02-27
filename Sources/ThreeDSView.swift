@@ -47,6 +47,26 @@ extension ThreeDSObject {
 }
 
 extension ThreeDSFile {
+    /// Computes the axis-aligned bounding box across ALL objects, including
+    /// degenerate markers.  Used by `meshScaleMatrix` so that dimension-guide
+    /// markers still inform the scale even though they are not rendered.
+    fileprivate func fullBoundingBox() -> (min: SCNVector3, max: SCNVector3) {
+        var mn = SIMD3<Float>(repeating:  Float.infinity)
+        var mx = SIMD3<Float>(repeating: -Float.infinity)
+        for object in objects {
+            for v in object.vertices {
+                mn = min(mn, v)
+                mx = max(mx, v)
+            }
+        }
+        guard mn.x.isFinite else {
+            return (SCNVector3Zero, SCNVector3Zero)
+        }
+        return (SCNVector3(mn.x, mn.y, mn.z), SCNVector3(mx.x, mx.y, mx.z))
+    }
+}
+
+extension ThreeDSFile {
     /// Converts this file into an `SCNNode` hierarchy that SceneKit can render.
     ///
     /// Each `ThreeDSObject` becomes a child node.  The whole scene is
@@ -428,7 +448,7 @@ public struct FixtureSceneBuilder {
 
                 let modelName = modelOverride ?? geometry.model
                 if let modelName, let gdtfModel = modelMap[modelName],
-                   let (meshNode, isYUp) = makeMeshNode(gdtfModel: gdtfModel) {
+                   let (meshNode, isYUp, bbOverride) = makeMeshNode(gdtfModel: gdtfModel) {
                     if isYUp {
                         // GLB vertices are Y-up.  First convert to Z-up via
                         // sceneKitToGdtf, then scale using Z-up declared
@@ -436,11 +456,13 @@ public struct FixtureSceneBuilder {
                         // includes gdtfToSceneKit which converts back to
                         // SceneKit Y-up for rendering.
                         let scaleInZUp = meshScaleMatrix(gdtfModel: gdtfModel, meshNode: meshNode,
-                                                         coordRotation: sceneKitToGdtf)
+                                                         coordRotation: sceneKitToGdtf,
+                                                         boundingBoxOverride: bbOverride)
                         meshNode.simdTransform = combined * scaleInZUp * sceneKitToGdtf
                     } else {
                         let scale = meshScaleMatrix(gdtfModel: gdtfModel, meshNode: meshNode,
-                                                     coordRotation: nil)
+                                                     coordRotation: nil,
+                                                     boundingBoxOverride: bbOverride)
                         meshNode.simdTransform = combined * scale
                     }
                     root.addChildNode(meshNode)
@@ -480,13 +502,25 @@ public struct FixtureSceneBuilder {
         /// `primitiveType` (bundled spec meshes or SceneKit primitives).
         /// The coordinate system is determined by file format:
         /// .3ds → Z-up (GDTF native), .glb → Y-up (glTF spec), primitive → Z-up.
-        private func makeMeshNode(gdtfModel: GDTFModel) -> (SCNNode, IsYUp)? {
+        /// Return type for `makeMeshNode`: the mesh node, whether vertices are
+        /// Y-up, and an optional bounding-box override (used when the 3DS file
+        /// contains degenerate marker objects that encode the intended scale).
+        private typealias MeshResult = (SCNNode, IsYUp, (min: SCNVector3, max: SCNVector3)?)
+
+        private func makeMeshNode(gdtfModel: GDTFModel) -> MeshResult? {
             // Try .3ds first — always Z-up per GDTF spec
             for lod in GDTFModel.LOD.allCases {
                 if let data = gdtfModel.resolveFile(gdtf: gdtfData, format: .threeds, lod: lod),
                    let file = try? ThreeDSFile.parse(data: data) {
                     let node = file.sceneNodeRaw()
-                    return (node, false)
+                    // If any degenerate markers were filtered from rendering,
+                    // use the full bounding box (including markers) for scaling.
+                    // This preserves the uniform mm→m scale the fixture author
+                    // intended.
+                    let bbOverride = file.objects.contains(where: \.isDegenerateMarker)
+                        ? file.fullBoundingBox()
+                        : nil
+                    return (node, false, bbOverride)
                 }
             }
             // Fall back to .glb — always Y-up per glTF 2.0 spec
@@ -494,13 +528,13 @@ public struct FixtureSceneBuilder {
                 if let data = gdtfModel.resolveFile(gdtf: gdtfData, format: .glb, lod: lod),
                    let file = try? GLBFile.parse(data: data) {
                     let node = file.sceneNodeRaw()
-                    return (node, true)
+                    return (node, true, nil)
                 }
             }
             // Fall back to primitive type — Z-up (built that way)
             if gdtfModel.primitiveType != .undefined,
                let node = Self.makePrimitiveNode(gdtfModel.primitiveType) {
-                return (node, false)
+                return (node, false, nil)
             }
             return nil
         }
@@ -598,8 +632,9 @@ public struct FixtureSceneBuilder {
         /// rotated into GDTF Z-up space before comparing with declared dims.
         /// The returned scale matrix operates in the ROTATED coordinate space.
         private func meshScaleMatrix(gdtfModel: GDTFModel, meshNode: SCNNode,
-                                     coordRotation: simd_float4x4?) -> simd_float4x4 {
-            let (mn, mx) = meshNode.boundingBox
+                                     coordRotation: simd_float4x4?,
+                                     boundingBoxOverride: (min: SCNVector3, max: SCNVector3)? = nil) -> simd_float4x4 {
+            let (mn, mx) = boundingBoxOverride ?? meshNode.boundingBox
 
             // If a coordinate rotation is provided, transform the bounding box
             // corners to find the AABB in the rotated space.

@@ -34,6 +34,18 @@ private typealias PlatformViewRepresentable = UIViewRepresentable
 
 // MARK: - SCNGeometry builder
 
+extension ThreeDSObject {
+    /// Whether this object is a degenerate single-triangle marker — a zero-area
+    /// triangle used by some GDTF fixture editors as an axis or dimension guide.
+    /// These inflate the bounding box without contributing visible geometry.
+    fileprivate var isDegenerateMarker: Bool {
+        guard vertices.count == 3, faces.count == 1 else { return false }
+        let e1 = vertices[1] - vertices[0]
+        let e2 = vertices[2] - vertices[0]
+        return simd_length(simd_cross(e1, e2)) < 1e-6
+    }
+}
+
 extension ThreeDSFile {
     /// Converts this file into an `SCNNode` hierarchy that SceneKit can render.
     ///
@@ -74,7 +86,8 @@ extension ThreeDSFile {
         )
 
         for object in objects {
-            guard !object.vertices.isEmpty, !object.faces.isEmpty else { continue }
+            guard !object.vertices.isEmpty, !object.faces.isEmpty,
+                  !object.isDegenerateMarker else { continue }
 
             // --- Vertex positions ---
             let positionSource = SCNGeometrySource(

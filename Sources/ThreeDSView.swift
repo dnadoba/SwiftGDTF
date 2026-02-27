@@ -34,37 +34,6 @@ private typealias PlatformViewRepresentable = UIViewRepresentable
 
 // MARK: - SCNGeometry builder
 
-extension ThreeDSObject {
-    /// Whether this object is a degenerate single-triangle marker — a zero-area
-    /// triangle used by some GDTF fixture editors as an axis or dimension guide.
-    /// These inflate the bounding box without contributing visible geometry.
-    fileprivate var isDegenerateMarker: Bool {
-        guard vertices.count == 3, faces.count == 1 else { return false }
-        let e1 = vertices[1] - vertices[0]
-        let e2 = vertices[2] - vertices[0]
-        return simd_length(simd_cross(e1, e2)) < 1e-6
-    }
-}
-
-extension ThreeDSFile {
-    /// Computes the axis-aligned bounding box across ALL objects, including
-    /// degenerate markers.  Used by `meshScaleMatrix` so that dimension-guide
-    /// markers still inform the scale even though they are not rendered.
-    fileprivate func fullBoundingBox() -> (min: SCNVector3, max: SCNVector3) {
-        var mn = SIMD3<Float>(repeating:  Float.infinity)
-        var mx = SIMD3<Float>(repeating: -Float.infinity)
-        for object in objects {
-            for v in object.vertices {
-                mn = min(mn, v)
-                mx = max(mx, v)
-            }
-        }
-        guard mn.x.isFinite else {
-            return (SCNVector3Zero, SCNVector3Zero)
-        }
-        return (SCNVector3(mn.x, mn.y, mn.z), SCNVector3(mx.x, mx.y, mx.z))
-    }
-}
 
 extension ThreeDSFile {
     /// Converts this file into an `SCNNode` hierarchy that SceneKit can render.
@@ -258,18 +227,6 @@ extension GLBFile {
     }
 }
 
-extension simd_double4x4 {
-    /// Lossy conversion to single-precision for use with SceneKit / SIMD APIs.
-    fileprivate var float4x4: simd_float4x4 {
-        simd_float4x4(columns: (
-            simd_float4(Float(self[0,0]), Float(self[0,1]), Float(self[0,2]), Float(self[0,3])),
-            simd_float4(Float(self[1,0]), Float(self[1,1]), Float(self[1,2]), Float(self[1,3])),
-            simd_float4(Float(self[2,0]), Float(self[2,1]), Float(self[2,2]), Float(self[2,3])),
-            simd_float4(Float(self[3,0]), Float(self[3,1]), Float(self[3,2]), Float(self[3,3]))
-        ))
-    }
-}
-
 
 
 extension Matrix {
@@ -290,9 +247,8 @@ extension Matrix {
 
 // MARK: - Fixture scene builder
 
-/// Assembles an `SCNNode` hierarchy for a GDTF fixture by walking the geometry
-/// tree, resolving `GeometryReference` nodes, and attaching the corresponding
-/// `.3ds` or `.glb` mesh to each node.
+/// Assembles an `SCNNode` hierarchy for a GDTF fixture by delegating to
+/// `FixtureGeometryAssembler` and converting the result to SceneKit nodes.
 public struct FixtureSceneBuilder {
     /// The parsed GDTF descriptor.
     public let gdtf: GDTF
@@ -314,379 +270,86 @@ public struct FixtureSceneBuilder {
     ///   data attached where available.  Returns an empty node if the named
     ///   geometry is not found.
     public func buildNode(rootGeometryName: String? = nil) -> SCNNode {
-        let topLevel = gdtf.fixtureType.geometries
-
-        // Build lookup: name → top-level Geometry (for reference resolution)
-        let topLevelMap: [String: Geometry] = Dictionary(
-            topLevel.map { ($0.name, $0) },
-            uniquingKeysWith: { a, _ in a }
-        )
-
-        // Build lookup: model name → GDTFModel
-        let modelMap: [String: GDTFModel] = Dictionary(
-            gdtf.fixtureType.models.map { ($0.name, $0) },
-            uniquingKeysWith: { a, _ in a }
-        )
-
-        // Find the requested root geometry
-        let rootGeometry: Geometry
-        if let name = rootGeometryName, let found = topLevelMap[name] {
-            rootGeometry = found
-        } else if let first = topLevel.first {
-            rootGeometry = first
-        } else {
-            return SCNNode()
-        }
-
-        let context = BuildContext(gdtfData: gdtfData, modelMap: modelMap, topLevelMap: topLevelMap)
-
-        // GDTF uses Z-up (X right, Y into screen, Z up).
-        // SceneKit uses Y-up (X right, Y up, Z toward camera).
-        // Mapping: (x, y, z)_GDTF → (x, z, -y)_SceneKit
-        let gdtfToSceneKit = simd_float4x4(
-            SIMD4<Float>(1, 0,  0, 0),
-            SIMD4<Float>(0, 0, -1, 0),
-            SIMD4<Float>(0, 1,  0, 0),
-            SIMD4<Float>(0, 0,  0, 1)
-        )
-
-        let root = SCNNode()
-        root.name = rootGeometry.name
-        context.walk(rootGeometry, worldTransform: gdtfToSceneKit,
-                     into: root, modelOverride: nil, depth: 0)
-
-        // Normalise: scale so the longest AABB axis == 1, then centre.
-        let (worldMin, worldMax) = worldAABB(root)
-        let span = worldMax - worldMin
-        let maxDim = span.max()
-        if maxDim > 0 {
-            let s = CGFloat(1.0 / maxDim)
-            let centre = (worldMin + worldMax) * 0.5
-            root.scale = SCNVector3(s, s, s)
-            root.simdPosition = simd_float3(
-                -centre.x * Float(s),
-                -centre.y * Float(s),
-                -centre.z * Float(s)
-            )
-        }
-
-        return root
+        let assembler = FixtureGeometryAssembler(gdtf: gdtf, gdtfData: gdtfData)
+        guard let assembled = assembler.assemble(
+            rootGeometryName: rootGeometryName, normalize: true
+        ) else { return SCNNode() }
+        return makeSCNNode(from: assembled.root)
     }
 
-    // MARK: - AABB helpers
+    // MARK: - SCNNode bridge
 
-    /// Computes the world-space axis-aligned bounding box of all geometry
-    /// nodes in the subtree rooted at `node`.
-    private func worldAABB(_ node: SCNNode) -> (min: SIMD3<Float>, max: SIMD3<Float>) {
-        var wMin = SIMD3<Float>(repeating:  Float.infinity)
-        var wMax = SIMD3<Float>(repeating: -Float.infinity)
+    /// Recursively converts an `AssembledNode` tree to an `SCNNode` tree.
+    private func makeSCNNode(from node: AssembledNode) -> SCNNode {
+        let scnNode = SCNNode()
+        scnNode.name = node.name
+        scnNode.simdTransform = node.localTransform
 
-        func accumulate(_ n: SCNNode) {
-            if n.geometry != nil {
-                let (localMin, localMax) = n.boundingBox
-                let wt = n.simdWorldTransform
-                for dx in [Float(localMin.x), Float(localMax.x)] {
-                    for dy in [Float(localMin.y), Float(localMax.y)] {
-                        for dz in [Float(localMin.z), Float(localMax.z)] {
-                            let wp = wt * SIMD4<Float>(dx, dy, dz, 1)
-                            wMin = min(wMin, SIMD3(wp.x, wp.y, wp.z))
-                            wMax = max(wMax, SIMD3(wp.x, wp.y, wp.z))
-                        }
-                    }
-                }
-            }
-            for child in n.childNodes { accumulate(child) }
-        }
-        accumulate(node)
-        return (wMin, wMax)
-    }
+        if let meshData = node.meshData {
+            for submesh in meshData.submeshes {
+                guard !submesh.vertices.isEmpty, !submesh.faceIndices.isEmpty else { continue }
 
-    // MARK: - Build context (captures shared state)
-
-    private struct BuildContext {
-        let gdtfData: Data
-        let modelMap: [String: GDTFModel]
-        let topLevelMap: [String: Geometry]
-
-        /// Inverse of gdtfToSceneKit.  Converts SceneKit Y-up back to GDTF
-        /// Z-up: (x, y, z)_SceneKit → (x, -z, y)_GDTF.
-        /// Applied to GLB mesh nodes whose vertices are Y-up, so that
-        /// the root gdtfToSceneKit transform cancels out.
-        let sceneKitToGdtf = simd_float4x4(
-            SIMD4<Float>(1,  0, 0, 0),
-            SIMD4<Float>(0,  0, 1, 0),
-            SIMD4<Float>(0, -1, 0, 0),
-            SIMD4<Float>(0,  0, 0, 1)
-        )
-
-        /// Whether a mesh's vertices are in Y-up (glTF/.glb) coordinate
-        /// space.  Determined by file format: .3ds → false, .glb → true,
-        /// primitive → false.
-        private typealias IsYUp = Bool
-
-        /// Walks `geometry` and its children, adding mesh nodes to `root`.
-        ///
-        /// Per the GDTF spec, each geometry's Position matrix defines its
-        /// offset relative to its parent.  The mesh is scaled per-axis to
-        /// match the model's declared Length (X), Width (Y), Height (Z)
-        /// dimensions in metres.
-        func walk(
-            _ geometry: Geometry,
-            worldTransform: simd_float4x4,
-            into root: SCNNode,
-            modelOverride: String?,
-            depth: Int
-        ) {
-            guard depth < 64 else { return }
-
-            switch geometry {
-            case .reference(let ref):
-                walkReference(ref, parentTransform: worldTransform, into: root,
-                              depth: depth)
-            default:
-                let combined = worldTransform * geometry.position.matrix.float4x4
-
-                let modelName = modelOverride ?? geometry.model
-                if let modelName, let gdtfModel = modelMap[modelName],
-                   let (meshNode, isYUp, bbOverride) = makeMeshNode(gdtfModel: gdtfModel) {
-                    if isYUp {
-                        // GLB vertices are Y-up.  First convert to Z-up via
-                        // sceneKitToGdtf, then scale using Z-up declared
-                        // dimensions.  The walk's worldTransform already
-                        // includes gdtfToSceneKit which converts back to
-                        // SceneKit Y-up for rendering.
-                        let scaleInZUp = meshScaleMatrix(gdtfModel: gdtfModel, meshNode: meshNode,
-                                                         coordRotation: sceneKitToGdtf,
-                                                         boundingBoxOverride: bbOverride)
-                        meshNode.simdTransform = combined * scaleInZUp * sceneKitToGdtf
-                    } else {
-                        let scale = meshScaleMatrix(gdtfModel: gdtfModel, meshNode: meshNode,
-                                                     coordRotation: nil,
-                                                     boundingBoxOverride: bbOverride)
-                        meshNode.simdTransform = combined * scale
-                    }
-                    root.addChildNode(meshNode)
-                }
-
-                for child in geometry.children {
-                    walk(child, worldTransform: combined, into: root,
-                         modelOverride: nil, depth: depth + 1)
-                }
-            }
-        }
-
-        private func walkReference(
-            _ ref: GeometryReference,
-            parentTransform: simd_float4x4,
-            into root: SCNNode,
-            depth: Int
-        ) {
-            guard let targetName = ref.geometry,
-                  let target = topLevelMap[targetName] else { return }
-
-            let combined = parentTransform * ref.position.matrix.float4x4
-
-            let tempRoot = SCNNode()
-            walk(target, worldTransform: combined,
-                 into: tempRoot, modelOverride: ref.model, depth: depth + 1)
-
-            for child in tempRoot.childNodes {
-                child.removeFromParentNode()
-                root.addChildNode(child)
-            }
-        }
-
-        /// Extracts the mesh file for `gdtfModel` from the ZIP and builds
-        /// a flat `SCNNode` containing all mesh objects (no extra hierarchy).
-        /// Tries .3ds first, then .glb, then falls back to the model's
-        /// `primitiveType` (bundled spec meshes or SceneKit primitives).
-        /// The coordinate system is determined by file format:
-        /// .3ds → Z-up (GDTF native), .glb → Y-up (glTF spec), primitive → Z-up.
-        /// Return type for `makeMeshNode`: the mesh node, whether vertices are
-        /// Y-up, and an optional bounding-box override (used when the 3DS file
-        /// contains degenerate marker objects that encode the intended scale).
-        private typealias MeshResult = (SCNNode, IsYUp, (min: SCNVector3, max: SCNVector3)?)
-
-        private func makeMeshNode(gdtfModel: GDTFModel) -> MeshResult? {
-            // Try .3ds first — always Z-up per GDTF spec
-            for lod in GDTFModel.LOD.allCases {
-                if let data = gdtfModel.resolveFile(gdtf: gdtfData, format: .threeds, lod: lod),
-                   let file = try? ThreeDSFile.parse(data: data) {
-                    let node = file.sceneNodeRaw()
-                    // If any degenerate markers were filtered from rendering,
-                    // use the full bounding box (including markers) for scaling.
-                    // This preserves the uniform mm→m scale the fixture author
-                    // intended.
-                    let bbOverride = file.objects.contains(where: \.isDegenerateMarker)
-                        ? file.fullBoundingBox()
-                        : nil
-                    return (node, false, bbOverride)
-                }
-            }
-            // Fall back to .glb — always Y-up per glTF 2.0 spec
-            for lod in GDTFModel.LOD.allCases {
-                if let data = gdtfModel.resolveFile(gdtf: gdtfData, format: .glb, lod: lod),
-                   let file = try? GLBFile.parse(data: data) {
-                    let node = file.sceneNodeRaw()
-                    return (node, true, nil)
-                }
-            }
-            // Fall back to primitive type — Z-up (built that way)
-            if gdtfModel.primitiveType != .undefined,
-               let node = Self.makePrimitiveNode(gdtfModel.primitiveType) {
-                return (node, false, nil)
-            }
-            return nil
-        }
-
-        /// Creates an `SCNNode` for a GDTF primitive type.
-        ///
-        /// Complex primitives (Base, Yoke, Head, Scanner, Conventional and
-        /// their 1.1 variants) are loaded from bundled .3ds meshes provided
-        /// by the GDTF spec.  Simple primitives (Cube, Cylinder, Sphere,
-        /// Pigtail) use SceneKit built-in geometry at unit size.
-        ///
-        /// All meshes are in Z-up space and roughly unit-sized.  The caller's
-        /// `meshScaleMatrix` scales them to the declared model dimensions.
-        private static func makePrimitiveNode(_ primitiveType: PrimitiveType) -> SCNNode? {
-            switch primitiveType {
-            case .undefined:
-                return nil
-
-            // --- SceneKit built-in primitives (unit size, Z-up) ---
-            case .cube:
-                // SCNBox length is along Z in SceneKit (Y-up), but we're in Z-up
-                // context. Create a unit box; meshScaleMatrix handles dimensions.
-                let node = SCNNode(geometry: SCNBox(width: 1, height: 1, length: 1, chamferRadius: 0))
-                applyPrimitiveMaterial(node)
-                return node
-
-            case .cylinder:
-                // SCNCylinder is Y-up (height along Y). Rotate -90° around X
-                // to make height along Z (Z-up).
-                let geo = SCNCylinder(radius: 0.5, height: 1)
-                let node = SCNNode(geometry: geo)
-                node.simdEulerAngles.x = -.pi / 2
-                applyPrimitiveMaterial(node)
-                let wrapper = SCNNode()
-                wrapper.addChildNode(node)
-                return wrapper
-
-            case .sphere:
-                let node = SCNNode(geometry: SCNSphere(radius: 0.5))
-                applyPrimitiveMaterial(node)
-                return node
-
-            case .pigtail:
-                // Pigtail is a small cable connector — use a short cylinder
-                let geo = SCNCylinder(radius: 0.5, height: 1)
-                let node = SCNNode(geometry: geo)
-                node.simdEulerAngles.x = -.pi / 2
-                applyPrimitiveMaterial(node)
-                let wrapper = SCNNode()
-                wrapper.addChildNode(node)
-                return wrapper
-
-            // --- Bundled .3ds spec meshes ---
-            case .base:          return loadBundledPrimitive("base")
-            case .yoke:          return loadBundledPrimitive("yoke")
-            case .head:          return loadBundledPrimitive("head")
-            case .scanner:       return loadBundledPrimitive("scanner")
-            case .conventional:  return loadBundledPrimitive("conventional")
-            case .base1_1:       return loadBundledPrimitive("base_1_1")
-            case .scanner1_1:    return loadBundledPrimitive("scanner_1_1")
-            case .conventional1_1: return loadBundledPrimitive("conventional_1_1")
-            }
-        }
-
-        /// Loads a .3ds primitive mesh from the bundle's resources.
-        private static func loadBundledPrimitive(_ name: String) -> SCNNode? {
-            guard let url = Bundle.module.url(forResource: name, withExtension: "3ds"),
-                  let data = try? Data(contentsOf: url),
-                  let file = try? ThreeDSFile.parse(data: data) else {
-                return nil
-            }
-            return file.sceneNodeRaw()
-        }
-
-        /// Applies the standard dark-grey material to a SceneKit primitive node.
-        private static func applyPrimitiveMaterial(_ node: SCNNode) {
-            let material = SCNMaterial()
-            material.lightingModel = .phong
-            material.isDoubleSided = true
-            material.diffuse.contents = PlatformColor(white: 0.2, alpha: 1)
-            material.specular.contents = PlatformColor(white: 0.4, alpha: 1)
-            node.geometry?.materials = [material]
-        }
-
-        /// Builds a 4×4 matrix that scales the mesh so that its bounding box
-        /// matches the model's declared dimensions (Length→X, Width→Y,
-        /// Height→Z in GDTF Z-up metres).
-        ///
-        /// Per the GDTF spec (§ Model Collect): "The mesh is explicitly
-        /// scaled to this dimension."  Each axis is scaled independently
-        /// so that the mesh's bounding-box span on that axis equals the
-        /// declared dimension in metres.
-        ///
-        /// When `coordRotation` is provided, the mesh bounding box is first
-        /// rotated into GDTF Z-up space before comparing with declared dims.
-        /// The returned scale matrix operates in the ROTATED coordinate space.
-        private func meshScaleMatrix(gdtfModel: GDTFModel, meshNode: SCNNode,
-                                     coordRotation: simd_float4x4?,
-                                     boundingBoxOverride: (min: SCNVector3, max: SCNVector3)? = nil) -> simd_float4x4 {
-            let (mn, mx) = boundingBoxOverride ?? meshNode.boundingBox
-
-            // If a coordinate rotation is provided, transform the bounding box
-            // corners to find the AABB in the rotated space.
-            let meshSpan: SIMD3<Double>
-            if let rot = coordRotation {
-                var rMin = SIMD3<Float>(repeating:  Float.infinity)
-                var rMax = SIMD3<Float>(repeating: -Float.infinity)
-                for dx in [Float(mn.x), Float(mx.x)] {
-                    for dy in [Float(mn.y), Float(mx.y)] {
-                        for dz in [Float(mn.z), Float(mx.z)] {
-                            let rp = rot * SIMD4<Float>(dx, dy, dz, 1)
-                            rMin = min(rMin, SIMD3(rp.x, rp.y, rp.z))
-                            rMax = max(rMax, SIMD3(rp.x, rp.y, rp.z))
-                        }
-                    }
-                }
-                meshSpan = SIMD3<Double>(
-                    Double(rMax.x) - Double(rMin.x),
-                    Double(rMax.y) - Double(rMin.y),
-                    Double(rMax.z) - Double(rMin.z)
+                // Positions
+                let positionSource = SCNGeometrySource(
+                    vertices: submesh.vertices.map { SCNVector3($0.x, $0.y, $0.z) }
                 )
-            } else {
-                meshSpan = SIMD3<Double>(
-                    Double(mx.x) - Double(mn.x),
-                    Double(mx.y) - Double(mn.y),
-                    Double(mx.z) - Double(mn.z)
-                )
-            }
 
-            // Always use Z-up declared dimensions: Length→X, Width→Y, Height→Z
-            let declared = SIMD3<Double>(gdtfModel.length, gdtfModel.width, gdtfModel.height)
-
-            // Per-axis scale.  Fall back to the best uniform scale for axes
-            // where the declared dimension is zero.
-            let minSpan = 1e-9  // guard against division by zero
-            var fallbackScale = 0.001
-            for i in 0..<3 {
-                if declared[i] > 0 && meshSpan[i] > minSpan {
-                    fallbackScale = declared[i] / meshSpan[i]
-                    break
+                // Indices
+                var indices: [Int32] = []
+                indices.reserveCapacity(submesh.faceIndices.count * 3)
+                for face in submesh.faceIndices {
+                    indices.append(Int32(face.x))
+                    indices.append(Int32(face.y))
+                    indices.append(Int32(face.z))
                 }
-            }
+                let element = SCNGeometryElement(indices: indices, primitiveType: .triangles)
 
-            var scale = SIMD3<Double>(repeating: fallbackScale)
-            for i in 0..<3 {
-                if declared[i] > 0 && meshSpan[i] > minSpan {
-                    scale[i] = declared[i] / meshSpan[i]
+                var sources: [SCNGeometrySource] = [positionSource]
+
+                // Normals (optional)
+                if submesh.normals.count == submesh.vertices.count {
+                    let normalSource = SCNGeometrySource(
+                        normals: submesh.normals.map { SCNVector3($0.x, $0.y, $0.z) }
+                    )
+                    sources.append(normalSource)
                 }
-            }
 
-            return simd_float4x4(diagonal: SIMD4<Float>(Float(scale.x), Float(scale.y), Float(scale.z), 1))
+                // UVs (optional)
+                if submesh.textureCoordinates.count == submesh.vertices.count {
+                    let uvData = submesh.textureCoordinates.withUnsafeBytes { Data($0) }
+                    let uvSource = SCNGeometrySource(
+                        data: uvData,
+                        semantic: .texcoord,
+                        vectorCount: submesh.textureCoordinates.count,
+                        usesFloatComponents: true,
+                        componentsPerVector: 2,
+                        bytesPerComponent: MemoryLayout<Float>.size,
+                        dataOffset: 0,
+                        dataStride: MemoryLayout<SIMD2<Float>>.stride
+                    )
+                    sources.append(uvSource)
+                }
+
+                let geometry = SCNGeometry(sources: sources, elements: [element])
+
+                let material = SCNMaterial()
+                material.lightingModel = .phong
+                material.isDoubleSided = true
+                material.diffuse.contents = PlatformColor(white: 0.2, alpha: 1)
+                material.specular.contents = PlatformColor(white: 0.4, alpha: 1)
+                geometry.materials = [material]
+
+                let childNode = SCNNode(geometry: geometry)
+                childNode.name = submesh.name
+                scnNode.addChildNode(childNode)
+            }
         }
+
+        for child in node.children {
+            scnNode.addChildNode(makeSCNNode(from: child))
+        }
+
+        return scnNode
     }
 }
 

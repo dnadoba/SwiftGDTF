@@ -119,4 +119,58 @@ extension DMXMode {
             return nil
         }
     }
+
+    /// Builds a per-geometry map of pan/tilt axis info from the DMX channels.
+    ///
+    /// Single pass over all channels. Call on a resolved DMX mode (via
+    /// `resolved(with:)`) so that geometry references are already expanded.
+    public func geometryAxisInfoMap() -> [String: GeometryAxisInfo] {
+        var map: [String: GeometryAxisInfo] = [:]
+
+        for dmxChannel in channels {
+            let geomName = dmxChannel.geometry
+            for logicalChannel in dmxChannel.logicalChannels {
+                for channelFunction in logicalChannel.channelFunctions {
+                    guard let canonical = channelFunction.attribute?.type.canonical else { continue }
+                    switch canonical {
+                    case .pan:
+                        var info = map[geomName, default: GeometryAxisInfo()]
+                        info.panRange = Self.extendRange(info.panRange, from: channelFunction)
+                        map[geomName] = info
+                    case .tilt:
+                        var info = map[geomName, default: GeometryAxisInfo()]
+                        info.tiltRange = Self.extendRange(info.tiltRange, from: channelFunction)
+                        map[geomName] = info
+                    case .panRotate:
+                        map[geomName, default: GeometryAxisInfo()].panInfinite = true
+                    case .tiltRotate:
+                        map[geomName, default: GeometryAxisInfo()].tiltInfinite = true
+                    default:
+                        break
+                    }
+                }
+            }
+        }
+        return map
+    }
+
+    /// Extends a range with the physical values from a channel function and its channel sets.
+    private static func extendRange(_ existing: ClosedRange<Double>?, from cf: ChannelFunction) -> ClosedRange<Double> {
+        var lo = cf.physicalFrom
+        var hi = cf.physicalTo
+        if lo > hi { swap(&lo, &hi) }
+
+        for cs in cf.channelSets {
+            var csLo = cs.physicalFrom
+            var csHi = cs.physicalTo
+            if csLo > csHi { swap(&csLo, &csHi) }
+            lo = min(lo, csLo)
+            hi = max(hi, csHi)
+        }
+
+        if let existing {
+            return min(existing.lowerBound, lo)...max(existing.upperBound, hi)
+        }
+        return lo...hi
+    }
 }

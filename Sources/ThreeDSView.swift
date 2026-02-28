@@ -280,12 +280,19 @@ public struct FixtureSceneBuilder {
     // MARK: - SCNNode bridge
 
     /// Recursively converts an `AssembledNode` tree to an `SCNNode` tree.
+    ///
+    /// Each geometry's `localTransform` (position) becomes the SCNNode transform.
+    /// The mesh is placed on a child node with `meshLocalTransform` so that
+    /// mesh scaling doesn't affect descendant positions.
     private func makeSCNNode(from node: AssembledNode) -> SCNNode {
         let scnNode = SCNNode()
         scnNode.name = node.name
         scnNode.simdTransform = node.localTransform
 
         if let meshData = node.meshData {
+            let meshNode = SCNNode()
+            meshNode.simdTransform = node.meshLocalTransform ?? .init(1)
+
             for submesh in meshData.submeshes {
                 guard !submesh.vertices.isEmpty, !submesh.faceIndices.isEmpty else { continue }
 
@@ -339,10 +346,12 @@ public struct FixtureSceneBuilder {
                 material.specular.contents = PlatformColor(white: 0.4, alpha: 1)
                 geometry.materials = [material]
 
-                let childNode = SCNNode(geometry: geometry)
-                childNode.name = submesh.name
-                scnNode.addChildNode(childNode)
+                let submeshNode = SCNNode(geometry: geometry)
+                submeshNode.name = submesh.name
+                meshNode.addChildNode(submeshNode)
             }
+
+            scnNode.addChildNode(meshNode)
         }
 
         for child in node.children {
@@ -350,6 +359,132 @@ public struct FixtureSceneBuilder {
         }
 
         return scnNode
+    }
+}
+
+// MARK: - Pan/tilt animation
+
+extension FixtureSceneBuilder {
+    /// Builds an animated `SCNNode` subtree that continuously pans and tilts.
+    ///
+    /// Uses the first DMX mode to determine per-geometry axis info. Geometries
+    /// with pan/tilt channels get `SCNAction` animations that sweep within their
+    /// declared physical ranges.
+    ///
+    /// The fixture is flipped 180° around X so it appears standing upright
+    /// (GDTF stores fixtures hanging with Z-up pointing away from the stage).
+    public func buildAnimatedNode(rootGeometryName: String? = nil) -> SCNNode {
+        let assembler = FixtureGeometryAssembler(gdtf: gdtf, gdtfData: gdtfData)
+        let dmxMode = gdtf.fixtureType.dmxModes.first
+        guard let assembled = assembler.assemble(
+            rootGeometryName: rootGeometryName,
+            dmxMode: dmxMode,
+            normalize: true
+        ) else { return SCNNode() }
+
+        let node = makeSCNNode(from: assembled.root)
+
+        // Flip the fixture upright: rotate 180° around X.
+        // GDTF fixtures are stored "hanging" — base at top, head pointing down.
+        // This makes them stand with the base at the bottom.
+        let flip = simd_float4x4(
+            SIMD4<Float>(1,  0,  0, 0),
+            SIMD4<Float>(0, -1,  0, 0),
+            SIMD4<Float>(0,  0, -1, 0),
+            SIMD4<Float>(0,  0,  0, 1)
+        )
+        node.simdTransform = flip * node.simdTransform
+
+        applyAnimations(to: node, from: assembled.root)
+        return node
+    }
+
+    /// Recursively applies pan/tilt animations to SCNNodes that have axis info.
+    ///
+    /// Pan rotates around local Y (SceneKit Y = GDTF Z-up after coord conversion).
+    /// Tilt rotates around local X (SceneKit X = GDTF X).
+    private func applyAnimations(to scnNode: SCNNode, from assembledNode: AssembledNode) {
+        if let axisInfo = assembledNode.axisInfo {
+            var actions: [SCNAction] = []
+
+            // Pan animation (around Y axis)
+            if let panAction = Self.makeAxisAction(
+                range: axisInfo.panRange,
+                infinite: axisInfo.panInfinite,
+                axis: SIMD3<Float>(0, 0, 1)
+            ) {
+                actions.append(panAction)
+            }
+
+            // Tilt animation (around X axis)
+            if let tiltAction = Self.makeAxisAction(
+                range: axisInfo.tiltRange,
+                infinite: axisInfo.tiltInfinite,
+                axis: SIMD3<Float>(1, 0, 0)
+            ) {
+                actions.append(tiltAction)
+            }
+
+            if !actions.isEmpty {
+                scnNode.runAction(.group(actions))
+            }
+        }
+
+        // Match SCNNode children to AssembledNode children by position.
+        // The SCNNode may have extra children (mesh nodes) so we match by name.
+        for assembledChild in assembledNode.children {
+            if let matchingChild = scnNode.childNodes.first(where: { $0.name == assembledChild.name }) {
+                applyAnimations(to: matchingChild, from: assembledChild)
+            }
+        }
+    }
+
+    /// Creates an `SCNAction` for a single rotation axis.
+    ///
+    /// - For bounded ranges: sweeps the full declared range at ~30°/sec.
+    /// - For infinite rotation: continuous full rotation at ~30°/sec.
+    ///
+    /// Uses `SCNAction.rotate(by:around:)` to avoid Euler angle gimbal lock.
+    private static func makeAxisAction(
+        range: ClosedRange<Double>?,
+        infinite: Bool,
+        axis: SIMD3<Float>
+    ) -> SCNAction? {
+        let degreesToRadians = Double.pi / 180.0
+        let speed = 30.0 * degreesToRadians  // radians per second
+        let axisVec = SCNVector3(axis.x, axis.y, axis.z)
+
+        if infinite {
+            let duration = (2 * Double.pi) / speed
+            return .repeatForever(.rotate(
+                by: CGFloat(2 * Double.pi),
+                around: axisVec,
+                duration: duration
+            ))
+        }
+
+        guard let range else { return nil }
+
+        let fromRad = range.lowerBound * degreesToRadians
+        let toRad = range.upperBound * degreesToRadians
+        let sweep = abs(toRad - fromRad)
+
+        guard sweep > 0.001 else { return nil }
+
+        let halfSweep = sweep / 2.0
+        let halfDuration = halfSweep / speed
+        let fullDuration = sweep / speed
+
+        // Sweep: center → +half → -half → center (uses incremental rotation)
+        let toPositive = SCNAction.rotate(by: CGFloat(halfSweep), around: axisVec, duration: halfDuration)
+        let toNegative = SCNAction.rotate(by: CGFloat(-sweep), around: axisVec, duration: fullDuration)
+        let backToCenter = SCNAction.rotate(by: CGFloat(halfSweep), around: axisVec, duration: halfDuration)
+
+        toPositive.timingMode = .easeInEaseOut
+        toNegative.timingMode = .easeInEaseOut
+        backToCenter.timingMode = .easeInEaseOut
+
+        return .repeatForever(.sequence([toPositive, toNegative, backToCenter]))
     }
 }
 
@@ -580,6 +715,7 @@ private enum PreviewLoadState {
 
 private struct GDTFFixturePickerPreview: View {
     let fixtures: [FixtureEntry]
+    var animated: Bool = false
     @State private var selectedIndex: Int = 0
     @State private var state: PreviewLoadState = .loading
     @State private var selectedGeometry: String = ""
@@ -628,10 +764,17 @@ private struct GDTFFixturePickerPreview: View {
                 case .loading:
                     ProgressView("Loading…")
                 case .loaded(let builder, _):
-                    GDTFFixtureView(
-                        builder: builder,
-                        rootGeometryName: selectedGeometry.isEmpty ? nil : selectedGeometry
-                    )
+                    if animated {
+                        AnimatedGDTFFixtureView(
+                            builder: builder,
+                            rootGeometryName: selectedGeometry.isEmpty ? nil : selectedGeometry
+                        )
+                    } else {
+                        GDTFFixtureView(
+                            builder: builder,
+                            rootGeometryName: selectedGeometry.isEmpty ? nil : selectedGeometry
+                        )
+                    }
                 case .unavailable(let message):
                     ContentUnavailableView(
                         "No 3D models",
@@ -759,6 +902,34 @@ private let primitivePreviewFixtures: [FixtureEntry] = [
     FixtureEntry(rid: "125267",  name: "Chauvet DJ FXpar 9"),
 ]
 
+/// A SwiftUI view that displays a GDTF fixture with continuous pan/tilt animation.
+private struct AnimatedGDTFFixtureView: View {
+    let builder: FixtureSceneBuilder
+    let rootGeometryName: String?
+
+    var body: some View {
+        let node = builder.buildAnimatedNode(rootGeometryName: rootGeometryName)
+        SceneKitView(scene: buildScene(node: node))
+    }
+}
+
+private let animatedPreviewFixtures: [FixtureEntry] = [
+    FixtureEntry(rid: "91158",  name: "GLP impression FR1"),
+    FixtureEntry(rid: "71555",  name: "Ayrton WildSun K25-TC"),
+    FixtureEntry(rid: "80253",  name: "Clay Paky HY B-EYE K25"),
+    FixtureEntry(rid: "83969",  name: "Cameo Opus X4"),
+    FixtureEntry(rid: "84086",  name: "Elation Proteus Atlas"),
+    FixtureEntry(rid: "85348",  name: "Martin Professional MAC 700 Profile"),
+    FixtureEntry(rid: "86183",  name: "Martin Professional MAC Ultra Performance"),
+    FixtureEntry(rid: "88718",  name: "Elation Fuze Profile"),
+    FixtureEntry(rid: "91000",  name: "GLP impression X5 IP"),
+    FixtureEntry(rid: "91164",  name: "GLP impression X5"),
+    FixtureEntry(rid: "93699",  name: "Martin Professional MAC Quantum Wash"),
+    FixtureEntry(rid: "96102",  name: "Elation Fuze Max Spot"),
+    FixtureEntry(rid: "96333",  name: "Elation Artiste Picasso"),
+    FixtureEntry(rid: "99743",  name: "Martin Professional MAC One"),
+]
+
 #Preview("GDTF Fixture Assembler") {
     GDTFFixturePickerPreview(fixtures: previewFixtures)
 }
@@ -769,5 +940,9 @@ private let primitivePreviewFixtures: [FixtureEntry] = [
 
 #Preview("Primitive Fixture Assembler") {
     GDTFFixturePickerPreview(fixtures: primitivePreviewFixtures)
+}
+
+#Preview("Animated Fixture") {
+    GDTFFixturePickerPreview(fixtures: animatedPreviewFixtures, animated: true)
 }
 #endif

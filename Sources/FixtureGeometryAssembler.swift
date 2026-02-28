@@ -85,16 +85,42 @@ public struct MeshBoundingBox: Sendable {
     }
 }
 
+/// Describes a rotation axis (pan or tilt) for a specific geometry.
+public struct GeometryAxisInfo: Sendable {
+    /// Physical range in degrees. Nil if no pan channel found.
+    public var panRange: ClosedRange<Double>?
+    /// Whether pan supports infinite rotation (panRotate attribute).
+    public var panInfinite: Bool = false
+    /// Physical range in degrees for tilt. Nil if no tilt channel found.
+    public var tiltRange: ClosedRange<Double>?
+    /// Whether tilt supports infinite rotation (tiltRotate attribute).
+    public var tiltInfinite: Bool = false
+
+    public init(panRange: ClosedRange<Double>? = nil, panInfinite: Bool = false,
+                tiltRange: ClosedRange<Double>? = nil, tiltInfinite: Bool = false) {
+        self.panRange = panRange
+        self.panInfinite = panInfinite
+        self.tiltRange = tiltRange
+        self.tiltInfinite = tiltInfinite
+    }
+}
+
 /// A node in the assembled fixture hierarchy.
 public struct AssembledNode: Sendable {
     /// Name from the GDTF geometry (e.g. "Base", "Yoke", "Head").
     public var name: String
-    /// Local transform relative to parent.
+    /// Local transform relative to parent (position only).
+    /// Affects both this node's mesh and all children.
     public var localTransform: simd_float4x4
+    /// Transform applied only to the mesh, not to children.
+    /// Contains mesh scaling and coordinate conversion.
+    public var meshLocalTransform: simd_float4x4?
     /// Mesh data, if this geometry has a model. Nil for pure grouping nodes.
     public var meshData: MeshData?
     /// Child nodes in the geometry hierarchy.
     public var children: [AssembledNode]
+    /// Pan/tilt axis info if this geometry has DMX pan/tilt channels.
+    public var axisInfo: GeometryAxisInfo?
 }
 
 /// Top-level output of the assembler.
@@ -191,10 +217,13 @@ public struct FixtureGeometryAssembler {
     /// - Parameters:
     ///   - rootGeometryName: Name of the top-level geometry to use as root.
     ///     Pass `nil` to use the first top-level geometry.
+    ///   - dmxMode: Optional DMX mode to extract per-geometry pan/tilt axis info.
+    ///     When provided, the mode is resolved and axis info is attached to matching nodes.
     ///   - normalize: If `true`, scales the root so the longest AABB axis == 1
     ///     and centres the fixture at the origin.
     /// - Returns: The assembled fixture, or `nil` if no geometry is found.
     public func assemble(rootGeometryName: String? = nil,
+                         dmxMode: DMXMode? = nil,
                          normalize: Bool = true) -> AssembledFixture? {
         let topLevel = gdtf.fixtureType.geometries
 
@@ -217,7 +246,22 @@ public struct FixtureGeometryAssembler {
             return nil
         }
 
-        let context = AssemblyContext(gdtfData: gdtfData, modelMap: modelMap, topLevelMap: topLevelMap)
+        // Build per-geometry axis info map from DMX mode if provided.
+        let axisInfoMap: [String: GeometryAxisInfo]
+        if let dmxMode {
+            let resolved = dmxMode.resolved(with: topLevel)
+            axisInfoMap = resolved.geometryAxisInfoMap()
+        } else {
+            axisInfoMap = [:]
+        }
+
+        let context = AssemblyContext(gdtfData: gdtfData, modelMap: modelMap,
+                                       topLevelMap: topLevelMap, axisInfoMap: axisInfoMap)
+
+        // Walk the root geometry to produce a hierarchical tree.
+        guard let rootGeoNode = context.walk(rootGeometry, modelOverride: nil, depth: 0) else {
+            return nil
+        }
 
         // GDTF uses Z-up; we convert to Y-up (SceneKit / Metal convention).
         // (x, y, z)_GDTF → (x, z, -y)_SceneKit
@@ -228,52 +272,52 @@ public struct FixtureGeometryAssembler {
             SIMD4<Float>(0, 0,  0, 1)
         )
 
-        let children = context.walk(rootGeometry, worldTransform: gdtfToSceneKit,
-                                     modelOverride: nil, depth: 0)
-
-        // Pre-normalization world AABB
+        // Pre-normalization world AABB (gdtfToSceneKit is part of the root)
         var worldBounds = MeshBoundingBox.empty
-        computeWorldBounds(children: children, parentTransform: .init(1), bounds: &worldBounds)
+        computeWorldBounds(node: rootGeoNode, parentTransform: gdtfToSceneKit, bounds: &worldBounds)
 
-        var rootTransform = simd_float4x4(1)
+        var rootTransform = gdtfToSceneKit
         if normalize {
             let span = worldBounds.span
             let maxDim = Swift.max(span.x, Swift.max(span.y, span.z))
             if maxDim > 0 {
                 let s = 1.0 / maxDim
                 let centre = (worldBounds.min + worldBounds.max) * 0.5
-                // scale * translate(-centre)
-                rootTransform = simd_float4x4(diagonal: SIMD4(s, s, s, 1)) * simd_float4x4(columns: (
+                // normalization * gdtfToSceneKit
+                let normalization = simd_float4x4(diagonal: SIMD4(s, s, s, 1)) * simd_float4x4(columns: (
                     SIMD4<Float>(1, 0, 0, 0),
                     SIMD4<Float>(0, 1, 0, 0),
                     SIMD4<Float>(0, 0, 1, 0),
                     SIMD4<Float>(-centre.x, -centre.y, -centre.z, 1)
                 ))
+                rootTransform = normalization * gdtfToSceneKit
             }
         }
 
         let root = AssembledNode(
             name: rootGeometry.name,
             localTransform: rootTransform,
+            meshLocalTransform: nil,
             meshData: nil,
-            children: children
+            children: [rootGeoNode]
         )
 
         return AssembledFixture(root: root, worldBounds: worldBounds)
     }
 
     /// Recursively computes the world AABB across all mesh nodes.
-    private func computeWorldBounds(children: [AssembledNode],
+    private func computeWorldBounds(node: AssembledNode,
                                      parentTransform: simd_float4x4,
                                      bounds: inout MeshBoundingBox) {
-        for child in children {
-            let worldTransform = parentTransform * child.localTransform
-            if let meshData = child.meshData {
-                let localBB = meshData.boundingBox()
-                let worldBB = localBB.transformed(by: worldTransform)
-                bounds.formUnion(worldBB)
-            }
-            computeWorldBounds(children: child.children, parentTransform: worldTransform, bounds: &bounds)
+        let worldTransform = parentTransform * node.localTransform
+        if let meshData = node.meshData {
+            let meshWorldTransform = worldTransform * (node.meshLocalTransform ?? .init(1))
+            let localBB = meshData.boundingBox()
+            let worldBB = localBB.transformed(by: meshWorldTransform)
+            bounds.formUnion(worldBB)
+        }
+        for child in node.children {
+            computeWorldBounds(node: child, parentTransform: worldTransform, bounds: &bounds)
         }
     }
 }
@@ -289,6 +333,7 @@ extension FixtureGeometryAssembler {
         let gdtfData: Data
         let modelMap: [String: GDTFModel]
         let topLevelMap: [String: Geometry]
+        let axisInfoMap: [String: GeometryAxisInfo]
 
         /// Converts Y-up → Z-up: (x, y, z)_SceneKit → (x, -z, y)_GDTF.
         let sceneKitToGdtf = simd_float4x4(
@@ -298,69 +343,89 @@ extension FixtureGeometryAssembler {
             SIMD4<Float>(0,  0, 0, 1)
         )
 
-        /// Walks a geometry and its children, returning assembled nodes.
+        /// Walks a geometry and its children, returning a single hierarchical node.
         ///
-        /// The current design flattens into the parent's children array
-        /// (matching the original BuildContext behavior which added all mesh
-        /// nodes as flat children of a single root SCNNode).
+        /// Each node's `localTransform` is the geometry's position matrix.
+        /// The `meshLocalTransform` (scaling + optional coord conversion) only
+        /// applies to the mesh, not to child positions.
         func walk(
             _ geometry: Geometry,
-            worldTransform: simd_float4x4,
             modelOverride: String?,
             depth: Int
-        ) -> [AssembledNode] {
-            guard depth < 64 else { return [] }
+        ) -> AssembledNode? {
+            guard depth < 64 else { return nil }
 
             switch geometry {
             case .reference(let ref):
-                return walkReference(ref, parentTransform: worldTransform, depth: depth)
+                return walkReference(ref, depth: depth)
             default:
-                let combined = worldTransform * geometry.position.matrix.float4x4
+                let position = geometry.position.matrix.float4x4
 
-                var result: [AssembledNode] = []
+                // Try to extract mesh data and compute its local transform
+                var meshData: MeshData? = nil
+                var meshLocalTransform: simd_float4x4? = nil
 
                 let modelName = modelOverride ?? geometry.model
                 if let modelName, let gdtfModel = modelMap[modelName],
-                   let (meshData, isYUp, bbOverride) = extractMesh(gdtfModel: gdtfModel) {
-                    let nodeTransform: simd_float4x4
+                   let (mesh, isYUp, bbOverride) = extractMesh(gdtfModel: gdtfModel) {
+                    meshData = mesh
                     if isYUp {
-                        let scaleInZUp = meshScaleMatrix(gdtfModel: gdtfModel, meshBounds: meshData.boundingBox(),
-                                                         coordRotation: sceneKitToGdtf,
-                                                         boundingBoxOverride: bbOverride)
-                        nodeTransform = combined * scaleInZUp * sceneKitToGdtf
+                        let scaleInZUp = meshScaleMatrix(gdtfModel: gdtfModel, meshBounds: mesh.boundingBox(),
+                                                          coordRotation: sceneKitToGdtf,
+                                                          boundingBoxOverride: bbOverride)
+                        meshLocalTransform = scaleInZUp * sceneKitToGdtf
                     } else {
-                        let scale = meshScaleMatrix(gdtfModel: gdtfModel, meshBounds: meshData.boundingBox(),
-                                                     coordRotation: nil,
-                                                     boundingBoxOverride: bbOverride)
-                        nodeTransform = combined * scale
+                        let scale = meshScaleMatrix(gdtfModel: gdtfModel, meshBounds: mesh.boundingBox(),
+                                                      coordRotation: nil,
+                                                      boundingBoxOverride: bbOverride)
+                        meshLocalTransform = scale
                     }
-                    result.append(AssembledNode(
-                        name: geometry.name,
-                        localTransform: nodeTransform,
-                        meshData: meshData,
-                        children: []
-                    ))
                 }
 
+                // Recurse into children
+                var childNodes: [AssembledNode] = []
                 for child in geometry.children {
-                    result.append(contentsOf: walk(child, worldTransform: combined,
-                                                    modelOverride: nil, depth: depth + 1))
+                    if let childNode = walk(child, modelOverride: nil, depth: depth + 1) {
+                        childNodes.append(childNode)
+                    }
                 }
-                return result
+
+                // Only create a node if we have mesh or children
+                guard meshData != nil || !childNodes.isEmpty else { return nil }
+
+                return AssembledNode(
+                    name: geometry.name,
+                    localTransform: position,
+                    meshLocalTransform: meshLocalTransform,
+                    meshData: meshData,
+                    children: childNodes,
+                    axisInfo: axisInfoMap[geometry.name]
+                )
             }
         }
 
         private func walkReference(
             _ ref: GeometryReference,
-            parentTransform: simd_float4x4,
             depth: Int
-        ) -> [AssembledNode] {
+        ) -> AssembledNode? {
             guard let targetName = ref.geometry,
-                  let target = topLevelMap[targetName] else { return [] }
+                  let target = topLevelMap[targetName] else { return nil }
 
-            let combined = parentTransform * ref.position.matrix.float4x4
-            return walk(target, worldTransform: combined,
-                        modelOverride: ref.model, depth: depth + 1)
+            let refPosition = ref.position.matrix.float4x4
+
+            // Walk the target geometry as a subtree under this reference's position.
+            guard let targetNode = walk(target, modelOverride: ref.model, depth: depth + 1) else {
+                return nil
+            }
+
+            return AssembledNode(
+                name: ref.name,
+                localTransform: refPosition,
+                meshLocalTransform: nil,
+                meshData: nil,
+                children: [targetNode],
+                axisInfo: axisInfoMap[ref.name]
+            )
         }
 
         /// Result type for mesh extraction.

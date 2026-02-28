@@ -779,14 +779,20 @@ public struct ThreeDSView: View {
 public struct GDTFFixtureView: View {
     public let builder: FixtureSceneBuilder
     public let rootGeometryName: String?
+    public let animated: Bool
 
-    public init(builder: FixtureSceneBuilder, rootGeometryName: String? = nil) {
+    public init(builder: FixtureSceneBuilder, rootGeometryName: String? = nil, animated: Bool = false) {
         self.builder = builder
         self.rootGeometryName = rootGeometryName
+        self.animated = animated
     }
 
     public var body: some View {
-        let node = builder.buildNode(rootGeometryName: rootGeometryName)
+        let node = if animated {
+            builder.buildAnimatedNode(rootGeometryName: rootGeometryName)
+        } else {
+            builder.buildNode(rootGeometryName: rootGeometryName)
+        }
         SceneKitView(scene: buildScene(node: node))
             .overlay(alignment: .bottomLeading) { statsLabel(node: node) }
     }

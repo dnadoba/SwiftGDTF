@@ -401,13 +401,17 @@ extension FixtureSceneBuilder {
 
     /// Recursively applies pan/tilt animations to SCNNodes that have axis info.
     ///
-    /// Pan rotates around local Y (SceneKit Y = GDTF Z-up after coord conversion).
-    /// Tilt rotates around local X (SceneKit X = GDTF X).
+    /// For nodes with axis info whose position matrix includes a rotation,
+    /// the node is split: translation goes on the outer node (where the
+    /// animation runs), and the rotation goes on a child wrapper so the
+    /// animation axis is in the parent's coordinate frame.
+    ///
+    /// Pan rotates around GDTF Z axis. Tilt rotates around GDTF X axis.
     private func applyAnimations(to scnNode: SCNNode, from assembledNode: AssembledNode) {
         if let axisInfo = assembledNode.axisInfo {
             var actions: [SCNAction] = []
 
-            // Pan animation (around Y axis)
+            // Pan animation (around Z axis in GDTF space)
             if let panAction = Self.makeAxisAction(
                 range: axisInfo.panRange,
                 infinite: axisInfo.panInfinite,
@@ -416,7 +420,7 @@ extension FixtureSceneBuilder {
                 actions.append(panAction)
             }
 
-            // Tilt animation (around X axis)
+            // Tilt animation (around X axis in GDTF space)
             if let tiltAction = Self.makeAxisAction(
                 range: axisInfo.tiltRange,
                 infinite: axisInfo.tiltInfinite,
@@ -426,23 +430,71 @@ extension FixtureSceneBuilder {
             }
 
             if !actions.isEmpty {
+                // If the node's localTransform has a rotation component, we need
+                // to split it: put the translation on this node (where the animation
+                // runs) and the rotation on a wrapper node below. Otherwise the
+                // animation axis gets rotated by the position matrix.
+                let transform = scnNode.simdTransform
+                let translation = SIMD3<Float>(transform.columns.3.x, transform.columns.3.y, transform.columns.3.z)
+                var rotScale = transform
+                rotScale.columns.3 = SIMD4<Float>(0, 0, 0, 1)
+
+                let isIdentityRotScale = simd_almost_equal_elements(rotScale, simd_float4x4(1), 0.001)
+
+                if !isIdentityRotScale {
+                    // Split: this node gets translation only, rotation goes to wrapper
+                    scnNode.simdTransform = simd_float4x4(columns: (
+                        SIMD4<Float>(1, 0, 0, 0),
+                        SIMD4<Float>(0, 1, 0, 0),
+                        SIMD4<Float>(0, 0, 1, 0),
+                        SIMD4<Float>(translation.x, translation.y, translation.z, 1)
+                    ))
+
+                    let wrapper = SCNNode()
+                    wrapper.simdTransform = rotScale
+
+                    // Move all existing children to the wrapper
+                    for child in scnNode.childNodes {
+                        child.removeFromParentNode()
+                        wrapper.addChildNode(child)
+                    }
+                    scnNode.addChildNode(wrapper)
+                }
+
                 scnNode.runAction(.group(actions))
             }
         }
 
         // Match SCNNode children to AssembledNode children by position.
-        // The SCNNode may have extra children (mesh nodes) so we match by name.
+        // The SCNNode may have extra children (mesh nodes, wrapper nodes) so we
+        // search recursively by name within this node's direct subtree.
         for assembledChild in assembledNode.children {
-            if let matchingChild = scnNode.childNodes.first(where: { $0.name == assembledChild.name }) {
+            if let matchingChild = findDescendant(named: assembledChild.name, in: scnNode) {
                 applyAnimations(to: matchingChild, from: assembledChild)
             }
         }
     }
 
+    /// Finds a direct or wrapped child node by name (handles wrapper nodes).
+    private func findDescendant(named name: String, in node: SCNNode) -> SCNNode? {
+        for child in node.childNodes {
+            if child.name == name { return child }
+            // Check one level deeper for wrapper nodes (unnamed)
+            if child.name == nil {
+                for grandchild in child.childNodes {
+                    if grandchild.name == name { return grandchild }
+                }
+            }
+        }
+        return nil
+    }
+
     /// Creates an `SCNAction` for a single rotation axis.
     ///
     /// - For bounded ranges: sweeps the full declared range at ~30°/sec.
-    /// - For infinite rotation: continuous full rotation at ~30°/sec.
+    /// - For infinite rotation with a bounded range: continuous full rotation.
+    /// - For infinite-only (no bounded range): skipped — typically means the
+    ///   axis is handled by a parent geometry's bounded pan/tilt.
     ///
     /// Uses `SCNAction.rotate(by:around:)` to avoid Euler angle gimbal lock.
     private static func makeAxisAction(
@@ -454,6 +506,12 @@ extension FixtureSceneBuilder {
         let speed = 30.0 * degreesToRadians  // radians per second
         let axisVec = SCNVector3(axis.x, axis.y, axis.z)
 
+        guard let range else {
+            // No bounded range. If infinite-only, skip — the parent likely
+            // handles this axis with a bounded range already.
+            return nil
+        }
+
         if infinite {
             let duration = (2 * Double.pi) / speed
             return .repeatForever(.rotate(
@@ -462,8 +520,6 @@ extension FixtureSceneBuilder {
                 duration: duration
             ))
         }
-
-        guard let range else { return nil }
 
         let fromRad = range.lowerBound * degreesToRadians
         let toRad = range.upperBound * degreesToRadians
@@ -485,6 +541,94 @@ extension FixtureSceneBuilder {
         backToCenter.timingMode = .easeInEaseOut
 
         return .repeatForever(.sequence([toPositive, toNegative, backToCenter]))
+    }
+
+    /// Builds a node with static pan/tilt applied at the given angles (in degrees).
+    ///
+    /// Pan rotates around GDTF Z axis, tilt around GDTF X axis.
+    /// The fixture is flipped upright (same as `buildAnimatedNode`).
+    public func buildPosedNode(rootGeometryName: String? = nil,
+                               panDegrees: Double = 0,
+                               tiltDegrees: Double = 0) -> SCNNode {
+        let assembler = FixtureGeometryAssembler(gdtf: gdtf, gdtfData: gdtfData)
+        let dmxMode = gdtf.fixtureType.dmxModes.first
+        guard let assembled = assembler.assemble(
+            rootGeometryName: rootGeometryName,
+            dmxMode: dmxMode,
+            normalize: true
+        ) else { return SCNNode() }
+
+        let node = makeSCNNode(from: assembled.root)
+
+        // Flip upright
+        let flip = simd_float4x4(
+            SIMD4<Float>(1,  0,  0, 0),
+            SIMD4<Float>(0, -1,  0, 0),
+            SIMD4<Float>(0,  0, -1, 0),
+            SIMD4<Float>(0,  0,  0, 1)
+        )
+        node.simdTransform = flip * node.simdTransform
+
+        applyStaticPose(to: node, from: assembled.root,
+                        panRad: Float(panDegrees * .pi / 180),
+                        tiltRad: Float(tiltDegrees * .pi / 180))
+        return node
+    }
+
+    /// Recursively applies static pan/tilt rotation to nodes with axis info.
+    private func applyStaticPose(to scnNode: SCNNode, from assembledNode: AssembledNode,
+                                  panRad: Float, tiltRad: Float) {
+        if let axisInfo = assembledNode.axisInfo {
+            // Only apply static rotation for bounded ranges, not infinite-only.
+            let hasPan = axisInfo.panRange != nil
+            let hasTilt = axisInfo.tiltRange != nil
+
+            if hasPan || hasTilt {
+                // Decompose: strip rotation from localTransform, apply pan/tilt
+                // in the parent's frame, then re-apply the position's rotation.
+                let transform = scnNode.simdTransform
+                let translation = SIMD3<Float>(transform.columns.3.x, transform.columns.3.y, transform.columns.3.z)
+                var rotScale = transform
+                rotScale.columns.3 = SIMD4<Float>(0, 0, 0, 1)
+
+                // Build pan/tilt rotation in GDTF space
+                var rotation = simd_float4x4(1)
+                if hasPan {
+                    let c = cos(panRad), s = sin(panRad)
+                    rotation = rotation * simd_float4x4(
+                        SIMD4<Float>( c, s, 0, 0),
+                        SIMD4<Float>(-s, c, 0, 0),
+                        SIMD4<Float>( 0, 0, 1, 0),
+                        SIMD4<Float>( 0, 0, 0, 1)
+                    )
+                }
+                if hasTilt {
+                    let c = cos(tiltRad), s = sin(tiltRad)
+                    rotation = rotation * simd_float4x4(
+                        SIMD4<Float>(1,  0, 0, 0),
+                        SIMD4<Float>(0,  c, s, 0),
+                        SIMD4<Float>(0, -s, c, 0),
+                        SIMD4<Float>(0,  0, 0, 1)
+                    )
+                }
+
+                // New transform: translate * pan/tilt rotation * original rotation
+                let translationMatrix = simd_float4x4(columns: (
+                    SIMD4<Float>(1, 0, 0, 0),
+                    SIMD4<Float>(0, 1, 0, 0),
+                    SIMD4<Float>(0, 0, 1, 0),
+                    SIMD4<Float>(translation.x, translation.y, translation.z, 1)
+                ))
+                scnNode.simdTransform = translationMatrix * rotation * rotScale
+            }
+        }
+
+        for assembledChild in assembledNode.children {
+            if let matchingChild = findDescendant(named: assembledChild.name, in: scnNode) {
+                applyStaticPose(to: matchingChild, from: assembledChild,
+                                panRad: panRad, tiltRad: tiltRad)
+            }
+        }
     }
 }
 
@@ -944,5 +1088,152 @@ private let animatedPreviewFixtures: [FixtureEntry] = [
 
 #Preview("Animated Fixture") {
     GDTFFixturePickerPreview(fixtures: animatedPreviewFixtures, animated: true)
+}
+
+private struct PosedGDTFFixtureView: View {
+    let builder: FixtureSceneBuilder
+    let rootGeometryName: String?
+    let panDegrees: Double
+    let tiltDegrees: Double
+
+    var body: some View {
+        let node = builder.buildPosedNode(
+            rootGeometryName: rootGeometryName,
+            panDegrees: panDegrees,
+            tiltDegrees: tiltDegrees
+        )
+        SceneKitView(scene: buildScene(node: node))
+    }
+}
+
+private struct PanTiltSliderPreview: View {
+    let fixtures: [FixtureEntry]
+    @State private var selectedIndex: Int = 0
+    @State private var state: PreviewLoadState = .loading
+    @State private var selectedGeometry: String = ""
+    @State private var panDegrees: Double = 0
+    @State private var tiltDegrees: Double = 0
+
+    private var selectedFixture: FixtureEntry { fixtures[selectedIndex] }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Stepper(
+                    "\(selectedIndex + 1)/\(fixtures.count)",
+                    value: $selectedIndex,
+                    in: 0...(fixtures.count - 1)
+                )
+                .fixedSize()
+
+                Picker("Fixture", selection: $selectedIndex) {
+                    ForEach(Array(fixtures.enumerated()), id: \.offset) { i, entry in
+                        Text(entry.name).tag(i)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+
+                if case .loaded(_, let names) = state, !names.isEmpty {
+                    Picker("Root Geometry", selection: $selectedGeometry) {
+                        ForEach(names, id: \.self) { name in
+                            Text(name).tag(name)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+            }
+            .padding(8)
+
+            HStack {
+                Text("Pan: \(Int(panDegrees))°")
+                    .monospacedDigit()
+                    .frame(width: 90, alignment: .leading)
+                Slider(value: $panDegrees, in: -360...360)
+            }
+            .padding(.horizontal, 8)
+
+            HStack {
+                Text("Tilt: \(Int(tiltDegrees))°")
+                    .monospacedDigit()
+                    .frame(width: 90, alignment: .leading)
+                Slider(value: $tiltDegrees, in: -180...180)
+            }
+            .padding(.horizontal, 8)
+            .padding(.bottom, 4)
+
+            Divider()
+
+            Group {
+                switch state {
+                case .loading:
+                    ProgressView("Loading…")
+                case .loaded(let builder, _):
+                    PosedGDTFFixtureView(
+                        builder: builder,
+                        rootGeometryName: selectedGeometry.isEmpty ? nil : selectedGeometry,
+                        panDegrees: panDegrees,
+                        tiltDegrees: tiltDegrees
+                    )
+                case .unavailable(let message):
+                    ContentUnavailableView(
+                        "No 3D models",
+                        systemImage: "cube.transparent",
+                        description: Text(message)
+                    )
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .frame(width: 700, height: 600)
+        .task(id: selectedFixture.rid) {
+            await loadFixture(rid: selectedFixture.rid)
+        }
+    }
+
+    private func loadFixture(rid: String) async {
+        state = .loading
+        selectedGeometry = ""
+        panDegrees = 0
+        tiltDegrees = 0
+        let cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("SwiftGDTF/Fixtures")
+        let fixtureURL = cacheDir.appendingPathComponent("\(rid).gdtf")
+
+        guard
+            let gdtfData = try? Data(contentsOf: fixtureURL),
+            let gdtf = try? loadGDTF(data: gdtfData)
+        else {
+            state = .unavailable("Fixture \(rid) not in cache.")
+            return
+        }
+
+        let hasAnyModel = gdtf.fixtureType.models.contains { model in
+            model.primitiveType != .undefined ||
+            GDTFModel.LOD.allCases.contains { lod in
+                model.resolveFile(gdtf: gdtfData, format: .threeds, lod: lod) != nil ||
+                model.resolveFile(gdtf: gdtfData, format: .glb, lod: lod) != nil
+            }
+        }
+        guard hasAnyModel else {
+            state = .unavailable("Fixture \(rid) has no 3D models.")
+            return
+        }
+
+        let builder = FixtureSceneBuilder(gdtf: gdtf, gdtfData: gdtfData)
+        let geometries = gdtf.fixtureType.geometries
+        let geometryNames = geometries.map { $0.name }
+        state = .loaded(builder, geometryNames)
+
+        func descendantCount(_ g: Geometry) -> Int {
+            1 + g.children.reduce(0) { $0 + descendantCount($1) }
+        }
+        let best = geometries.max(by: { descendantCount($0) < descendantCount($1) })
+        selectedGeometry = best?.name ?? geometryNames.first ?? ""
+    }
+}
+
+#Preview("Pan/Tilt Slider") {
+    PanTiltSliderPreview(fixtures: animatedPreviewFixtures)
 }
 #endif

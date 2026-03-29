@@ -66,7 +66,7 @@ extension ThreeDSFile {
     /// Like `sceneNode()` but without the normalisation step.
     /// Used by `FixtureSceneBuilder` when assembling multi-geometry fixtures,
     /// where normalisation is applied once at the root level.
-    func sceneNodeRaw() -> SCNNode {
+    public func sceneNodeRaw() -> SCNNode {
         let root = SCNNode()
 
         let materialMap = Dictionary(
@@ -159,7 +159,7 @@ extension ThreeDSFile {
 extension GLBFile {
     /// Converts this GLB file into an `SCNNode` hierarchy, one child per
     /// mesh primitive.  No normalisation — the caller handles that.
-    func sceneNodeRaw() -> SCNNode {
+    public func sceneNodeRaw() -> SCNNode {
         let root = SCNNode()
 
         for object in objects {

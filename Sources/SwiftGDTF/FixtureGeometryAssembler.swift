@@ -135,7 +135,7 @@ public struct AssembledFixture: Sendable {
 
 extension ThreeDSFile {
     /// Converts all non-degenerate objects to renderer-agnostic mesh data.
-    func toMeshData(includeMarkers: Bool = false) -> MeshData {
+    public func toMeshData(includeMarkers: Bool = false) -> MeshData {
         var submeshes: [MeshData.Submesh] = []
         for object in objects {
             guard !object.vertices.isEmpty, !object.faces.isEmpty else { continue }
@@ -167,7 +167,7 @@ extension ThreeDSFile {
 
 extension GLBFile {
     /// Converts all objects to renderer-agnostic mesh data.
-    func toMeshData() -> MeshData {
+    public func toMeshData() -> MeshData {
         var submeshes: [MeshData.Submesh] = []
         for object in objects {
             guard !object.vertices.isEmpty, !object.faces.isEmpty else { continue }

@@ -269,10 +269,10 @@ public struct FixtureSceneBuilder {
     /// - Returns: A node whose children mirror the geometry tree, with mesh
     ///   data attached where available.  Returns an empty node if the named
     ///   geometry is not found.
-    public func buildNode(rootGeometryName: String? = nil) -> SCNNode {
+    public func buildNode(rootGeometryName: String? = nil, normalize: Bool = true) -> SCNNode {
         let assembler = FixtureGeometryAssembler(gdtf: gdtf, gdtfData: gdtfData)
         guard let assembled = assembler.assemble(
-            rootGeometryName: rootGeometryName, normalize: true
+            rootGeometryName: rootGeometryName, normalize: normalize
         ) else { return SCNNode() }
         return makeSCNNode(from: assembled.root)
     }

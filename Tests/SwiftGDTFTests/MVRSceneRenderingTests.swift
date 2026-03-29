@@ -59,10 +59,19 @@ struct MVRSceneKitRenderer {
             walkChildren(layer.childList, parentWorld: lm, scene: scene, stats: &stats)
         }
 
-        // Lights
-        let kl = SCNNode(); kl.light = SCNLight(); kl.light!.type = .omni; kl.light!.intensity = 2000
-        kl.position = SCNVector3(10, 15, 10); scene.rootNode.addChildNode(kl)
-        let al = SCNNode(); al.light = SCNLight(); al.light!.type = .ambient; al.light!.intensity = 600
+        // Key light (warm, directional from upper-right)
+        let kl = SCNNode(); kl.light = SCNLight(); kl.light!.type = .directional; kl.light!.intensity = 1000
+        kl.light!.color = NSColor(red: 1.0, green: 0.97, blue: 0.92, alpha: 1)
+        kl.simdEulerAngles = SIMD3<Float>(-0.6, 0.4, 0)
+        scene.rootNode.addChildNode(kl)
+        // Fill light (cool, from behind)
+        let fl = SCNNode(); fl.light = SCNLight(); fl.light!.type = .directional; fl.light!.intensity = 400
+        fl.light!.color = NSColor(red: 0.85, green: 0.9, blue: 1.0, alpha: 1)
+        fl.simdEulerAngles = SIMD3<Float>(0.3, .pi + 0.5, 0)
+        scene.rootNode.addChildNode(fl)
+        // Ambient
+        let al = SCNNode(); al.light = SCNLight(); al.light!.type = .ambient; al.light!.intensity = 400
+        al.light!.color = NSColor(white: 0.9, alpha: 1)
         scene.rootNode.addChildNode(al)
 
         return (scene, stats)

@@ -37,6 +37,10 @@ let package = Package(
         ),
         .testTarget(
             name: "SwiftGDTFTests",
-            dependencies: ["SwiftGDTF"]),
+            dependencies: ["SwiftGDTF"],
+            resources: [
+                .copy("MVRTestFixtures"),
+            ]
+        ),
     ]
 )

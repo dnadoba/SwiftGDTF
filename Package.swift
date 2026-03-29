@@ -31,6 +31,7 @@ let package = Package(
                 .product(name: "ZIPFoundation", package: "ZIPFoundation"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
             ],
+            path: "Sources/SwiftGDTF",
             resources: [
                 .process("Resources"),
             ]

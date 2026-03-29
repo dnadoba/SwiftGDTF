@@ -17,6 +17,7 @@ public enum MVRError: Error, CustomStringConvertible {
     case missingSceneDescription
     case invalidXML(any Error)
     case invalidRootElement(String)
+    case resourceNotFound(String)
 
     public var description: String {
         switch self {
@@ -24,6 +25,7 @@ public enum MVRError: Error, CustomStringConvertible {
         case .missingSceneDescription: "MVR archive does not contain GeneralSceneDescription.xml"
         case .invalidXML(let error): "Failed to parse MVR XML: \(error)"
         case .invalidRootElement(let name): "Expected root element 'GeneralSceneDescription', got '\(name)'"
+        case .resourceNotFound(let name): "Resource '\(name)' not found in MVR archive"
         }
     }
 }

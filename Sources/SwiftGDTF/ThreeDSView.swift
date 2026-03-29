@@ -66,7 +66,10 @@ extension ThreeDSFile {
     /// Like `sceneNode()` but without the normalisation step.
     /// Used by `FixtureSceneBuilder` when assembling multi-geometry fixtures,
     /// where normalisation is applied once at the root level.
-    public func sceneNodeRaw() -> SCNNode {
+    ///
+    /// - Parameter useOriginalColors: If true, applies the parsed material colors
+    ///   from the .3ds file. If false, uses a uniform gray.
+    public func sceneNodeRaw(useOriginalColors: Bool = true) -> SCNNode {
         let root = SCNNode()
 
         let materialMap = Dictionary(
@@ -119,32 +122,29 @@ extension ThreeDSFile {
             scnMaterial.lightingModel = .phong
             scnMaterial.isDoubleSided = true
 
-//            if let matName = object.materialName, let mat = materialMap[matName] {
-//                scnMaterial.diffuse.contents = mat.diffuseColor.map {
-//                    // Apply a minimum brightness so very dark fixtures are still
-//                    // visible in the preview.  Preserves the hue of the original.
-//                    let minBrightness: Float = 0.15
-//                    let r = max($0.x, minBrightness)
-//                    let g = max($0.y, minBrightness)
-//                    let b = max($0.z, minBrightness)
-//                    return PlatformColor(red: CGFloat(r), green: CGFloat(g), blue: CGFloat(b), alpha: 1)
-//                } ?? PlatformColor(white: 0.05, alpha: 1)
-//                if let a = mat.ambientColor {
-//                    scnMaterial.ambient.contents = PlatformColor(
-//                        red: CGFloat(a.x), green: CGFloat(a.y), blue: CGFloat(a.z), alpha: 1
-//                    )
-//                }
-//                if let s = mat.specularColor {
-//                    scnMaterial.specular.contents = PlatformColor(
-//                        red: CGFloat(s.x), green: CGFloat(s.y), blue: CGFloat(s.z), alpha: 1
-//                    )
-//                }
-//            } else {
-//                scnMaterial.diffuse.contents = PlatformColor(white: 0.2, alpha: 1)
-//            }
-            scnMaterial.diffuse.contents = PlatformColor(white: 0.2, alpha: 1)
-            scnMaterial.specular.contents = PlatformColor(white: 0.4, alpha: 1)
-            
+            if useOriginalColors, let matName = object.materialName, let mat = materialMap[matName] {
+                scnMaterial.diffuse.contents = mat.diffuseColor.map {
+                    let minBrightness: Float = 0.08
+                    let r = max($0.x, minBrightness)
+                    let g = max($0.y, minBrightness)
+                    let b = max($0.z, minBrightness)
+                    return PlatformColor(red: CGFloat(r), green: CGFloat(g), blue: CGFloat(b), alpha: 1)
+                } ?? PlatformColor(white: 0.2, alpha: 1)
+                if let a = mat.ambientColor {
+                    scnMaterial.ambient.contents = PlatformColor(
+                        red: CGFloat(a.x), green: CGFloat(a.y), blue: CGFloat(a.z), alpha: 1
+                    )
+                }
+                if let s = mat.specularColor {
+                    scnMaterial.specular.contents = PlatformColor(
+                        red: CGFloat(s.x), green: CGFloat(s.y), blue: CGFloat(s.z), alpha: 1
+                    )
+                }
+            } else {
+                scnMaterial.diffuse.contents = PlatformColor(white: 0.2, alpha: 1)
+                scnMaterial.specular.contents = PlatformColor(white: 0.4, alpha: 1)
+            }
+
             geometry.materials = [scnMaterial]
 
             let node = SCNNode(geometry: geometry)
@@ -159,7 +159,10 @@ extension ThreeDSFile {
 extension GLBFile {
     /// Converts this GLB file into an `SCNNode` hierarchy, one child per
     /// mesh primitive.  No normalisation — the caller handles that.
-    public func sceneNodeRaw() -> SCNNode {
+    ///
+    /// - Parameter useOriginalColors: If true, applies the parsed PBR base colors
+    ///   from the .glb file. If false, uses a uniform gray.
+    public func sceneNodeRaw(useOriginalColors: Bool = true) -> SCNNode {
         let root = SCNNode()
 
         for object in objects {
@@ -213,8 +216,20 @@ extension GLBFile {
             let scnMaterial = SCNMaterial()
             scnMaterial.lightingModel = .phong
             scnMaterial.isDoubleSided = true
-            scnMaterial.diffuse.contents = PlatformColor(white: 0.2, alpha: 1)
-            scnMaterial.specular.contents = PlatformColor(white: 0.4, alpha: 1)
+
+            if useOriginalColors, let mi = object.materialIndex, mi < materials.count,
+               let bc = materials[mi].baseColor {
+                let minBrightness: Float = 0.08
+                scnMaterial.diffuse.contents = PlatformColor(
+                    red: CGFloat(max(bc.x, minBrightness)),
+                    green: CGFloat(max(bc.y, minBrightness)),
+                    blue: CGFloat(max(bc.z, minBrightness)),
+                    alpha: CGFloat(bc.w)
+                )
+            } else {
+                scnMaterial.diffuse.contents = PlatformColor(white: 0.2, alpha: 1)
+                scnMaterial.specular.contents = PlatformColor(white: 0.4, alpha: 1)
+            }
 
             geometry.materials = [scnMaterial]
 
@@ -269,12 +284,12 @@ public struct FixtureSceneBuilder {
     /// - Returns: A node whose children mirror the geometry tree, with mesh
     ///   data attached where available.  Returns an empty node if the named
     ///   geometry is not found.
-    public func buildNode(rootGeometryName: String? = nil, normalize: Bool = true) -> SCNNode {
+    public func buildNode(rootGeometryName: String? = nil, normalize: Bool = true, useOriginalColors: Bool = true) -> SCNNode {
         let assembler = FixtureGeometryAssembler(gdtf: gdtf, gdtfData: gdtfData)
         guard let assembled = assembler.assemble(
             rootGeometryName: rootGeometryName, normalize: normalize
         ) else { return SCNNode() }
-        return makeSCNNode(from: assembled.root)
+        return makeSCNNode(from: assembled.root, useOriginalColors: useOriginalColors)
     }
 
     // MARK: - SCNNode bridge
@@ -284,7 +299,7 @@ public struct FixtureSceneBuilder {
     /// Each geometry's `localTransform` (position) becomes the SCNNode transform.
     /// The mesh is placed on a child node with `meshLocalTransform` so that
     /// mesh scaling doesn't affect descendant positions.
-    private func makeSCNNode(from node: AssembledNode) -> SCNNode {
+    private func makeSCNNode(from node: AssembledNode, useOriginalColors: Bool = true) -> SCNNode {
         let scnNode = SCNNode()
         scnNode.name = node.name
         scnNode.simdTransform = node.localTransform
@@ -342,8 +357,18 @@ public struct FixtureSceneBuilder {
                 let material = SCNMaterial()
                 material.lightingModel = .phong
                 material.isDoubleSided = true
-                material.diffuse.contents = PlatformColor(white: 0.2, alpha: 1)
-                material.specular.contents = PlatformColor(white: 0.4, alpha: 1)
+                if useOriginalColors, let dc = submesh.diffuseColor {
+                    let minBrightness: Float = 0.08
+                    material.diffuse.contents = PlatformColor(
+                        red: CGFloat(max(dc.x, minBrightness)),
+                        green: CGFloat(max(dc.y, minBrightness)),
+                        blue: CGFloat(max(dc.z, minBrightness)),
+                        alpha: CGFloat(dc.w)
+                    )
+                } else {
+                    material.diffuse.contents = PlatformColor(white: 0.2, alpha: 1)
+                    material.specular.contents = PlatformColor(white: 0.4, alpha: 1)
+                }
                 geometry.materials = [material]
 
                 let submeshNode = SCNNode(geometry: geometry)
@@ -355,7 +380,7 @@ public struct FixtureSceneBuilder {
         }
 
         for child in node.children {
-            scnNode.addChildNode(makeSCNNode(from: child))
+            scnNode.addChildNode(makeSCNNode(from: child, useOriginalColors: useOriginalColors))
         }
 
         return scnNode

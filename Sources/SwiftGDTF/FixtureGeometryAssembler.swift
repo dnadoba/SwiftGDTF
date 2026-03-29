@@ -28,6 +28,8 @@ public struct MeshData: Sendable {
         public var textureCoordinates: [SIMD2<Float>]
         /// Triangle face indices.
         public var faceIndices: [SIMD3<UInt32>]
+        /// Diffuse color (RGBA) from the original material; nil if unavailable.
+        public var diffuseColor: SIMD4<Float>?
     }
 }
 
@@ -136,16 +138,22 @@ public struct AssembledFixture: Sendable {
 extension ThreeDSFile {
     /// Converts all non-degenerate objects to renderer-agnostic mesh data.
     public func toMeshData(includeMarkers: Bool = false) -> MeshData {
+        let materialMap = Dictionary(materials.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
         var submeshes: [MeshData.Submesh] = []
         for object in objects {
             guard !object.vertices.isEmpty, !object.faces.isEmpty else { continue }
             if !includeMarkers && object.isDegenerateMarker { continue }
+            var color: SIMD4<Float>?
+            if let matName = object.materialName, let mat = materialMap[matName], let dc = mat.diffuseColor {
+                color = SIMD4(dc.x, dc.y, dc.z, 1)
+            }
             submeshes.append(MeshData.Submesh(
                 name: object.name,
                 vertices: object.vertices,
                 normals: [],
                 textureCoordinates: object.textureCoordinates,
-                faceIndices: object.faces.map { SIMD3<UInt32>(UInt32($0.x), UInt32($0.y), UInt32($0.z)) }
+                faceIndices: object.faces.map { SIMD3<UInt32>(UInt32($0.x), UInt32($0.y), UInt32($0.z)) },
+                diffuseColor: color
             ))
         }
         return MeshData(submeshes: submeshes)
@@ -171,12 +179,17 @@ extension GLBFile {
         var submeshes: [MeshData.Submesh] = []
         for object in objects {
             guard !object.vertices.isEmpty, !object.faces.isEmpty else { continue }
+            var color: SIMD4<Float>?
+            if let mi = object.materialIndex, mi < materials.count, let bc = materials[mi].baseColor {
+                color = bc
+            }
             submeshes.append(MeshData.Submesh(
                 name: object.name,
                 vertices: object.vertices,
                 normals: object.normals,
                 textureCoordinates: object.textureCoordinates,
-                faceIndices: object.faces
+                faceIndices: object.faces,
+                diffuseColor: color
             ))
         }
         return MeshData(submeshes: submeshes)

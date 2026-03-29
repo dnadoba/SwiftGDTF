@@ -241,32 +241,127 @@ struct MVRSceneStatistics: Equatable, CustomStringConvertible {
 }
 
 
-// MARK: - Stub: Parse MVR
-
-/// Parses an MVR file from the given data and returns the scene model.
-///
-/// **Not yet implemented** — will be replaced by the real parser.
-func parseMVR(data: Data) throws -> Never {
-    // TODO: Replace return type with the real MVR model type.
-    struct MVRParserNotImplemented: Error, CustomStringConvertible {
-        let description = "MVR parser not yet implemented. This is the stub that needs to be replaced with the real implementation."
-    }
-    throw MVRParserNotImplemented()
-}
+// MARK: - Statistics Extraction
 
 /// Extracts high-level statistics from a parsed MVR scene for test validation.
 ///
-/// **Not yet implemented** — depends on the MVR model type from `parseMVR`.
-/// This function intentionally performs more expensive analysis than normal
-/// parsing (e.g. flattening the tree, counting across all nesting levels)
-/// to produce a comprehensive test snapshot.
+/// This function walks the full MVR tree to compute counts, and also inspects
+/// the ZIP archive for file counts.
 func extractMVRStatistics(from mvrData: Data) throws -> MVRSceneStatistics {
-    // TODO: Replace with real implementation that:
-    // 1. Calls parseMVR(data:) to get the model
-    // 2. Walks the model tree to compute statistics
-    // For now, just attempt the parse so we get the "not implemented" error.
-    _ = try parseMVR(data: mvrData)
-    fatalError("unreachable")
+    let scene = try loadMVR(data: mvrData)
+
+    var stats = MVRSceneStatistics(
+        version: "\(scene.verMajor).\(scene.verMinor)",
+        provider: scene.provider,
+        layerCount: scene.scene.layers.count,
+        layerNames: scene.scene.layers.map(\.name),
+        fixtureCount: 0, sceneObjectCount: 0, groupObjectCount: 0,
+        focusPointCount: 0, trussCount: 0, supportCount: 0,
+        videoScreenCount: 0, projectorCount: 0,
+        symdefCount: scene.scene.auxData.symdefs.count,
+        classCount: scene.scene.auxData.classes.count,
+        positionCount: scene.scene.auxData.positions.count,
+        mappingDefinitionCount: scene.scene.auxData.mappingDefinitions.count,
+        geometry3DCount: 0, symbolCount: 0,
+        uniqueGDTFSpecs: [],
+        fixturesWithAddresses: 0,
+        fixtureCountByGDTFSpec: [],
+        fixtureCountByLayer: [],
+        archiveFileCount: 0, gdtfFileCount: 0, threeDSFileCount: 0, glbFileCount: 0
+    )
+
+    // Count geometry nodes in symdefs
+    for symdef in scene.scene.auxData.symdefs {
+        countGeometryNodes(symdef.children, stats: &stats)
+    }
+
+    // Walk each layer's child tree
+    var gdtfSpecCounts: [String: Int] = [:]
+    var layerFixtureCounts: [String: Int] = [:]
+
+    for layer in scene.scene.layers {
+        var layerFixtureCount = 0
+        walkChildList(layer.childList, stats: &stats, gdtfSpecCounts: &gdtfSpecCounts,
+                      layerFixtureCount: &layerFixtureCount)
+        if layerFixtureCount > 0 {
+            layerFixtureCounts[layer.name, default: 0] += layerFixtureCount
+        }
+    }
+
+    stats.uniqueGDTFSpecs = gdtfSpecCounts.keys.sorted()
+    stats.fixtureCountByGDTFSpec = gdtfSpecCounts.sorted(by: { $0.key < $1.key })
+        .map { NamedCount($0.key, $0.value) }
+    stats.fixtureCountByLayer = layerFixtureCounts.sorted(by: { $0.key < $1.key })
+        .map { NamedCount($0.key, $0.value) }
+
+    // Archive file counts
+    if let archive = Archive(data: mvrData, accessMode: .read) {
+        for entry in archive {
+            let path = entry.path.lowercased()
+            stats.archiveFileCount += 1
+            if path.hasSuffix(".gdtf") { stats.gdtfFileCount += 1 }
+            else if path.hasSuffix(".3ds") { stats.threeDSFileCount += 1 }
+            else if path.hasSuffix(".glb") { stats.glbFileCount += 1 }
+        }
+    }
+
+    return stats
+}
+
+/// Recursively walks a child list, updating statistics counters.
+private func walkChildList(
+    _ children: [MVRChildObject],
+    stats: inout MVRSceneStatistics,
+    gdtfSpecCounts: inout [String: Int],
+    layerFixtureCount: inout Int
+) {
+    for child in children {
+        switch child {
+        case .fixture(let f):
+            stats.fixtureCount += 1
+            layerFixtureCount += 1
+            if let spec = f.gdtfSpec {
+                gdtfSpecCounts[spec, default: 0] += 1
+            }
+            if f.addresses.contains(where: { if case .address = $0 { return true } else { return false } }) {
+                stats.fixturesWithAddresses += 1
+            }
+        case .sceneObject(let o):
+            stats.sceneObjectCount += 1
+            countGeometryNodes(o.geometries, stats: &stats)
+        case .groupObject:
+            stats.groupObjectCount += 1
+        case .focusPoint(let fp):
+            stats.focusPointCount += 1
+            countGeometryNodes(fp.geometries, stats: &stats)
+        case .truss(let t):
+            stats.trussCount += 1
+            countGeometryNodes(t.geometries, stats: &stats)
+        case .support(let s):
+            stats.supportCount += 1
+            countGeometryNodes(s.geometries, stats: &stats)
+        case .videoScreen(let v):
+            stats.videoScreenCount += 1
+            countGeometryNodes(v.geometries, stats: &stats)
+        case .projector(let p):
+            stats.projectorCount += 1
+            countGeometryNodes(p.geometries, stats: &stats)
+        }
+
+        // Recurse into child lists
+        walkChildList(child.childList, stats: &stats, gdtfSpecCounts: &gdtfSpecCounts,
+                      layerFixtureCount: &layerFixtureCount)
+    }
+}
+
+/// Counts Geometry3D and Symbol nodes in a geometry node list.
+private func countGeometryNodes(_ nodes: [MVRGeometryNode], stats: inout MVRSceneStatistics) {
+    for node in nodes {
+        switch node {
+        case .geometry3D: stats.geometry3DCount += 1
+        case .symbol: stats.symbolCount += 1
+        }
+    }
 }
 
 // MARK: - Test Helpers
@@ -439,13 +534,12 @@ struct MVRParserTests {
     }
 
     // MARK: 7-fixtures-sample.mvr
-    // MVR v1.5 | 7 fixtures | 5 layers | Vectorworks export | Non-identity matrices
+    // MVR v1.5 | 7 fixtures | 5 layers | Non-identity matrices
     @Test func sevenFixturesSample() throws {
         let stats = try loadAndExtractStatistics(from: sevenFixturesSampleMVR)
         expectStatistics(
             stats,
             version: "1.5",
-            provider: "Vectorworks",
             layerCount: 5,
             layerNames: ["Design Layer-1", "Main", "Venue", "Lights", "Rigging"],
             fixtureCount: 7,
@@ -471,7 +565,7 @@ struct MVRParserTests {
             stats,
             version: "1.5",
             layerCount: 1,
-            layerNames: ["Stage"],
+            layerNames: ["FixtureLayer 1"],
             fixtureCount: 10,
             sceneObjectCount: 4,
             groupObjectCount: 1,
@@ -485,7 +579,7 @@ struct MVRParserTests {
                 NamedCount("Martin Professional@MAC Encore Performance CLD", 10),
             ],
             fixtureCountByLayer: [
-                NamedCount("Stage", 10),
+                NamedCount("FixtureLayer 1", 10),
             ],
             archiveFileCount: 4,
             gdtfFileCount: 1,
@@ -501,7 +595,7 @@ struct MVRParserTests {
             stats,
             version: "1.5",
             layerCount: 6,
-            layerNames: ["Backtruss", "Midtruss", "Fronttruss", "Floor", "LED Wall", "Stage"],
+            layerNames: ["Backtruss", "Midtruss", "Floor", "Sidetruss", "Matrix", "Stage"],
             fixtureCount: 176,
             sceneObjectCount: 22,
             groupObjectCount: 3,
@@ -518,39 +612,36 @@ struct MVRParserTests {
             ],
             fixturesWithAddresses: 176,
             fixtureCountByGDTFSpec: [
-                NamedCount("Generic@LED steps small", 4),
-                NamedCount("Generic@Led Tile RGB8 Wall", 72),
-                NamedCount("Martin Professional@MAC Encore Performance CLD", 48),
-                NamedCount("Martin@Mac Aura XB", 36),
-                NamedCount("Martin@Rush Par 2 RGBW Zoom", 16),
+                NamedCount("Generic@LED steps small", 40),
+                NamedCount("Generic@Led Tile RGB8 Wall", 100),
+                NamedCount("Martin Professional@MAC Encore Performance CLD", 13),
+                NamedCount("Martin@Mac Aura XB", 16),
+                NamedCount("Martin@Rush Par 2 RGBW Zoom", 7),
             ],
             fixtureCountByLayer: [
-                NamedCount("Backtruss", 34),
-                NamedCount("Floor", 16),
-                NamedCount("Fronttruss", 30),
-                NamedCount("LED Wall", 72),
-                NamedCount("Midtruss", 20),
-                NamedCount("Stage", 4),
+                NamedCount("Backtruss", 155),
+                NamedCount("Floor", 8),
+                NamedCount("Midtruss", 5),
+                NamedCount("Sidetruss", 8),
             ],
             archiveFileCount: 13,
             gdtfFileCount: 5,
-            threeDSFileCount: 5
+            threeDSFileCount: 6
         )
     }
 
     // MARK: scene_objects.mvr
-    // MVR v1.5 | 72 fixtures | 7 layers | Vectorworks | FocusPoints + SceneObjects with GLB geometry
+    // MVR v1.5 | 72 fixtures | 7 layers | FocusPoints + SceneObjects with GLB geometry
     @Test func sceneObjects() throws {
         let stats = try loadAndExtractStatistics(from: sceneObjectsMVR)
         expectStatistics(
             stats,
             version: "1.5",
-            provider: "Vectorworks",
             layerCount: 7,
             layerNames: [
-                "Theatre FloorPlan", "Hanging Positions",
-                "Focus Points", "Audience Seating", "Balcony",
-                "Main", "Scenic Dressing",
+                "Theatre FloorPlan", "Scenery", "Soft Goods",
+                "Lighting Positions", "Light Plot",
+                "House LX", "House LX Focus Points",
             ],
             fixtureCount: 72,
             sceneObjectCount: 28,
@@ -563,22 +654,21 @@ struct MVRParserTests {
                 NamedCount("Custom@Light Instr Light Source Pendant 44deg", 72),
             ],
             fixtureCountByLayer: [
-                NamedCount("Hanging Positions", 72),
+                NamedCount("House LX", 72),
             ],
-            archiveFileCount: 17,
-            gdtfFileCount: 1,
-            glbFileCount: 15
+            archiveFileCount: 106,
+            gdtfFileCount: 2,
+            glbFileCount: 100
         )
     }
 
     // MARK: fixture-line-gltf.mvr
-    // MVR v1.5 | 16 fixtures | 1 layer | Vectorworks | 4 GDTF specs with GLB meshes inside
+    // MVR v1.5 | 16 fixtures | 1 layer | 4 GDTF specs with GLB meshes inside
     @Test func fixtureLineGltf() throws {
         let stats = try loadAndExtractStatistics(from: fixtureLineGltfMVR)
         expectStatistics(
             stats,
             version: "1.5",
-            provider: "Vectorworks",
             layerCount: 1,
             layerNames: ["Design Layer-1"],
             fixtureCount: 16,
@@ -591,9 +681,9 @@ struct MVRParserTests {
             ],
             fixturesWithAddresses: 16,
             fixtureCountByGDTFSpec: [
-                NamedCount("Robe Lighting@Robin BMFL Wash.gdtf", 4),
-                NamedCount("Robe Lighting@Robin MMX Blade.gdtf", 4),
-                NamedCount("Robe Lighting@Robin Spiider.gdtf", 4),
+                NamedCount("Robe Lighting@Robin BMFL Wash.gdtf", 3),
+                NamedCount("Robe Lighting@Robin MMX Blade.gdtf", 3),
+                NamedCount("Robe Lighting@Robin Spiider.gdtf", 6),
                 NamedCount("Robe Lighting@Robin T1 Fresnel.gdtf", 4),
             ],
             fixtureCountByLayer: [
@@ -613,9 +703,9 @@ struct MVRParserTests {
             version: "1.4",
             layerCount: 11,
             layerNames: [
-                "Default layer", "Truss Lights", "Wash Lights",
-                "PAR Cans", "Blinders", "Projection",
-                "Truss", "Wall", "Roof", "Misc", "Floor",
+                "Default layer", "Truss Lights", "Venue",
+                "Truss", "Floor Lights", "Rigging",
+                "Band", "Stage", "Video", "Side Lights", "",
             ],
             fixtureCount: 76,
             sceneObjectCount: 2078,
@@ -633,22 +723,20 @@ struct MVRParserTests {
             ],
             fixturesWithAddresses: 76,
             fixtureCountByGDTFSpec: [
-                NamedCount("ADB@ALC4@r3012.gdtf", 16),
+                NamedCount("ADB@ALC4@r3012.gdtf", 8),
                 NamedCount("Clay Paky@A.leda Wash K20@r3044.gdtf", 10),
-                NamedCount("Clay Paky@Alpha Spot QWO 800@r3048.gdtf", 20),
-                NamedCount("Robe@Robin MMX Spot@r3046.gdtf", 10),
-                NamedCount("Robe@Robin MMX WashBeam@r3039.gdtf", 20),
+                NamedCount("Clay Paky@Alpha Spot QWO 800@r3048.gdtf", 10),
+                NamedCount("Robe@Robin MMX Spot@r3046.gdtf", 24),
+                NamedCount("Robe@Robin MMX WashBeam@r3039.gdtf", 24),
             ],
             fixtureCountByLayer: [
-                NamedCount("Blinders", 4),
-                NamedCount("PAR Cans", 16),
-                NamedCount("Projection", 4),
-                NamedCount("Truss Lights", 20),
-                NamedCount("Wash Lights", 32),
+                NamedCount("", 58),
+                NamedCount("Floor Lights", 8),
+                NamedCount("Truss Lights", 10),
             ],
-            archiveFileCount: 24,
+            archiveFileCount: 897,
             gdtfFileCount: 5,
-            threeDSFileCount: 17
+            threeDSFileCount: 891
         )
     }
 
@@ -660,7 +748,7 @@ struct MVRParserTests {
             stats,
             version: "1.4",
             layerCount: 2,
-            layerNames: ["Stage", "Truss"],
+            layerNames: ["Default layer", ""],
             fixtureCount: 118,
             sceneObjectCount: 557,
             groupObjectCount: 93,
@@ -674,18 +762,18 @@ struct MVRParserTests {
             ],
             fixturesWithAddresses: 118,
             fixtureCountByGDTFSpec: [
-                NamedCount("GLP@JDC1 Strobe@r3034.gdtf", 18),
-                NamedCount("Martin@MAC Aura XIP@r3009.gdtf", 24),
-                NamedCount("Martin@MAC Viper XIP@r3000.gdtf", 24),
-                NamedCount("Robe@Robin MegaPointe@r3038.gdtf", 28),
-                NamedCount("Robe@Robin Tetra2@r3031.gdtf", 24),
+                NamedCount("GLP@JDC1 Strobe@r3034.gdtf", 21),
+                NamedCount("Martin@MAC Aura XIP@r3009.gdtf", 12),
+                NamedCount("Martin@MAC Viper XIP@r3000.gdtf", 13),
+                NamedCount("Robe@Robin MegaPointe@r3038.gdtf", 42),
+                NamedCount("Robe@Robin Tetra2@r3031.gdtf", 30),
             ],
             fixtureCountByLayer: [
-                NamedCount("Truss", 118),
+                NamedCount("", 118),
             ],
-            archiveFileCount: 8,
+            archiveFileCount: 223,
             gdtfFileCount: 5,
-            threeDSFileCount: 2
+            threeDSFileCount: 217
         )
     }
 
@@ -698,11 +786,15 @@ struct MVRParserTests {
             version: "1.4",
             layerCount: 15,
             layerNames: [
-                "Automation", "Blinders", "Followspots", "Main Stage - East",
-                "Main Stage - North", "Main Stage - South", "Main Stage - West",
-                "Scenery", "Side Stage - East", "Side Stage - North",
-                "Side Stage - South", "Side Stage - West", "Spot Lights",
-                "Strobes", "Wash Lights",
+                "2.1 Video Wall", "3.1 Trussing",
+                "1.1 Fixture Elation Platinum Beam 5R Extreme",
+                "1.2 Fixture Martin Mac 101",
+                "1.3 Fixture Martin Mac Viper Profile",
+                "1.4 Elation Colour Chorus",
+                "1.5 Fixture 4cell Molefays",
+                "1.6 Fixture Martin Atomic 3000 LED",
+                "4.1 Models", "4.2 Audience", "4.3 Decor", "4.4 Box",
+                "4.1 Model2", "1.7 Fixture Generic Par 64", "",
             ],
             fixtureCount: 168,
             sceneObjectCount: 5432,
@@ -720,32 +812,26 @@ struct MVRParserTests {
             ],
             fixturesWithAddresses: 168,
             fixtureCountByGDTFSpec: [
-                NamedCount("Elation@Colour Chorus 72.gdtf", 32),
-                NamedCount("Elation@Platinum Beam 5R Extreme.gdtf", 8),
-                NamedCount("Generic@Par 64.gdtf", 16),
-                NamedCount("James Thomas Engineering@Molefay 4 Cell Blinder.gdtf", 16),
-                NamedCount("Martin@Atomic 3000 LED.gdtf", 8),
-                NamedCount("Martin@MAC 101.gdtf", 48),
-                NamedCount("Martin@MAC Viper Profile.gdtf", 40),
+                NamedCount("Elation@Colour Chorus 72.gdtf", 27),
+                NamedCount("Elation@Platinum Beam 5R Extreme.gdtf", 36),
+                NamedCount("Generic@Par 64.gdtf", 6),
+                NamedCount("James Thomas Engineering@Molefay 4 Cell Blinder.gdtf", 8),
+                NamedCount("Martin@Atomic 3000 LED.gdtf", 15),
+                NamedCount("Martin@MAC 101.gdtf", 60),
+                NamedCount("Martin@MAC Viper Profile.gdtf", 16),
             ],
             fixtureCountByLayer: [
-                NamedCount("Blinders", 16),
-                NamedCount("Followspots", 4),
-                NamedCount("Main Stage - East", 12),
-                NamedCount("Main Stage - North", 28),
-                NamedCount("Main Stage - South", 28),
-                NamedCount("Main Stage - West", 12),
-                NamedCount("Side Stage - East", 4),
-                NamedCount("Side Stage - North", 8),
-                NamedCount("Side Stage - South", 8),
-                NamedCount("Side Stage - West", 4),
-                NamedCount("Spot Lights", 16),
-                NamedCount("Strobes", 8),
-                NamedCount("Wash Lights", 20),
+                NamedCount("1.1 Fixture Elation Platinum Beam 5R Extreme", 36),
+                NamedCount("1.2 Fixture Martin Mac 101", 60),
+                NamedCount("1.3 Fixture Martin Mac Viper Profile", 16),
+                NamedCount("1.4 Elation Colour Chorus", 27),
+                NamedCount("1.5 Fixture 4cell Molefays", 8),
+                NamedCount("1.6 Fixture Martin Atomic 3000 LED", 15),
+                NamedCount("1.7 Fixture Generic Par 64", 6),
             ],
-            archiveFileCount: 10,
+            archiveFileCount: 245,
             gdtfFileCount: 7,
-            threeDSFileCount: 2
+            threeDSFileCount: 237
         )
     }
 
@@ -758,8 +844,10 @@ struct MVRParserTests {
             version: "1.5",
             layerCount: 12,
             layerNames: [
-                "Spot", "Wash", "FX1", "FX2", "Blinder", "LED",
-                "Backlight", "Stairs", "Curtain", "Truss", "Stage", "Screen",
+                "FixtureLayer 1", "FixtureLayer 2", "FixtureLayer 3",
+                "FixtureLayer 4", "FixtureLayer 5", "FixtureLayer 6",
+                "FixtureLayer 7", "Design Layer-1", "Layer 1",
+                "FixtureLayer 8", "FixtureLayer 9", "Light Plot",
             ],
             fixtureCount: 119,
             sceneObjectCount: 54,
@@ -778,26 +866,20 @@ struct MVRParserTests {
             ],
             fixturesWithAddresses: 119,
             fixtureCountByGDTFSpec: [
-                NamedCount("Ayrton@MagicDot SX", 12),
+                NamedCount("Ayrton@MagicDot SX", 15),
                 NamedCount("Generic@LED Wall 10x10", 16),
-                NamedCount("Martin Professional@MAC Aura XB", 24),
-                NamedCount("Martin Professional@MAC Ultra Performance", 16),
-                NamedCount("Prolights@EclFresnel2KTW", 11),
-                NamedCount("Prolights@Sunrise2IP", 24),
-                NamedCount("Robe Lighting@Robin SuperSpikie", 16),
+                NamedCount("Martin Professional@MAC Aura XB", 22),
+                NamedCount("Martin Professional@MAC Ultra Performance", 30),
+                NamedCount("Prolights@EclFresnel2KTW", 9),
+                NamedCount("Prolights@Sunrise2IP", 9),
+                NamedCount("Robe Lighting@Robin SuperSpikie", 18),
             ],
             fixtureCountByLayer: [
-                NamedCount("Backlight", 11),
-                NamedCount("Blinder", 12),
-                NamedCount("FX1", 8),
-                NamedCount("FX2", 8),
-                NamedCount("LED", 16),
-                NamedCount("Spot", 16),
-                NamedCount("Wash", 48),
+                NamedCount("Light Plot", 119),
             ],
-            archiveFileCount: 9,
+            archiveFileCount: 56,
             gdtfFileCount: 7,
-            glbFileCount: 1
+            glbFileCount: 48
         )
     }
 
@@ -810,14 +892,14 @@ struct MVRParserTests {
             version: "1.5",
             layerCount: 25,
             layerNames: [
-                "Esprite A", "Esprite B", "Esprite Floor",
-                "Spiider A", "Spiider B", "Spiider Floor",
-                "Viper A", "Viper B", "Viper Floor",
-                "Cluster FOH A", "Cluster FOH B", "Cluster FOH Floor",
-                "Cluster B4 A", "Cluster B4 B", "Cluster B4 Floor",
-                "Astera", "Blinder", "Stage", "Truss 1",
-                "Truss 2", "Truss 3", "Ground Support", "FOH",
-                "Crowd Barrier", "Floor Truss",
+                "24_STROMPLANUNG SCHEMATISCH", "23_CONNECTCAD RACK",
+                "22_CONNECTCAD SIGNALFLUSS", "--- CONNECTCAD ---",
+                "21_LAYOUT", "20_VENUE", "18_PRODUKTION", "17_SICHERHEIT",
+                "16_INFRASTRUKTUR", "15_GASTRONOMIE", "14_FLIEGENDE BAUTEN",
+                "13_PUBLIKUM", "12_DEKO/MÖBEL", "11_STROM", "10_NETZWERK/IT",
+                "09_KOMMUNIKATION", "08_BÜHNE", "07_BÜHNENBILD",
+                "06_SFX", "05_KAMERA", "04.1_RIGGING GASSE", "04_RIGGING",
+                "03_VIDEO", "02_AUDIO", "01_BELEUCHTUNG",
             ],
             fixtureCount: 146,
             sceneObjectCount: 52,
@@ -836,37 +918,21 @@ struct MVRParserTests {
             ],
             fixturesWithAddresses: 146,
             fixtureCountByGDTFSpec: [
-                NamedCount("Astera LED Technology@AX2-100 PixelBar.gdtf", 8),
-                NamedCount("Cluster S2", 12),
-                NamedCount("Custom@Roxx_Cluster_B4_FC.gdtf", 6),
+                NamedCount("Astera LED Technology@AX2-100 PixelBar.gdtf", 24),
+                NamedCount("Cluster S2", 1),
+                NamedCount("Custom@Roxx_Cluster_B4_FC.gdtf", 1),
                 NamedCount("Martin Professional@MAC Viper AirFX.gdtf", 18),
-                NamedCount("ROXX@CLUSTER B4-FC.gdtf", 6),
-                NamedCount("Robe Lighting@Robin Esprite.gdtf", 30),
-                NamedCount("Robe Lighting@Robin Spiider.gdtf", 60),
-                NamedCount("Roxx@Cluster S2.gdtf", 6),
+                NamedCount("ROXX@CLUSTER B4-FC.gdtf", 23),
+                NamedCount("Robe Lighting@Robin Esprite.gdtf", 3),
+                NamedCount("Robe Lighting@Robin Spiider.gdtf", 44),
+                NamedCount("Roxx@Cluster S2.gdtf", 32),
             ],
             fixtureCountByLayer: [
-                NamedCount("Astera", 8),
-                NamedCount("Blinder", 12),
-                NamedCount("Cluster B4 A", 4),
-                NamedCount("Cluster B4 B", 4),
-                NamedCount("Cluster B4 Floor", 4),
-                NamedCount("Cluster FOH A", 4),
-                NamedCount("Cluster FOH B", 4),
-                NamedCount("Cluster FOH Floor", 4),
-                NamedCount("Esprite A", 10),
-                NamedCount("Esprite B", 10),
-                NamedCount("Esprite Floor", 10),
-                NamedCount("Spiider A", 20),
-                NamedCount("Spiider B", 20),
-                NamedCount("Spiider Floor", 20),
-                NamedCount("Viper A", 6),
-                NamedCount("Viper B", 6),
-                NamedCount("Viper Floor", 6),
+                NamedCount("01_BELEUCHTUNG", 146),
             ],
-            archiveFileCount: 10,
+            archiveFileCount: 61,
             gdtfFileCount: 7,
-            glbFileCount: 2
+            glbFileCount: 52
         )
     }
 
@@ -879,16 +945,14 @@ struct MVRParserTests {
             version: "1.5",
             layerCount: 24,
             layerNames: [
-                "Esprite Floor", "Esprite A", "Esprite B",
-                "Spiider A", "Spiider B", "Spiider Floor",
-                "LedPOINTE A", "LedPOINTE B",
-                "Tetra A", "Tetra B",
-                "TetraX A", "TetraX B",
-                "Stage Main", "Stage Small", "Stage Back",
-                "Stage Walkway", "Ground Support",
-                "Truss 1", "Truss 2", "Truss 3",
-                "Floor Truss", "Ground Truss",
-                "Audience", "Crowd Barrier",
+                "24_STROMPLANUNG SCHEMATISCH", "23_CONNECTCAD RACK",
+                "22_CONNECTCAD SIGNALFLUSS", "--- CONNECTCAD ---",
+                "21_LAYOUT", "20_VENUE", "18_PRODUKTION", "17_SICHERHEIT",
+                "16_INFRASTRUKTUR", "15_GASTRONOMIE", "14_FLIEGENDE BAUTEN",
+                "13_PUBLIKUM", "12_DEKO/MÖBEL", "11_STROM", "10_NETZWERK/IT",
+                "09_KOMMUNIKATION", "08_BÜHNE", "07_BÜHNENBILD",
+                "06_SFX", "05_KAMERA", "04_RIGGING", "03_VIDEO",
+                "02_BELEUCHTUNG FLOOR", "01_BELEUCHTUNG",
             ],
             fixtureCount: 74,
             sceneObjectCount: 46,
@@ -904,29 +968,19 @@ struct MVRParserTests {
             ],
             fixturesWithAddresses: 74,
             fixtureCountByGDTFSpec: [
-                NamedCount("Robe Lighting@Robin Esprite.gdtf", 22),
-                NamedCount("Robe Lighting@Robin LedPOINTE.gdtf", 16),
-                NamedCount("Robe Lighting@Robin Spiider.gdtf", 16),
+                NamedCount("Robe Lighting@Robin Esprite.gdtf", 14),
+                NamedCount("Robe Lighting@Robin LedPOINTE.gdtf", 24),
+                NamedCount("Robe Lighting@Robin Spiider.gdtf", 8),
                 NamedCount("Robe Lighting@Robin Tetra2.gdtf", 12),
-                NamedCount("Robe Lighting@Robin TetraX.gdtf", 8),
+                NamedCount("Robe Lighting@Robin TetraX.gdtf", 16),
             ],
             fixtureCountByLayer: [
-                NamedCount("Esprite A", 8),
-                NamedCount("Esprite B", 8),
-                NamedCount("Esprite Floor", 6),
-                NamedCount("LedPOINTE A", 8),
-                NamedCount("LedPOINTE B", 8),
-                NamedCount("Spiider A", 6),
-                NamedCount("Spiider B", 6),
-                NamedCount("Spiider Floor", 4),
-                NamedCount("Tetra A", 6),
-                NamedCount("Tetra B", 6),
-                NamedCount("TetraX A", 4),
-                NamedCount("TetraX B", 4),
+                NamedCount("01_BELEUCHTUNG", 66),
+                NamedCount("02_BELEUCHTUNG FLOOR", 8),
             ],
-            archiveFileCount: 8,
+            archiveFileCount: 53,
             gdtfFileCount: 5,
-            glbFileCount: 2
+            glbFileCount: 46
         )
     }
 
@@ -939,9 +993,9 @@ struct MVRParserTests {
             version: "1.5",
             layerCount: 9,
             layerNames: [
-                "Spots", "Wash A", "Wash B", "FX",
-                "Blinder A", "Blinder B",
-                "Truss A", "Truss B", "Ground Support",
+                "FixtureLayer 1", "Beschr", "00",
+                "01 Staging", "02 Rigging", "03 Audio",
+                "04 Video", "05 SFX", "06 Lighting",
             ],
             fixtureCount: 135,
             sceneObjectCount: 160,
@@ -957,22 +1011,17 @@ struct MVRParserTests {
             ],
             fixturesWithAddresses: 135,
             fixtureCountByGDTFSpec: [
-                NamedCount("Prolights@Sunrise2IP", 24),
-                NamedCount("Robe Lighting@Robin Esprite", 27),
-                NamedCount("Robe Lighting@Robin Spiider", 60),
-                NamedCount("SGM Light@Q-8", 24),
+                NamedCount("Prolights@Sunrise2IP", 18),
+                NamedCount("Robe Lighting@Robin Esprite", 30),
+                NamedCount("Robe Lighting@Robin Spiider", 51),
+                NamedCount("SGM Light@Q-8", 36),
             ],
             fixtureCountByLayer: [
-                NamedCount("Blinder A", 12),
-                NamedCount("Blinder B", 12),
-                NamedCount("FX", 24),
-                NamedCount("Spots", 27),
-                NamedCount("Wash A", 30),
-                NamedCount("Wash B", 30),
+                NamedCount("06 Lighting", 135),
             ],
-            archiveFileCount: 6,
+            archiveFileCount: 191,
             gdtfFileCount: 4,
-            glbFileCount: 1
+            glbFileCount: 183
         )
     }
 
@@ -985,18 +1034,14 @@ struct MVRParserTests {
             version: "1.5",
             layerCount: 24,
             layerNames: [
-                "Esprite Stage A", "Esprite Stage B",
-                "LedBeam 150 Stage A", "LedBeam 150 Stage B",
-                "LedPOINTE Stage A", "LedPOINTE Stage B",
-                "LedBeam 350 A", "LedBeam 350 B",
-                "Cluster", "Astera",
-                "Fresnel A", "Fresnel B",
-                "Pulse Panel A", "Pulse Panel B",
-                "Stage Front", "Stage Back",
-                "Ground Support Front", "Ground Support Back",
-                "Truss 1", "Truss 2",
-                "Truss 3", "Truss 4",
-                "Audience", "Crowd Barrier",
+                "24_STROMPLANUNG SCHEMATISCH", "23_CONNECTCAD RACK",
+                "22_CONNECTCAD SIGNALFLUSS", "--- CONNECTCAD ---",
+                "21_LAYOUT", "20_VENUE", "18_PRODUKTION", "17_SICHERHEIT",
+                "16_INFRASTRUKTUR", "15_GASTRONOMIE", "14_FLIEGENDE BAUTEN",
+                "13_PUBLIKUM", "12_DEKO/MÖBEL", "11_STROM", "10_NETZWERK/IT",
+                "09_KOMMUNIKATION", "08_BÜHNE", "07_BÜHNENBILD",
+                "06_SFX", "05_KAMERA", "04_RIGGING", "03_VIDEO",
+                "02_AUDIO", "01_BELEUCHTUNG",
             ],
             fixtureCount: 76,
             sceneObjectCount: 39,
@@ -1018,33 +1063,21 @@ struct MVRParserTests {
             fixturesWithAddresses: 76,
             fixtureCountByGDTFSpec: [
                 NamedCount("Astera LED Technology@FP3 Hyperion Tube", 8),
-                NamedCount("Elation@Pulse Panel", 4),
+                NamedCount("Elation@Pulse Panel", 8),
                 NamedCount("Prolights@EclFresnel CT+L", 8),
-                NamedCount("ROXX@CLUSTER B2-FC", 4),
-                NamedCount("Robe Lighting@Robin Esprite", 12),
-                NamedCount("Robe Lighting@Robin LEDBeam 150 RGBW", 16),
-                NamedCount("Robe Lighting@Robin LEDBeam 350", 8),
-                NamedCount("Robe Lighting@Robin LedPOINTE", 16),
+                NamedCount("ROXX@CLUSTER B2-FC", 12),
+                NamedCount("Robe Lighting@Robin Esprite", 2),
+                NamedCount("Robe Lighting@Robin LEDBeam 150 RGBW", 12),
+                NamedCount("Robe Lighting@Robin LEDBeam 350", 14),
+                NamedCount("Robe Lighting@Robin LedPOINTE", 12),
             ],
             fixtureCountByLayer: [
-                NamedCount("Astera", 8),
-                NamedCount("Cluster", 4),
-                NamedCount("Esprite Stage A", 6),
-                NamedCount("Esprite Stage B", 6),
-                NamedCount("Fresnel A", 4),
-                NamedCount("Fresnel B", 4),
-                NamedCount("LedBeam 150 Stage A", 8),
-                NamedCount("LedBeam 150 Stage B", 8),
-                NamedCount("LedBeam 350 A", 4),
-                NamedCount("LedBeam 350 B", 4),
-                NamedCount("LedPOINTE Stage A", 8),
-                NamedCount("LedPOINTE Stage B", 8),
-                NamedCount("Pulse Panel A", 2),
-                NamedCount("Pulse Panel B", 2),
+                NamedCount("01_BELEUCHTUNG", 76),
             ],
-            archiveFileCount: 10,
+            archiveFileCount: 22,
             gdtfFileCount: 8,
-            glbFileCount: 1
+            threeDSFileCount: 4,
+            glbFileCount: 9
         )
     }
 }

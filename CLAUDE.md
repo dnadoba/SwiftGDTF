@@ -2,17 +2,25 @@
 
 ## Project overview
 
-Swift package that parses GDTF (General Device Type Format) fixture files and renders
-3D models using SceneKit.  Targets macOS 26 / iOS 26.
+Swift package that parses GDTF (General Device Type Format) fixture files and MVR
+(My Virtual Rig) scene files, and renders 3D models using SceneKit.  Targets macOS 26 / iOS 26.
 
-Key files:
+Key files — GDTF:
 - `Sources/GDTF.swift` — top-level types, `GDTFModel`, `ModelFileFormat`, LOD enum
 - `Sources/Types.swift` — `PrimitiveType`, `Matrix`, `Rotation`, `FileResource`
+- `Sources/Geometries.swift` — geometry enum tree (user's preferred model pattern)
+- `Sources/Geometries+XML.swift` — geometry XML parsing (user's preferred parsing pattern)
 - `Sources/ThreeDS.swift` — binary .3ds parser
 - `Sources/GLBParser.swift` — glTF Binary (.glb) parser (node-hierarchy-aware)
 - `Sources/ThreeDSView.swift` — SceneKit rendering: `FixtureSceneBuilder`, primitive
   fallbacks, previews
 - `Sources/XMLProcessor.swift` — XML deserialization for all GDTF types
+
+Key files — MVR:
+- `Sources/MVR.swift` — MVR model types (structs, enums, protocols)
+- `Sources/MVR+XML.swift` — XMLDecodable conformances for MVR types
+- `Sources/MVRLoader.swift` — `loadMVR(data:)`, `loadMVR(url:)`, ZIP extraction
+- `mvr-spec.md` — MVR v1.6 specification (DIN SPEC 15801)
 
 ## Xcode MCP — always use `windowtab1` (or list windows first)
 
@@ -160,6 +168,16 @@ When no mesh file is found, `makeMeshNode()` falls back to `gdtfModel.primitiveT
   - Cylinder / Pigtail → `SCNCylinder(radius:0.5, height:1)` rotated -90° around X
   - Sphere → `SCNSphere(radius:0.5)`
 
+## Code style for new code
+
+- Follow `Geometries.swift` / `Geometries+XML.swift` patterns (enum with associated
+  values, Kind enum with rawValue for XML dispatch)
+- Do NOT use `parseChildrenToArray` or helpers that accept `base: XMLIndexer, tree
+  fullTree: XMLIndexer` — those are from the old maintainer. Use `.children.map { }`.
+- All model types must conform to `Equatable` and `Sendable`
+- Never crash on invalid input — always throw descriptive errors
+- Don't use tuples in public types (not Equatable)
+
 ## Tests
 
 All tests in `Tests/SwiftGDTFTests/`:
@@ -167,6 +185,11 @@ All tests in `Tests/SwiftGDTFTests/`:
 - `GLBParserTests.swift` — unit + cached-fixture tests for GLB parser
 - `SwiftGDTFTests.swift` — `parse3DSModels()`, `parseGLBModels()` (iterate cache)
 - `GDTFStatistics.swift` — print-only statistics tests (no assertions)
+- `MVRTests.swift` — 14 MVR fixtures with statistics validation + embedded GDTF parsing
+- `MVRParsingTests.swift` — unit tests for MVR matrix parsing, malformed input, etc.
+
+MVR test fixtures in `Tests/SwiftGDTFTests/MVRTestFixtures/` (14 .mvr files from
+various sources: grandMA3, Capture, Vectorworks, python-mvr, MomentFactory).
 
 Run all: `mcp__xcode__RunAllTests`. Expected: 34 passed, 1 skipped (`parseAllFixtures`
 requires network credentials).
@@ -224,3 +247,50 @@ for file in files { ... }
 ```
 
 Always use `withTaskGroup` for batch processing across all 10k+ fixtures.
+
+## MVR file format
+
+MVR (My Virtual Rig, DIN SPEC 15801) files are ZIP archives containing
+`GeneralSceneDescription.xml` at the root plus referenced resources (.gdtf, .3ds,
+.glb, textures). All referenced files must be at the archive root (no subdirectories).
+
+### MVR matrix convention
+
+MVR uses a 4×3 matrix format (12 values) vs GDTF's 4×4 (16 values):
+```
+{u1,u2,u3}{v1,v2,v3}{w1,w2,w3}{o1,o2,o3}
+```
+- Rows 0-2: rotation/scale basis vectors
+- Row 3: translation (in mm)
+- Right-handed, Z-up, 1 unit = 1 mm
+- Same row-vector convention as GDTF
+
+### MVR node hierarchy
+```
+GeneralSceneDescription (root)
+  └─ Scene
+       ├─ AUXData: Symdef, Position, MappingDefinition, Class
+       └─ Layers → Layer → ChildList (recursive)
+            ChildList objects: SceneObject, GroupObject, FocusPoint,
+            Fixture, Truss, Support, VideoScreen, Projector
+```
+
+### MVR UUID references (kept as raw UUIDs, not eagerly resolved)
+- Fixture.focus → FocusPoint UUID
+- Fixture.position / Truss.position / Support.position → AUXData Position UUID
+- Any object's Classing → AUXData Class UUID
+- Symbol.symdef → AUXData Symdef UUID
+- Mapping.linkedDef → AUXData MappingDefinition UUID
+- Connection.toObject → any object UUID
+
+### Loading MVR files
+```swift
+let mvrData = try Data(contentsOf: url)
+let scene = try loadMVR(data: mvrData)
+// scene.scene.layers[0].childList — the objects
+// scene.scene.auxData.symdefs — shared geometry definitions
+```
+
+### Deriving test statistics for new MVR files
+See the comment block above `MVRParserTests` in `MVRTests.swift` for step-by-step
+shell commands (unzip, grep, count node types).

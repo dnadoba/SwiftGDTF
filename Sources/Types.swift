@@ -218,7 +218,7 @@ public enum RelationType: String, Codable, Sendable {
     case override = "Override"
 }
 
-public struct DMXAddress: Codable, Sendable {
+public struct DMXAddress: Codable, Equatable, Sendable {
     public var universe: Int
     public var address: Int
 }
@@ -282,7 +282,7 @@ public struct DMXBreak: Codable {
     public var `break`: Int
 }
 
-public struct ColorCIE: Codable {
+public struct ColorCIE: Codable, Equatable, Sendable {
     public var x: Double
     public var y: Double
     public var Y: Double
@@ -422,7 +422,7 @@ extension ColorCIE {
 }
 #endif
 
-public struct Vector3 {
+public struct Vector3: Equatable, Sendable {
     public var vector: SIMD3<Double>
     public init(vector: SIMD3<Double>) {
         self.vector = vector
@@ -467,7 +467,7 @@ extension Vector3: Codable {
 /// X – from left (-X) to right (+X),
 /// Y – from the outside of the monitor (-Y) to the inside of the monitor (+Y),
 /// Z – from the bottom (-Z) to the top (+Z).
-public struct Rotation {
+public struct Rotation: Equatable, Sendable {
     public var matrix: simd_double3x3
     public init(matrix: simd_double3x3) {
         self.matrix = matrix
@@ -527,7 +527,7 @@ extension Rotation: Codable {
 /// X – from left (-X) to right (+X),
 /// Y – from the outside of the monitor (-Y) to the inside of the monitor (+Y),
 /// Z – from bottom (-Z) to top (+Z). 0,0,0 – center base.
-public struct Matrix {
+public struct Matrix: Equatable, Sendable {
     public var matrix: simd_double4x4 = .init(diagonal: .one)
     private struct ParseError: Error, CustomStringConvertible {
         var unexpectedCount: Int

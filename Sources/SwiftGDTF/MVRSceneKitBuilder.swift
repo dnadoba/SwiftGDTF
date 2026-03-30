@@ -109,6 +109,41 @@ public struct MVRSceneKitBuilder {
         return img
     }
 
+    /// Renders the scene from a specific camera position looking at a target point.
+    public static func renderToImage(
+        _ scene: SCNScene,
+        width: Int = 1280,
+        height: Int = 720,
+        cameraPosition: SIMD3<Float>,
+        lookAt target: SIMD3<Float>
+    ) -> NSImage {
+        let cn = SCNNode()
+        cn.camera = SCNCamera()
+        cn.camera?.zNear = 0.01
+        cn.camera?.zFar = 500
+        let fwd = normalize(target - cameraPosition)
+        let rt = normalize(cross(fwd, SIMD3<Float>(0, 1, 0)))
+        let up = cross(rt, fwd)
+        var m = simd_float4x4(1)
+        m.columns.0 = SIMD4(rt, 0)
+        m.columns.1 = SIMD4(up, 0)
+        m.columns.2 = SIMD4(-fwd, 0)
+        m.columns.3 = SIMD4(cameraPosition, 1)
+        cn.simdTransform = m
+        scene.rootNode.addChildNode(cn)
+
+        let renderer = SCNRenderer(device: nil, options: nil)
+        renderer.scene = scene
+        renderer.pointOfView = cn
+        let img = renderer.snapshot(
+            atTime: 0,
+            with: CGSize(width: width, height: height),
+            antialiasingMode: .multisampling4X
+        )
+        cn.removeFromParentNode()
+        return img
+    }
+
     /// Saves an NSImage as a PNG file.
     public static func savePNG(_ image: NSImage, to url: URL) throws {
         guard let tiff = image.tiffRepresentation,

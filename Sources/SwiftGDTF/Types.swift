@@ -568,6 +568,17 @@ public struct Matrix: Equatable, Sendable {
         let flatMatrix: [Double] = strMatrix.split(separator: ",").map{ Double($0) ?? 0 }
         try self.init(from: flatMatrix)
     }
+
+
+    /// Converts the double-precision GDTF/MVR matrix to a single-precision simd_float4x4.
+    public var simdMatrix: simd_float4x4 {
+        simd_float4x4(
+            SIMD4<Float>(Float(matrix[0][0]), Float(matrix[0][1]), Float(matrix[0][2]), Float(matrix[0][3])),
+            SIMD4<Float>(Float(matrix[1][0]), Float(matrix[1][1]), Float(matrix[1][2]), Float(matrix[1][3])),
+            SIMD4<Float>(Float(matrix[2][0]), Float(matrix[2][1]), Float(matrix[2][2]), Float(matrix[2][3])),
+            SIMD4<Float>(Float(matrix[3][0]), Float(matrix[3][1]), Float(matrix[3][2]), Float(matrix[3][3]))
+        )
+    }
 }
 
 extension Matrix: Codable {

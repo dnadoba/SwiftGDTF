@@ -274,6 +274,33 @@ public enum MVRChildObject: Equatable, Sendable {
         case .projector(let o): o.childList
         }
     }
+
+    /// Geometry nodes (Geometry3D / Symbol) for objects that carry inline geometry.
+    /// Fixtures return empty (their geometry comes from the linked GDTF file).
+    public var geometries: [MVRGeometryNode] {
+        switch self {
+        case .sceneObject(let o): o.geometries
+        case .focusPoint(let o): o.geometries
+        case .truss(let o): o.geometries
+        case .support(let o): o.geometries
+        case .videoScreen(let o): o.geometries
+        case .projector(let o): o.geometries
+        case .groupObject, .fixture: []
+        }
+    }
+
+    /// GDTF spec string, if the object references a GDTF file.
+    public var gdtfSpec: String? {
+        switch self {
+        case .sceneObject(let o): o.gdtfSpec
+        case .fixture(let o): o.gdtfSpec
+        case .truss(let o): o.gdtfSpec
+        case .support(let o): o.gdtfSpec
+        case .videoScreen(let o): o.gdtfSpec
+        case .projector(let o): o.gdtfSpec
+        case .groupObject, .focusPoint: nil
+        }
+    }
 }
 
 // MARK: - Parametric Object Structs

@@ -1042,7 +1042,6 @@ extension AttributeType {
     public init(fromString string: String) {
         /// We are parsing a string in the form of "Prefix(n)Suffix(m)" where only Prefix is required and (n) and (m) are integers
         let substring = string[...]
-        let endIndex = substring.endIndex
         guard substring.startIndex != substring.endIndex else {
             // empty string
             self = .custom(name: string)

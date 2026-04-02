@@ -6,9 +6,9 @@
 //
 
 import Foundation
-import SWXMLHash
+@preconcurrency import SWXMLHash
 
-public enum XMLParsingError: Error {
+public enum XMLParsingError: Error, @unchecked Sendable {
     case elementMissing
     case attributeMissing(named: String, on: SWXMLHash.XMLElement?)
     case childNotFound(named: String, at: String)

@@ -206,6 +206,121 @@ func allUUIDs(in scene: MVRScene) -> Set<UUID> {
 
 // MARK: - Tests
 
+// MARK: - Real File Tests
+
+let circleTestFixture = MVRTestFixture(
+    filename: "34_fixtures_circle_test.mvr",
+    description: "34 GigaPointe fixtures in a group, for circle arrange testing",
+    source: "Copy of SingleGigaPointeUpsidedown",
+    sourceURL: ""
+)
+
+@Suite("Arrange — Real MVR File")
+struct ArrangeRealFileTests {
+
+    @Test("Dump structure of 34-fixture file")
+    func dumpStructure() throws {
+        let data = try Data(contentsOf: circleTestFixture.url)
+        let scene = try loadMVR(data: data)
+
+        var fixtureCount = 0
+        var groupCount = 0
+        func walk(_ objects: [MVRChildObject], depth: Int) {
+            for obj in objects {
+                let indent = String(repeating: "  ", count: depth)
+                let pos = obj.matrix.map { m in
+                    String(format: "(%.0f, %.0f, %.0f)", m.matrix[3][0], m.matrix[3][1], m.matrix[3][2])
+                } ?? "nil"
+                print("\(indent)\(obj.kind.rawValue) \"\(obj.name)\" pos=\(pos) children=\(obj.childList.count)")
+                if case .fixture = obj { fixtureCount += 1 }
+                if case .groupObject = obj { groupCount += 1 }
+                walk(obj.childList, depth: depth + 1)
+            }
+        }
+        for (li, layer) in scene.scene.layers.enumerated() {
+            let layerPos = layer.matrix.map { m in
+                String(format: "(%.0f, %.0f, %.0f)", m.matrix[3][0], m.matrix[3][1], m.matrix[3][2])
+            } ?? "nil"
+            print("Layer \(li): \"\(layer.name)\" pos=\(layerPos) children=\(layer.childList.count)")
+            walk(layer.childList, depth: 1)
+        }
+        print("Total fixtures: \(fixtureCount), groups: \(groupCount)")
+    }
+
+    @Test("Circle arrange is idempotent on real file")
+    func circleIdempotentRealFile() throws {
+        let data = try Data(contentsOf: circleTestFixture.url)
+        let scene = try loadMVR(data: data)
+
+        let allIDs = allUUIDs(in: scene)
+        let leafIDs = collectLeafUUIDs(from: allIDs, scene: scene)
+        print("All IDs: \(allIDs.count), Leaf IDs: \(leafIDs.count)")
+
+        let once = arrangeInCircle(scene: scene, selectedIDs: allIDs)
+        let twice = arrangeInCircle(scene: once, selectedIDs: allIDs)
+
+        var maxDiff: Double = 0
+        for id in leafIDs {
+            let p1 = worldPosition(for: id, scene: once)
+            let p2 = worldPosition(for: id, scene: twice)
+            let dx = abs(p1.x - p2.x), dy = abs(p1.y - p2.y), dz = abs(p1.z - p2.z)
+            maxDiff = max(maxDiff, dx, dy, dz)
+            if dx > 1 || dy > 1 || dz > 1 {
+                print("MISMATCH \(id.uuidString.prefix(8)): (\(p1.x),\(p1.y),\(p1.z)) vs (\(p2.x),\(p2.y),\(p2.z))")
+            }
+        }
+        print("Max position diff: \(maxDiff)")
+        #expect(maxDiff < 1, "Positions changed on second arrange: max diff = \(maxDiff)")
+    }
+
+    @Test("Circle facing center is idempotent on real file")
+    func circleFacingCenterIdempotentRealFile() throws {
+        let data = try Data(contentsOf: circleTestFixture.url)
+        let scene = try loadMVR(data: data)
+        let allIDs = allUUIDs(in: scene)
+        let leafIDs = collectLeafUUIDs(from: allIDs, scene: scene)
+
+        let once = arrangeInCircleFacingCenter(scene: scene, selectedIDs: allIDs)
+        let twice = arrangeInCircleFacingCenter(scene: once, selectedIDs: allIDs)
+
+        var maxDiff: Double = 0
+        for id in leafIDs {
+            let p1 = worldPosition(for: id, scene: once)
+            let p2 = worldPosition(for: id, scene: twice)
+            let dx = abs(p1.x - p2.x), dy = abs(p1.y - p2.y), dz = abs(p1.z - p2.z)
+            maxDiff = max(maxDiff, dx, dy, dz)
+        }
+        print("Max position diff (facing center): \(maxDiff)")
+        #expect(maxDiff < 1, "Positions changed on second arrange: max diff = \(maxDiff)")
+    }
+}
+
+// MARK: - Pure arrange function for circle facing center (test version)
+
+func arrangeInCircleFacingCenter(scene: MVRScene, selectedIDs: Set<UUID>) -> MVRScene {
+    let leafIDs = collectLeafUUIDs(from: selectedIDs, scene: scene)
+    guard leafIDs.count >= 2 else { return scene }
+
+    let worldPositions = leafIDs.map { worldPosition(for: $0, scene: scene) }
+    let cx = worldPositions.map(\.x).reduce(0, +) / Double(worldPositions.count)
+    let cy = worldPositions.map(\.y).reduce(0, +) / Double(worldPositions.count)
+    let avgDist = worldPositions.map { sqrt(pow($0.x - cx, 2) + pow($0.y - cy, 2)) }
+        .reduce(0, +) / Double(worldPositions.count)
+    let radius = max(avgDist, 500)
+    let angleStep = 2 * Double.pi / Double(leafIDs.count)
+
+    var targetWorldPos: [UUID: SIMD3<Double>] = [:]
+    for (i, id) in leafIDs.enumerated() {
+        let angle = angleStep * Double(i)
+        let origZ = worldPositions[i].z
+        targetWorldPos[id] = SIMD3(cx + radius * cos(angle), cy + radius * sin(angle), origZ)
+    }
+
+    // For facing center, we need to set the full matrix (rotation + position)
+    // For now, just set position — the facing rotation test is separate
+    return applyWorldPositions(scene: scene, positions: targetWorldPos)
+}
+
 @Suite("Arrange in Circle — Idempotency")
 struct ArrangeCircleIdempotencyTests {
 

@@ -256,3 +256,111 @@ struct MVRDistributeTests {
         }
     }
 }
+
+// MARK: - Circle Arrangement Tests
+
+func testArrangeInCircle(_ objects: [MVRChildObject]) -> [MVRChildObject] {
+    guard objects.count >= 2 else { return objects }
+    let positions = objects.map(\.testPosition)
+    let centroidX = positions.map(\.x).reduce(0, +) / Double(positions.count)
+    let centroidY = positions.map(\.y).reduce(0, +) / Double(positions.count)
+    let avgDist = positions.map { sqrt(pow($0.x - centroidX, 2) + pow($0.y - centroidY, 2)) }
+        .reduce(0, +) / Double(positions.count)
+    let radius = max(avgDist, 500)
+    let angleStep = 2 * Double.pi / Double(objects.count)
+    return objects.enumerated().map { (i, obj) in
+        var obj = obj
+        let angle = angleStep * Double(i)
+        var pos = obj.testPosition
+        pos.x = centroidX + radius * cos(angle)
+        pos.y = centroidY + radius * sin(angle)
+        obj.setTestPosition(pos)
+        return obj
+    }
+}
+
+@Suite("MVR Arrange in Circle")
+struct MVRArrangeInCircleTests {
+
+    @Test("Objects placed equidistant from center")
+    func equidistantFromCenter() {
+        let objects = [
+            makeFixtureAt(x: 0, y: 0, z: 5000),
+            makeFixtureAt(x: 1000, y: 0, z: 5000),
+            makeFixtureAt(x: 500, y: 800, z: 5000),
+            makeFixtureAt(x: -200, y: 600, z: 5000),
+        ]
+        let result = testArrangeInCircle(objects)
+        let positions = result.map(\.testPosition)
+        let cx = positions.map(\.x).reduce(0, +) / Double(positions.count)
+        let cy = positions.map(\.y).reduce(0, +) / Double(positions.count)
+        let distances = positions.map { sqrt(pow($0.x - cx, 2) + pow($0.y - cy, 2)) }
+        // All distances should be equal (same radius)
+        let firstDist = distances[0]
+        for d in distances {
+            #expect(abs(d - firstDist) < 0.01, "Distances not equal: \(d) vs \(firstDist)")
+        }
+    }
+
+    @Test("Z coordinate preserved")
+    func zPreserved() {
+        let objects = [
+            makeFixtureAt(x: 0, y: 0, z: 3000),
+            makeFixtureAt(x: 1000, y: 0, z: 5000),
+            makeFixtureAt(x: 500, y: 800, z: 7000),
+        ]
+        let result = testArrangeInCircle(objects)
+        for (orig, new) in zip(objects, result) {
+            #expect(abs(new.testPosition.z - orig.testPosition.z) < 0.01)
+        }
+    }
+
+    @Test("Even angular spacing")
+    func evenAngularSpacing() {
+        let objects = (0..<6).map { makeFixtureAt(x: Double($0) * 100, y: 0, z: 5000) }
+        let result = testArrangeInCircle(objects)
+        let positions = result.map(\.testPosition)
+        let cx = positions.map(\.x).reduce(0, +) / Double(positions.count)
+        let cy = positions.map(\.y).reduce(0, +) / Double(positions.count)
+
+        var angles = positions.map { atan2($0.y - cy, $0.x - cx) }
+        angles.sort()
+        let expectedStep = 2 * Double.pi / 6
+        for i in 0..<(angles.count - 1) {
+            let step = angles[i + 1] - angles[i]
+            #expect(abs(step - expectedStep) < 0.01, "Step \(i): \(step) vs \(expectedStep)")
+        }
+    }
+
+    @Test("Minimum radius enforced")
+    func minimumRadiusEnforced() {
+        // All at same position — should get minimum 500mm radius
+        let objects = [
+            makeFixtureAt(x: 100, y: 100, z: 5000),
+            makeFixtureAt(x: 100, y: 100, z: 5000),
+            makeFixtureAt(x: 100, y: 100, z: 5000),
+        ]
+        let result = testArrangeInCircle(objects)
+        let positions = result.map(\.testPosition)
+        let cx = positions.map(\.x).reduce(0, +) / Double(positions.count)
+        let cy = positions.map(\.y).reduce(0, +) / Double(positions.count)
+        let dist = sqrt(pow(positions[0].x - cx, 2) + pow(positions[0].y - cy, 2))
+        #expect(dist >= 499, "Radius \(dist) should be >= 500")
+    }
+
+    @Test("Two objects placed opposite each other")
+    func twoObjectsOpposite() {
+        let objects = [
+            makeFixtureAt(x: 0, y: 0, z: 5000),
+            makeFixtureAt(x: 1000, y: 0, z: 5000),
+        ]
+        let result = testArrangeInCircle(objects)
+        let p0 = result[0].testPosition
+        let p1 = result[1].testPosition
+        let cx = (p0.x + p1.x) / 2
+        let cy = (p0.y + p1.y) / 2
+        let d0 = sqrt(pow(p0.x - cx, 2) + pow(p0.y - cy, 2))
+        let d1 = sqrt(pow(p1.x - cx, 2) + pow(p1.y - cy, 2))
+        #expect(abs(d0 - d1) < 0.01)
+    }
+}

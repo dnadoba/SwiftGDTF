@@ -171,7 +171,7 @@ func applyWorldPositions(scene: MVRScene, positions: [UUID: SIMD3<Double>]) -> M
     return scene
 }
 
-private func mutateInScene(id: UUID, in children: inout [MVRChildObject], _ transform: (inout MVRChildObject) -> Void) -> Bool {
+func mutateInScene(id: UUID, in children: inout [MVRChildObject], _ transform: (inout MVRChildObject) -> Void) -> Bool {
     for i in children.indices {
         if children[i].uuid == id {
             transform(&children[i])

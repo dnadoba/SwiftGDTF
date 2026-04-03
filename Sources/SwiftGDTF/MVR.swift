@@ -379,6 +379,132 @@ public enum MVRChildObject: Equatable, Sendable {
         case .groupObject, .focusPoint: nil
         }
     }
+
+    // MARK: - Mutable Accessors
+
+    /// Mutable access to the object's name.
+    public var mutableName: String {
+        get { name }
+        set {
+            switch self {
+            case .sceneObject(var o): o.name = newValue; self = .sceneObject(o)
+            case .groupObject(var o): o.name = newValue; self = .groupObject(o)
+            case .focusPoint(var o): o.name = newValue; self = .focusPoint(o)
+            case .fixture(var o): o.name = newValue; self = .fixture(o)
+            case .truss(var o): o.name = newValue; self = .truss(o)
+            case .support(var o): o.name = newValue; self = .support(o)
+            case .videoScreen(var o): o.name = newValue; self = .videoScreen(o)
+            case .projector(var o): o.name = newValue; self = .projector(o)
+            }
+        }
+    }
+
+    /// Mutable access to the object's transform matrix.
+    public var mutableMatrix: Matrix? {
+        get { matrix }
+        set {
+            switch self {
+            case .sceneObject(var o): o.matrix = newValue; self = .sceneObject(o)
+            case .groupObject(var o): o.matrix = newValue; self = .groupObject(o)
+            case .focusPoint(var o): o.matrix = newValue; self = .focusPoint(o)
+            case .fixture(var o): o.matrix = newValue; self = .fixture(o)
+            case .truss(var o): o.matrix = newValue; self = .truss(o)
+            case .support(var o): o.matrix = newValue; self = .support(o)
+            case .videoScreen(var o): o.matrix = newValue; self = .videoScreen(o)
+            case .projector(var o): o.matrix = newValue; self = .projector(o)
+            }
+        }
+    }
+
+    /// Mutable access to the child object list.
+    /// Focus points have no children; setting on a focus point is ignored.
+    public var mutableChildList: [MVRChildObject] {
+        get { childList }
+        set {
+            switch self {
+            case .sceneObject(var o): o.childList = newValue; self = .sceneObject(o)
+            case .groupObject(var o): o.childList = newValue; self = .groupObject(o)
+            case .focusPoint: break // focus points have no children
+            case .fixture(var o): o.childList = newValue; self = .fixture(o)
+            case .truss(var o): o.childList = newValue; self = .truss(o)
+            case .support(var o): o.childList = newValue; self = .support(o)
+            case .videoScreen(var o): o.childList = newValue; self = .videoScreen(o)
+            case .projector(var o): o.childList = newValue; self = .projector(o)
+            }
+        }
+    }
+
+    /// Mutable access to the object's UUID.
+    public var mutableUUID: UUID {
+        get { uuid }
+        set {
+            switch self {
+            case .sceneObject(var o): o.uuid = newValue; self = .sceneObject(o)
+            case .groupObject(var o): o.uuid = newValue; self = .groupObject(o)
+            case .focusPoint(var o): o.uuid = newValue; self = .focusPoint(o)
+            case .fixture(var o): o.uuid = newValue; self = .fixture(o)
+            case .truss(var o): o.uuid = newValue; self = .truss(o)
+            case .support(var o): o.uuid = newValue; self = .support(o)
+            case .videoScreen(var o): o.uuid = newValue; self = .videoScreen(o)
+            case .projector(var o): o.uuid = newValue; self = .projector(o)
+            }
+        }
+    }
+
+    /// Mutable access to the GDTF spec string.
+    /// Group objects and focus points have no GDTF spec; setting on them is ignored.
+    public var mutableGdtfSpec: String? {
+        get { gdtfSpec }
+        set {
+            switch self {
+            case .sceneObject(var o): o.gdtfSpec = newValue; self = .sceneObject(o)
+            case .fixture(var o): o.gdtfSpec = newValue; self = .fixture(o)
+            case .truss(var o): o.gdtfSpec = newValue; self = .truss(o)
+            case .support(var o): o.gdtfSpec = newValue; self = .support(o)
+            case .videoScreen(var o): o.gdtfSpec = newValue; self = .videoScreen(o)
+            case .projector(var o): o.gdtfSpec = newValue; self = .projector(o)
+            case .groupObject, .focusPoint: break
+            }
+        }
+    }
+
+    /// Mutable access to the classing UUID.
+    public var mutableClassing: UUID? {
+        get { classing }
+        set {
+            switch self {
+            case .sceneObject(var o): o.classing = newValue; self = .sceneObject(o)
+            case .groupObject(var o): o.classing = newValue; self = .groupObject(o)
+            case .focusPoint(var o): o.classing = newValue; self = .focusPoint(o)
+            case .fixture(var o): o.classing = newValue; self = .fixture(o)
+            case .truss(var o): o.classing = newValue; self = .truss(o)
+            case .support(var o): o.classing = newValue; self = .support(o)
+            case .videoScreen(var o): o.classing = newValue; self = .videoScreen(o)
+            case .projector(var o): o.classing = newValue; self = .projector(o)
+            }
+        }
+    }
+
+    /// Recursively assigns new UUIDs to this object and all nested children.
+    /// Returns a mapping from old UUID to new UUID.
+    @discardableResult
+    public mutating func reassignUUIDs() -> [UUID: UUID] {
+        var mapping: [UUID: UUID] = [:]
+        reassignUUIDsRecursive(&mapping)
+        return mapping
+    }
+
+    private mutating func reassignUUIDsRecursive(_ mapping: inout [UUID: UUID]) {
+        let oldUUID = uuid
+        let newUUID = UUID()
+        mapping[oldUUID] = newUUID
+        mutableUUID = newUUID
+        var children = mutableChildList
+        for i in children.indices {
+            children[i].reassignUUIDsRecursive(&mapping)
+        }
+        mutableChildList = children
+    }
 }
 
 // MARK: - Parametric Object Structs

@@ -590,6 +590,18 @@ public struct Matrix: Equatable, Sendable {
     }
 
 
+    /// Creates a Matrix from a single-precision simd_float4x4.
+    ///
+    /// Useful for converting renderer-space transforms back to GDTF/MVR format.
+    public init(from float4x4: simd_float4x4) {
+        self.matrix = simd_double4x4(
+            SIMD4<Double>(Double(float4x4[0][0]), Double(float4x4[0][1]), Double(float4x4[0][2]), Double(float4x4[0][3])),
+            SIMD4<Double>(Double(float4x4[1][0]), Double(float4x4[1][1]), Double(float4x4[1][2]), Double(float4x4[1][3])),
+            SIMD4<Double>(Double(float4x4[2][0]), Double(float4x4[2][1]), Double(float4x4[2][2]), Double(float4x4[2][3])),
+            SIMD4<Double>(Double(float4x4[3][0]), Double(float4x4[3][1]), Double(float4x4[3][2]), Double(float4x4[3][3]))
+        )
+    }
+
     /// Converts the double-precision GDTF/MVR matrix to a single-precision simd_float4x4.
     public var simdMatrix: simd_float4x4 {
         simd_float4x4(

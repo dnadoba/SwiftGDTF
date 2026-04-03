@@ -69,6 +69,22 @@ public struct MVRScene: Equatable, Sendable {
     public var userData: [MVRUserData]
     /// The scene described in this file.
     public var scene: MVRSceneNode
+
+    public init(
+        verMajor: Int = 1,
+        verMinor: Int = 6,
+        provider: String = "",
+        providerVersion: String = "",
+        userData: [MVRUserData] = [],
+        scene: MVRSceneNode
+    ) {
+        self.verMajor = verMajor
+        self.verMinor = verMinor
+        self.provider = provider
+        self.providerVersion = providerVersion
+        self.userData = userData
+        self.scene = scene
+    }
 }
 
 /// A block of user data specified by a provider application.
@@ -81,6 +97,12 @@ public struct MVRUserData: Equatable, Sendable {
     public var ver: String
     /// Raw text content of the Data node.
     public var content: String
+
+    public init(provider: String = "", ver: String = "1", content: String = "") {
+        self.provider = provider
+        self.ver = ver
+        self.content = content
+    }
 }
 
 /// The scene node containing auxiliary data and layers.
@@ -89,6 +111,11 @@ public struct MVRSceneNode: Equatable, Sendable {
     public var auxData: MVRAUXData
     /// Layers in the scene, in document order.
     public var layers: [MVRLayer]
+
+    public init(auxData: MVRAUXData = MVRAUXData(), layers: [MVRLayer] = []) {
+        self.auxData = auxData
+        self.layers = layers
+    }
 }
 
 // MARK: - AUXData Types
@@ -103,6 +130,18 @@ public struct MVRAUXData: Equatable, Sendable {
     public var mappingDefinitions: [MVRMappingDefinition]
     /// Logical groupings for object visibility filtering across layers.
     public var classes: [MVRClass]
+
+    public init(
+        symdefs: [MVRSymdef] = [],
+        positions: [MVRPosition] = [],
+        mappingDefinitions: [MVRMappingDefinition] = [],
+        classes: [MVRClass] = []
+    ) {
+        self.symdefs = symdefs
+        self.positions = positions
+        self.mappingDefinitions = mappingDefinitions
+        self.classes = classes
+    }
 }
 
 /// A shared graphical definition that can be instanced in the scene via Symbol nodes.
@@ -113,6 +152,12 @@ public struct MVRSymdef: Equatable, Sendable {
     public var name: String
     /// Geometry nodes (Geometry3D and Symbol) within this definition.
     public var children: [MVRGeometryNode]
+
+    public init(uuid: UUID, name: String = "", children: [MVRGeometryNode] = []) {
+        self.uuid = uuid
+        self.name = name
+        self.children = children
+    }
 }
 
 /// A logical grouping of lighting devices and trusses.
@@ -121,6 +166,11 @@ public struct MVRPosition: Equatable, Sendable {
     public var uuid: UUID
     /// The name of this position.
     public var name: String
+
+    public init(uuid: UUID, name: String = "") {
+        self.uuid = uuid
+        self.name = name
+    }
 }
 
 /// An input source definition for fixture color mapping applications.
@@ -137,6 +187,22 @@ public struct MVRMappingDefinition: Equatable, Sendable {
     public var source: MVRSource?
     /// How the source will be scaled to the mapping.
     public var scaleHandling: MVRScaleHandling?
+
+    public init(
+        uuid: UUID,
+        name: String = "",
+        sizeX: Int = 0,
+        sizeY: Int = 0,
+        source: MVRSource? = nil,
+        scaleHandling: MVRScaleHandling? = nil
+    ) {
+        self.uuid = uuid
+        self.name = name
+        self.sizeX = sizeX
+        self.sizeY = sizeY
+        self.source = source
+        self.scaleHandling = scaleHandling
+    }
 }
 
 /// A class for object visibility filtering across layers.
@@ -145,6 +211,11 @@ public struct MVRClass: Equatable, Sendable {
     public var uuid: UUID
     /// The name of the class.
     public var name: String
+
+    public init(uuid: UUID, name: String = "") {
+        self.uuid = uuid
+        self.name = name
+    }
 }
 
 // MARK: - Layer
@@ -159,6 +230,13 @@ public struct MVRLayer: Equatable, Sendable {
     public var matrix: Matrix?
     /// Graphical objects within this layer.
     public var childList: [MVRChildObject]
+
+    public init(uuid: UUID, name: String = "", matrix: Matrix? = nil, childList: [MVRChildObject] = []) {
+        self.uuid = uuid
+        self.name = name
+        self.matrix = matrix
+        self.childList = childList
+    }
 }
 
 // MARK: - MVRChildObject Enum
@@ -342,6 +420,50 @@ public struct MVRSceneObject: Equatable, Sendable {
     public var customIdType: Int?
     /// Nested child objects.
     public var childList: [MVRChildObject]
+
+    public init(
+        uuid: UUID,
+        name: String = "",
+        multipatch: UUID? = nil,
+        matrix: Matrix? = nil,
+        classing: UUID? = nil,
+        geometries: [MVRGeometryNode] = [],
+        gdtfSpec: String? = nil,
+        gdtfMode: String? = nil,
+        castShadow: Bool? = nil,
+        addresses: [MVRAddressEntry] = [],
+        alignments: [MVRAlignment] = [],
+        customCommands: [String] = [],
+        overwrites: [MVROverwrite] = [],
+        connections: [MVRConnection] = [],
+        fixtureID: String = "",
+        fixtureIDNumeric: Int = 0,
+        unitNumber: Int? = nil,
+        customId: Int? = nil,
+        customIdType: Int? = nil,
+        childList: [MVRChildObject] = []
+    ) {
+        self.uuid = uuid
+        self.name = name
+        self.multipatch = multipatch
+        self.matrix = matrix
+        self.classing = classing
+        self.geometries = geometries
+        self.gdtfSpec = gdtfSpec
+        self.gdtfMode = gdtfMode
+        self.castShadow = castShadow
+        self.addresses = addresses
+        self.alignments = alignments
+        self.customCommands = customCommands
+        self.overwrites = overwrites
+        self.connections = connections
+        self.fixtureID = fixtureID
+        self.fixtureIDNumeric = fixtureIDNumeric
+        self.unitNumber = unitNumber
+        self.customId = customId
+        self.customIdType = customIdType
+        self.childList = childList
+    }
 }
 
 /// A grouping object of other graphical objects inside a local coordinate system.
@@ -352,6 +474,14 @@ public struct MVRGroupObject: Equatable, Sendable {
     public var classing: UUID?
     /// Nested child objects.
     public var childList: [MVRChildObject]
+
+    public init(uuid: UUID, name: String = "", matrix: Matrix? = nil, classing: UUID? = nil, childList: [MVRChildObject] = []) {
+        self.uuid = uuid
+        self.name = name
+        self.matrix = matrix
+        self.classing = classing
+        self.childList = childList
+    }
 }
 
 /// A focus point definition.
@@ -362,6 +492,14 @@ public struct MVRFocusPoint: Equatable, Sendable {
     public var classing: UUID?
     /// Geometrical representations.
     public var geometries: [MVRGeometryNode]
+
+    public init(uuid: UUID, name: String = "", matrix: Matrix? = nil, classing: UUID? = nil, geometries: [MVRGeometryNode] = []) {
+        self.uuid = uuid
+        self.name = name
+        self.matrix = matrix
+        self.classing = classing
+        self.geometries = geometries
+    }
 }
 
 /// An entertainment fixture object.
@@ -421,6 +559,68 @@ public struct MVRFixture: Equatable, Sendable {
     public var gobo: MVRGobo?
     /// Nested child objects.
     public var childList: [MVRChildObject]
+
+    public init(
+        uuid: UUID,
+        name: String = "",
+        multipatch: UUID? = nil,
+        matrix: Matrix? = nil,
+        classing: UUID? = nil,
+        gdtfSpec: String? = nil,
+        gdtfMode: String? = nil,
+        focus: UUID? = nil,
+        castShadow: Bool? = nil,
+        dmxInvertPan: Bool? = nil,
+        dmxInvertTilt: Bool? = nil,
+        position: UUID? = nil,
+        function: String? = nil,
+        fixtureID: String = "",
+        fixtureIDNumeric: Int = 0,
+        unitNumber: Int? = nil,
+        childPosition: String? = nil,
+        addresses: [MVRAddressEntry] = [],
+        protocols: [MVRProtocol] = [],
+        alignments: [MVRAlignment] = [],
+        customCommands: [String] = [],
+        overwrites: [MVROverwrite] = [],
+        connections: [MVRConnection] = [],
+        color: ColorCIE? = nil,
+        customIdType: Int? = nil,
+        customId: Int? = nil,
+        mappings: [MVRMapping] = [],
+        gobo: MVRGobo? = nil,
+        childList: [MVRChildObject] = []
+    ) {
+        self.uuid = uuid
+        self.name = name
+        self.multipatch = multipatch
+        self.matrix = matrix
+        self.classing = classing
+        self.gdtfSpec = gdtfSpec
+        self.gdtfMode = gdtfMode
+        self.focus = focus
+        self.castShadow = castShadow
+        self.dmxInvertPan = dmxInvertPan
+        self.dmxInvertTilt = dmxInvertTilt
+        self.position = position
+        self.function = function
+        self.fixtureID = fixtureID
+        self.fixtureIDNumeric = fixtureIDNumeric
+        self.unitNumber = unitNumber
+        self.childPosition = childPosition
+        self.addresses = addresses
+        self.protocols = protocols
+        self.alignments = alignments
+        self.customCommands = customCommands
+        self.overwrites = overwrites
+        self.connections = connections
+        self.color = color
+        self.customIdType = customIdType
+        self.customId = customId
+        self.mappings = mappings
+        self.gobo = gobo
+        self.childList = childList
+    }
 }
 
 /// A truss object.
@@ -466,6 +666,56 @@ public struct MVRTruss: Equatable, Sendable {
     public var customId: Int?
     /// Nested child objects.
     public var childList: [MVRChildObject]
+
+    public init(
+        uuid: UUID,
+        name: String = "",
+        multipatch: UUID? = nil,
+        matrix: Matrix? = nil,
+        classing: UUID? = nil,
+        position: UUID? = nil,
+        geometries: [MVRGeometryNode] = [],
+        function: String? = nil,
+        gdtfSpec: String? = nil,
+        gdtfMode: String? = nil,
+        castShadow: Bool? = nil,
+        addresses: [MVRAddressEntry] = [],
+        alignments: [MVRAlignment] = [],
+        customCommands: [String] = [],
+        overwrites: [MVROverwrite] = [],
+        connections: [MVRConnection] = [],
+        childPosition: String? = nil,
+        fixtureID: String = "",
+        fixtureIDNumeric: Int = 0,
+        unitNumber: Int? = nil,
+        customIdType: Int? = nil,
+        customId: Int? = nil,
+        childList: [MVRChildObject] = []
+    ) {
+        self.uuid = uuid
+        self.name = name
+        self.multipatch = multipatch
+        self.matrix = matrix
+        self.classing = classing
+        self.position = position
+        self.geometries = geometries
+        self.function = function
+        self.gdtfSpec = gdtfSpec
+        self.gdtfMode = gdtfMode
+        self.castShadow = castShadow
+        self.addresses = addresses
+        self.alignments = alignments
+        self.customCommands = customCommands
+        self.overwrites = overwrites
+        self.connections = connections
+        self.childPosition = childPosition
+        self.fixtureID = fixtureID
+        self.fixtureIDNumeric = fixtureIDNumeric
+        self.unitNumber = unitNumber
+        self.customIdType = customIdType
+        self.customId = customId
+        self.childList = childList
+    }
 }
 
 /// A support object (base plate, hoist, chain motor, etc.).
@@ -511,6 +761,56 @@ public struct MVRSupport: Equatable, Sendable {
     public var customId: Int?
     /// Nested child objects.
     public var childList: [MVRChildObject]
+
+    public init(
+        uuid: UUID,
+        name: String = "",
+        multipatch: UUID? = nil,
+        matrix: Matrix? = nil,
+        classing: UUID? = nil,
+        position: UUID? = nil,
+        geometries: [MVRGeometryNode] = [],
+        function: String? = nil,
+        chainLength: Double = 0,
+        gdtfSpec: String? = nil,
+        gdtfMode: String? = nil,
+        castShadow: Bool? = nil,
+        addresses: [MVRAddressEntry] = [],
+        alignments: [MVRAlignment] = [],
+        customCommands: [String] = [],
+        overwrites: [MVROverwrite] = [],
+        connections: [MVRConnection] = [],
+        fixtureID: String = "",
+        fixtureIDNumeric: Int = 0,
+        unitNumber: Int? = nil,
+        customIdType: Int? = nil,
+        customId: Int? = nil,
+        childList: [MVRChildObject] = []
+    ) {
+        self.uuid = uuid
+        self.name = name
+        self.multipatch = multipatch
+        self.matrix = matrix
+        self.classing = classing
+        self.position = position
+        self.geometries = geometries
+        self.function = function
+        self.chainLength = chainLength
+        self.gdtfSpec = gdtfSpec
+        self.gdtfMode = gdtfMode
+        self.castShadow = castShadow
+        self.addresses = addresses
+        self.alignments = alignments
+        self.customCommands = customCommands
+        self.overwrites = overwrites
+        self.connections = connections
+        self.fixtureID = fixtureID
+        self.fixtureIDNumeric = fixtureIDNumeric
+        self.unitNumber = unitNumber
+        self.customIdType = customIdType
+        self.customId = customId
+        self.childList = childList
+    }
 }
 
 /// A video screen object.
@@ -554,6 +854,54 @@ public struct MVRVideoScreen: Equatable, Sendable {
     public var customId: Int?
     /// Nested child objects.
     public var childList: [MVRChildObject]
+
+    public init(
+        uuid: UUID,
+        name: String = "",
+        multipatch: UUID? = nil,
+        matrix: Matrix? = nil,
+        classing: UUID? = nil,
+        geometries: [MVRGeometryNode] = [],
+        sources: [MVRSource] = [],
+        function: String? = nil,
+        gdtfSpec: String? = nil,
+        gdtfMode: String? = nil,
+        castShadow: Bool? = nil,
+        addresses: [MVRAddressEntry] = [],
+        alignments: [MVRAlignment] = [],
+        customCommands: [String] = [],
+        overwrites: [MVROverwrite] = [],
+        connections: [MVRConnection] = [],
+        fixtureID: String = "",
+        fixtureIDNumeric: Int = 0,
+        unitNumber: Int? = nil,
+        customIdType: Int? = nil,
+        customId: Int? = nil,
+        childList: [MVRChildObject] = []
+    ) {
+        self.uuid = uuid
+        self.name = name
+        self.multipatch = multipatch
+        self.matrix = matrix
+        self.classing = classing
+        self.geometries = geometries
+        self.sources = sources
+        self.function = function
+        self.gdtfSpec = gdtfSpec
+        self.gdtfMode = gdtfMode
+        self.castShadow = castShadow
+        self.addresses = addresses
+        self.alignments = alignments
+        self.customCommands = customCommands
+        self.overwrites = overwrites
+        self.connections = connections
+        self.fixtureID = fixtureID
+        self.fixtureIDNumeric = fixtureIDNumeric
+        self.unitNumber = unitNumber
+        self.customIdType = customIdType
+        self.customId = customId
+        self.childList = childList
+    }
 }
 
 /// A video projector object.
@@ -595,6 +943,52 @@ public struct MVRProjector: Equatable, Sendable {
     public var customId: Int?
     /// Nested child objects.
     public var childList: [MVRChildObject]
+
+    public init(
+        uuid: UUID,
+        name: String = "",
+        multipatch: UUID? = nil,
+        matrix: Matrix? = nil,
+        classing: UUID? = nil,
+        geometries: [MVRGeometryNode] = [],
+        projections: [MVRProjection] = [],
+        gdtfSpec: String? = nil,
+        gdtfMode: String? = nil,
+        castShadow: Bool? = nil,
+        addresses: [MVRAddressEntry] = [],
+        alignments: [MVRAlignment] = [],
+        customCommands: [String] = [],
+        overwrites: [MVROverwrite] = [],
+        connections: [MVRConnection] = [],
+        fixtureID: String = "",
+        fixtureIDNumeric: Int = 0,
+        unitNumber: Int? = nil,
+        customIdType: Int? = nil,
+        customId: Int? = nil,
+        childList: [MVRChildObject] = []
+    ) {
+        self.uuid = uuid
+        self.name = name
+        self.multipatch = multipatch
+        self.matrix = matrix
+        self.classing = classing
+        self.geometries = geometries
+        self.projections = projections
+        self.gdtfSpec = gdtfSpec
+        self.gdtfMode = gdtfMode
+        self.castShadow = castShadow
+        self.addresses = addresses
+        self.alignments = alignments
+        self.customCommands = customCommands
+        self.overwrites = overwrites
+        self.connections = connections
+        self.fixtureID = fixtureID
+        self.fixtureIDNumeric = fixtureIDNumeric
+        self.unitNumber = unitNumber
+        self.customIdType = customIdType
+        self.customId = customId
+        self.childList = childList
+    }
 }
 
 // MARK: - Geometry Node Types
@@ -626,6 +1020,11 @@ public struct MVRGeometry3D: Equatable, Sendable {
     public var fileName: String
     /// Transform matrix for location, orientation, and scale within the local coordinate space.
     public var matrix: Matrix?
+
+    public init(fileName: String, matrix: Matrix? = nil) {
+        self.fileName = fileName
+        self.matrix = matrix
+    }
 }
 
 /// An instance of a Symdef's geometry, placed via a transform matrix.
@@ -636,6 +1035,12 @@ public struct MVRSymbol: Equatable, Sendable {
     public var symdef: UUID
     /// Transform matrix within the local coordinate space.
     public var matrix: Matrix?
+
+    public init(uuid: UUID, symdef: UUID, matrix: Matrix? = nil) {
+        self.uuid = uuid
+        self.symdef = symdef
+        self.matrix = matrix
+    }
 }
 
 // MARK: - Address Types
@@ -666,6 +1071,11 @@ public struct MVRAddress: Equatable, Sendable {
     public var `break`: Int
     /// The DMX address (universe.address or absolute).
     public var dmxAddress: DMXAddress
+
+    public init(`break`: Int = 0, dmxAddress: DMXAddress) {
+        self.break = `break`
+        self.dmxAddress = dmxAddress
+    }
 }
 
 /// A network IP address for a fixture's physical interface.
@@ -682,6 +1092,22 @@ public struct MVRNetwork: Equatable, Sendable {
     public var dhcp: Bool
     /// Hostname for automated address assignment.
     public var hostname: String?
+
+    public init(
+        geometry: String,
+        ipv4: String? = nil,
+        subnetMask: String? = nil,
+        ipv6: String? = nil,
+        dhcp: Bool = false,
+        hostname: String? = nil
+    ) {
+        self.geometry = geometry
+        self.ipv4 = ipv4
+        self.subnetMask = subnetMask
+        self.ipv6 = ipv6
+        self.dhcp = dhcp
+        self.hostname = hostname
+    }
 }
 
 // MARK: - Sub-Node Types
@@ -694,6 +1120,12 @@ public struct MVRAlignment: Equatable, Sendable {
     public var up: Vector3
     /// Direction vector of the lamp.
     public var direction: Vector3
+
+    public init(geometry: String, up: Vector3, direction: Vector3) {
+        self.geometry = geometry
+        self.up = up
+        self.direction = direction
+    }
 }
 
 /// An overwrite using the Universal.gdtt template to replace wheel slots, emitters, or filters.
@@ -702,6 +1134,11 @@ public struct MVROverwrite: Equatable, Sendable {
     public var universal: String
     /// Node link to the target in the fixture's GDTF. Empty means a static gobo/filter in front of all beams.
     public var target: String?
+
+    public init(universal: String, target: String? = nil) {
+        self.universal = universal
+        self.target = target
+    }
 }
 
 /// A connection between two scene objects (electrical or data).
@@ -712,6 +1149,12 @@ public struct MVRConnection: Equatable, Sendable {
     public var toObject: UUID
     /// Node link to a WiringObject geometry in the other object's GDTF.
     public var other: String
+
+    public init(own: String, toObject: UUID, other: String) {
+        self.own = own
+        self.toObject = toObject
+        self.other = other
+    }
 }
 
 /// A protocol assignment for a fixture.
@@ -726,6 +1169,14 @@ public struct MVRProtocol: Equatable, Sendable {
     public var version: String
     /// Transmission type.
     public var transmission: MVRTransmission?
+
+    public init(geometry: String = "NetworkInOut_1", name: String = "", type: String = "", version: String = "", transmission: MVRTransmission? = nil) {
+        self.geometry = geometry
+        self.name = name
+        self.type = type
+        self.version = version
+        self.transmission = transmission
+    }
 }
 
 /// A fixture-to-mapping-definition mapping.
@@ -742,6 +1193,15 @@ public struct MVRMapping: Equatable, Sendable {
     public var oy: Int?
     /// Rotation around the middle point in degrees (positive = counter-clockwise).
     public var rz: Double?
+
+    public init(linkedDef: UUID, ux: Int? = nil, uy: Int? = nil, ox: Int? = nil, oy: Int? = nil, rz: Double? = nil) {
+        self.linkedDef = linkedDef
+        self.ux = ux
+        self.uy = uy
+        self.ox = ox
+        self.oy = oy
+        self.rz = rz
+    }
 }
 
 /// A gobo assigned to a fixture.
@@ -750,6 +1210,11 @@ public struct MVRGobo: Equatable, Sendable {
     public var rotation: Double
     /// File name of the gobo image resource (must conform to GDTF standard).
     public var fileName: String
+
+    public init(rotation: Double = 0, fileName: String) {
+        self.rotation = rotation
+        self.fileName = fileName
+    }
 }
 
 /// A video source for video screens or projections.
@@ -761,6 +1226,12 @@ public struct MVRSource: Equatable, Sendable {
     public var type: MVRSourceType
     /// Source value: stream name (NDI/CITP), filename (File), or device name (CaptureDevice).
     public var value: String
+
+    public init(linkedGeometry: String, type: MVRSourceType = .file, value: String = "") {
+        self.linkedGeometry = linkedGeometry
+        self.type = type
+        self.value = value
+    }
 }
 
 /// A projection definition for a projector.
@@ -769,6 +1240,11 @@ public struct MVRProjection: Equatable, Sendable {
     public var sources: [MVRSource]
     /// How the source will be scaled to the projection.
     public var scaleHandling: MVRScaleHandling?
+
+    public init(sources: [MVRSource] = [], scaleHandling: MVRScaleHandling? = nil) {
+        self.sources = sources
+        self.scaleHandling = scaleHandling
+    }
 }
 
 // MARK: - Value Enums
@@ -829,4 +1305,31 @@ extension Matrix {
             .init(values[9], values[10], values[11], 1)
         )
     }
+
+    /// Serializes this matrix to the MVR 4×3 format: `{u1,u2,u3}{v1,v2,v3}{w1,w2,w3}{o1,o2,o3}`.
+    ///
+    /// Each SIMD column becomes one `{...}` group (matching the decode convention).
+    public var mvrString: String {
+        let m = matrix
+        func f(_ v: Double) -> String { mvrDoubleToString(v) }
+        return "{\(f(m[0][0])),\(f(m[0][1])),\(f(m[0][2]))}{\(f(m[1][0])),\(f(m[1][1])),\(f(m[1][2]))}{\(f(m[2][0])),\(f(m[2][1])),\(f(m[2][2]))}{\(f(m[3][0])),\(f(m[3][1])),\(f(m[3][2]))}"
+    }
+}
+
+/// Formats a Double for MVR output, preserving enough precision for lossless round-trips
+/// while avoiding unnecessary trailing zeros.
+func mvrDoubleToString(_ v: Double) -> String {
+    if v == 0 { return "0" }
+    // Use enough significant digits to round-trip a Double through decimal text.
+    // 17 significant digits guarantees exact round-trip for any Double.
+    var s = String(v)
+    // Swift's String(Double) uses enough precision for exact round-trip and avoids
+    // scientific notation for most values, but may produce "1e-08" etc for very
+    // small numbers. The MVR parser handles scientific notation via Double($0),
+    // so this is fine.
+    // However, strip ".0" suffix for clean integers
+    if s.hasSuffix(".0") {
+        s = String(s.dropLast(2))
+    }
+    return s
 }

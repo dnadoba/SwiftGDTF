@@ -79,5 +79,24 @@ public struct MVRArchive: Sendable {
         let gdtf = try loadGDTF(data: gdtfData)
         return (gdtf, gdtfData)
     }
+
+    /// Re-encodes the archive with the original scene and resources.
+    ///
+    /// - Returns: The raw bytes of the .mvr file.
+    public func encode() throws -> Data {
+        try encode(scene: scene)
+    }
+
+    /// Re-encodes the archive with a modified scene but the original resources.
+    ///
+    /// - Parameter scene: The modified scene to encode.
+    /// - Returns: The raw bytes of the .mvr file.
+    public func encode(scene: MVRScene) throws -> Data {
+        var resources: [String: Data] = [:]
+        for name in try resourceNames {
+            resources[name] = try extractResource(named: name)
+        }
+        return try encodeMVR(scene: scene, resources: resources)
+    }
 }
 

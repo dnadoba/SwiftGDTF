@@ -221,6 +221,16 @@ public enum RelationType: String, Codable, Sendable {
 public struct DMXAddress: Codable, Equatable, Sendable {
     public var universe: Int
     public var address: Int
+
+    public init(universe: Int = 1, address: Int = 0) {
+        self.universe = universe
+        self.address = address
+    }
+
+    /// Serializes to MVR format: `"universe.address"`.
+    public var mvrString: String {
+        "\(universe).\(address)"
+    }
 }
 
 extension DMXAddress {
@@ -295,17 +305,22 @@ public struct ColorCIE: Codable, Equatable, Sendable {
 }
 
 extension ColorCIE {
-    init(from rawValue: String) {        
+    init(from rawValue: String) {
         let split: [Double] = rawValue.split(separator: ",").map { Double($0) ?? 0 }
-        
+
         self.x = split[0]
         self.y = split[1]
-        
+
         if (split.count == 3) {
             self.Y = split[2] > 1 ? split[2] / 100 : split[2]
         } else {
             self.Y = 1.0
         }
+    }
+
+    /// Serializes to MVR format: `"x,y,Y"`.
+    public var mvrString: String {
+        "\(x),\(y),\(Y)"
     }
 }
 
@@ -444,9 +459,14 @@ extension Vector3 {
         var strNumbers = rawValue
         strNumbers = strNumbers.replacingOccurrences(of: "{", with: "")
         strNumbers = strNumbers.replacingOccurrences(of: "}", with: "")
-        
+
         let numbers: [Double] = strNumbers.split(separator: ",").map{ Double($0) ?? 0 }
         try self.init(from: numbers)
+    }
+
+    /// Serializes to MVR format: `"x,y,z"`.
+    public var mvrString: String {
+        "\(vector.x),\(vector.y),\(vector.z)"
     }
 }
 

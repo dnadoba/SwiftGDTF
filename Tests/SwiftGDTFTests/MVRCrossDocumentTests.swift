@@ -27,33 +27,54 @@ func simulateCopyPaste(
     let selectedObjects = selectedIDs.compactMap { objectMap[$0] }
     guard !selectedObjects.isEmpty else { throw TestError.noSelection }
 
-    // 2. Create clipboard MVR with selected objects + resources
-    let clipScene = MVRScene(scene: MVRSceneNode(
-        auxData: MVRAUXData(),
-        layers: [MVRLayer(uuid: UUID(), name: "_clipboard", childList: selectedObjects)]
-    ))
+    // 2. Build symdef index for resolving symbol geometry
+    var symdefIndex: [UUID: MVRSymdef] = [:]
+    for sd in sourceScene.scene.auxData.symdefs { symdefIndex[sd.uuid] = sd }
 
-    // Collect resources needed by these objects
+    // Collect resources (resolving symbols → symdefs → geometry3D)
     var resources: [String: Data] = [:]
-    for obj in selectedObjects {
-        if let spec = obj.gdtfSpec {
-            let specWithExt = spec.hasSuffix(".gdtf") ? spec : spec + ".gdtf"
-            if let data = try? sourceArchive.extractResource(named: specWithExt) {
-                resources[specWithExt] = data
-            } else if let data = try? sourceArchive.extractResource(named: spec) {
-                resources[spec] = data
-            }
-        }
-        // Also collect geometry resources
-        for geo in obj.geometries {
-            if case .geometry3D(let g) = geo {
+    var neededSymdefs: [MVRSymdef] = []
+
+    func collectGeoResources(_ geos: [MVRGeometryNode]) {
+        for geo in geos {
+            switch geo {
+            case .geometry3D(let g):
                 let name = g.fileName.contains(".") ? g.fileName : g.fileName + ".3ds"
-                if let data = try? sourceArchive.extractResource(named: name) {
+                if resources[name] == nil, let data = try? sourceArchive.extractResource(named: name) {
                     resources[name] = data
+                }
+            case .symbol(let sym):
+                if let sd = symdefIndex[sym.symdef] {
+                    if !neededSymdefs.contains(where: { $0.uuid == sd.uuid }) {
+                        neededSymdefs.append(sd)
+                    }
+                    collectGeoResources(sd.children)
                 }
             }
         }
     }
+
+    func collectResources(_ objs: [MVRChildObject]) {
+        for obj in objs {
+            if let spec = obj.gdtfSpec {
+                let specWithExt = spec.hasSuffix(".gdtf") ? spec : spec + ".gdtf"
+                if let data = try? sourceArchive.extractResource(named: specWithExt) {
+                    resources[specWithExt] = data
+                } else if let data = try? sourceArchive.extractResource(named: spec) {
+                    resources[spec] = data
+                }
+            }
+            collectGeoResources(obj.geometries)
+            collectResources(obj.childList)
+        }
+    }
+    collectResources(selectedObjects)
+
+    // Create clipboard scene with symdefs
+    let clipScene = MVRScene(scene: MVRSceneNode(
+        auxData: MVRAUXData(symdefs: neededSymdefs),
+        layers: [MVRLayer(uuid: UUID(), name: "_clipboard", childList: selectedObjects)]
+    ))
 
     let clipData = try encodeMVR(scene: clipScene, resources: resources)
     let clipArchive = try MVRArchive(data: clipData)
@@ -69,6 +90,14 @@ func simulateCopyPaste(
 
     var result = targetScene
     guard !result.scene.layers.isEmpty else { throw TestError.noTargetLayer }
+
+    // Merge symdefs from clipboard into target scene
+    for sd in decodedScene.scene.auxData.symdefs {
+        if !result.scene.auxData.symdefs.contains(where: { $0.uuid == sd.uuid }) {
+            result.scene.auxData.symdefs.append(sd)
+        }
+    }
+
     result.scene.layers[0].childList.append(contentsOf: pastedObjects)
 
     return (result, clipArchive)
@@ -225,6 +254,126 @@ struct CrossDocumentCopyPasteTests {
         #expect(pastedGroup != nil, "No group was pasted")
         #expect(pastedGroup!.childList.count == groupObj.childList.count,
                 "Group children count: \(pastedGroup!.childList.count) vs \(groupObj.childList.count)")
+    }
+
+    @Test("Paste curtain (symbol geometry) from Demostage includes GLB resources")
+    func pasteCurtainWithSymbolGeometry() throws {
+        let url = Bundle.module.url(forResource: "Demostage_MVR", withExtension: "mvr", subdirectory: "MVRTestFixtures")!
+        let sourceArchive = try MVRArchive(url: url)
+        let sourceScene = sourceArchive.scene
+
+        // Find the first Curtain object
+        var curtainObj: MVRChildObject?
+        for layer in sourceScene.scene.layers {
+            for child in layer.childList {
+                if child.name == "Curtain" { curtainObj = child; break }
+            }
+            if curtainObj != nil { break }
+        }
+        guard let curtain = curtainObj else {
+            Issue.record("No Curtain found in Demostage")
+            return
+        }
+
+        // Verify the curtain has symbol geometry
+        #expect(!curtain.geometries.isEmpty, "Curtain has no geometries")
+        guard case .symbol(let sym) = curtain.geometries.first else {
+            Issue.record("Curtain geometry is not a symbol reference")
+            return
+        }
+
+        // Verify the symdef exists
+        let symdef = sourceScene.scene.auxData.symdefs.first(where: { $0.uuid == sym.symdef })
+        #expect(symdef != nil, "Symdef \(sym.symdef) not found in auxData")
+
+        // Verify the symdef has geometry3D children
+        let geo3DFiles: [String] = symdef!.children.compactMap {
+            if case .geometry3D(let g) = $0 { return g.fileName }
+            return nil
+        }
+        #expect(!geo3DFiles.isEmpty, "Symdef has no Geometry3D children")
+        print("Curtain symdef has \(geo3DFiles.count) GLB files: \(geo3DFiles.map { ($0 as NSString).lastPathComponent })")
+
+        // Verify the GLB files exist in the source archive
+        for fileName in geo3DFiles {
+            let data = try? sourceArchive.extractResource(named: fileName)
+            #expect(data != nil, "GLB file '\(fileName)' not extractable from source archive")
+            if let data { print("  \(fileName): \(data.count) bytes") }
+        }
+
+        // Now simulate copy/paste
+        let (result, clipArchive) = try simulateCopyPaste(
+            sourceScene: sourceScene, sourceArchive: sourceArchive,
+            selectedIDs: [curtain.uuid],
+            targetScene: MVRScene(scene: MVRSceneNode(auxData: MVRAUXData(),
+                                                       layers: [MVRLayer(uuid: UUID(), name: "Target")]))
+        )
+
+        // Verify the pasted scene has the curtain
+        let pastedCurtain = result.scene.layers[0].childList.first
+        #expect(pastedCurtain != nil, "Nothing was pasted")
+        #expect(pastedCurtain?.name == "Curtain", "Pasted object is not Curtain: \(pastedCurtain?.name ?? "nil")")
+
+        // Verify the clipboard archive has the GLB resources
+        let clipResources = try clipArchive.resourceNames
+        print("Clipboard resources: \(clipResources)")
+        for fileName in geo3DFiles {
+            let hasResource = clipResources.contains(fileName)
+            #expect(hasResource, "Clipboard missing GLB '\(fileName)'. Has: \(clipResources)")
+        }
+
+        // Verify the pasted scene has the symdef
+        let pastedSymdef = result.scene.auxData.symdefs.first(where: { $0.uuid == sym.symdef })
+        #expect(pastedSymdef != nil, "Symdef not in pasted scene's auxData")
+
+        // Verify the GLB data is loadable from the clipboard archive
+        for fileName in geo3DFiles {
+            let data = try? clipArchive.extractResource(named: fileName)
+            #expect(data != nil && data!.count > 0, "Cannot extract '\(fileName)' from clipboard")
+            if let data {
+                let parsed = try? GLBFile.parse(data: data)
+                #expect(parsed != nil, "Cannot parse GLB '\(fileName)' (\(data.count) bytes)")
+            }
+        }
+    }
+
+    @Test("Paste stage geometry (D6B48338) from Demostage")
+    func pasteStageGeometry() throws {
+        let url = Bundle.module.url(forResource: "Demostage_MVR", withExtension: "mvr", subdirectory: "MVRTestFixtures")!
+        let sourceArchive = try MVRArchive(url: url)
+        let sourceScene = sourceArchive.scene
+
+        // Find the target UUID
+        let targetUUID = UUID(uuidString: "D6B48338-16D2-440F-8BA6-A3D5834E7542")!
+        var stageObj: MVRChildObject?
+        for layer in sourceScene.scene.layers {
+            for child in layer.childList {
+                if child.uuid == targetUUID { stageObj = child; break }
+            }
+            if stageObj != nil { break }
+        }
+        guard let stage = stageObj else {
+            Issue.record("Stage object not found")
+            return
+        }
+
+        print("Stage: \(stage.kind.rawValue) \"\(stage.name)\" geometries=\(stage.geometries.count)")
+
+        let (result, clipArchive) = try simulateCopyPaste(
+            sourceScene: sourceScene, sourceArchive: sourceArchive,
+            selectedIDs: [targetUUID],
+            targetScene: MVRScene(scene: MVRSceneNode(auxData: MVRAUXData(),
+                                                       layers: [MVRLayer(uuid: UUID(), name: "Target")]))
+        )
+
+        // Verify clipboard has resources
+        let clipResources = try clipArchive.resourceNames
+        let glbFiles = clipResources.filter { $0.hasSuffix(".glb") }
+        print("Clipboard has \(glbFiles.count) GLB files")
+        #expect(!glbFiles.isEmpty, "No GLB files in clipboard for stage object")
+
+        // Verify pasted scene has symdefs
+        #expect(!result.scene.auxData.symdefs.isEmpty, "No symdefs in pasted scene")
     }
 
     @Test("Paste across ALL test fixtures — resources roundtrip", arguments: allMVRTestFixtures)

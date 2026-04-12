@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import SceneKit
 import simd
@@ -351,3 +352,4 @@ public struct MVRSceneKitBuilder {
         return img
     }
 }
+#endif

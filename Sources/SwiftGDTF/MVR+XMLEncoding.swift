@@ -6,6 +6,7 @@
 //  Uses Foundation.XMLElement (not SWXMLHash which is read-only).
 //
 
+#if os(macOS)
 import Foundation
 
 // MARK: - Root Types
@@ -671,3 +672,4 @@ extension MVRProjector {
         return node
     }
 }
+#endif

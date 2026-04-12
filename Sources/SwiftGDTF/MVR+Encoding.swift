@@ -5,6 +5,7 @@
 //  Public API for encoding MVR scenes to ZIP archives.
 //
 
+#if os(macOS)
 import Foundation
 import ZIPFoundation
 
@@ -79,3 +80,4 @@ public func encodeMVR(scene: MVRScene, resources: [String: Data], to url: URL) t
     let data = try encodeMVR(scene: scene, resources: resources)
     try data.write(to: url)
 }
+#endif

@@ -80,6 +80,7 @@ public struct MVRArchive: Sendable {
         return (gdtf, gdtfData)
     }
 
+    #if os(macOS)
     /// Re-encodes the archive with the original scene and resources.
     ///
     /// - Returns: The raw bytes of the .mvr file.
@@ -98,5 +99,6 @@ public struct MVRArchive: Sendable {
         }
         return try encodeMVR(scene: scene, resources: resources)
     }
+    #endif
 }
 

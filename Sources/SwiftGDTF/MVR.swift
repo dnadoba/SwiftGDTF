@@ -35,27 +35,20 @@ public enum MVRParsingError: Error, CustomStringConvertible {
     case elementMissing
     case attributeMissing(named: String, element: String)
     case invalidMatrix(String)
-    case invalidUUID(String)
     case unexpectedElement(String)
     case missingChildElement(String)
-    case invalidBool(value: String, field: String)
-    case invalidInteger(value: String, field: String)
-    case invalidFloat(value: String, field: String)
-    /// `multipatch` and `<FixtureID>`/`<CustomId>` are mutually exclusive.
-    case multipatchExcludesFixtureID(objectType: String, uuid: UUID)
+    /// A `<FixtureID>` or `<CustomId>` element appeared on an object whose
+    /// `multipatch` attribute is set. Per spec these are mutually exclusive.
+    case multipatchExcludesFixtureID(objectType: String, uuid: UUID, conflicting: String)
 
     public var description: String {
         switch self {
         case .elementMissing: "XML element missing"
         case .attributeMissing(let name, let element): "Required attribute '\(name)' missing on <\(element)>"
         case .invalidMatrix(let value): "Invalid MVR matrix: '\(value)'"
-        case .invalidUUID(let value): "Invalid UUID: '\(value)'"
         case .unexpectedElement(let name): "Unexpected element: <\(name)>"
         case .missingChildElement(let name): "Missing required child element <\(name)>"
-        case .invalidBool(let v, let f): "Invalid bool value '\(v)' for field '\(f)' (expected true/false/1/0/on/off/yes/no)"
-        case .invalidInteger(let v, let f): "Invalid integer value '\(v)' for field '\(f)'"
-        case .invalidFloat(let v, let f): "Invalid float value '\(v)' for field '\(f)'"
-        case .multipatchExcludesFixtureID(let t, let u): "<\(t) uuid=\"\(u)\"> has multipatch attribute set; FixtureID and CustomId must be empty"
+        case .multipatchExcludesFixtureID(let t, let u, let c): "<\(t) uuid=\"\(u)\"> has multipatch attribute set; <\(c)> is not allowed"
         }
     }
 }

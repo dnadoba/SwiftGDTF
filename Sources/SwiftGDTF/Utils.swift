@@ -14,12 +14,13 @@ public enum XMLParsingError: Error, @unchecked Sendable {
     case childNotFound(named: String, at: String)
     case initialFunctionPathInvalid(String)
     case enumCastFailed(enumType: String, stringValue: String)
-    case invalidUUID(text: String)
+    case invalidUUID(text: String, field: String)
     case nodeResolutionFailed(path: String)
     case noChildren(in: String)
     case failedToParseString
-    case failedToParseDouble(String)
-    case failedToParseInt(String)
+    case failedToParseDouble(text: String, field: String)
+    case failedToParseInt(text: String, field: String)
+    case failedToParseBool(text: String, field: String)
     case unexpectedGeometryType(String)
     case unexpectedProtocolType(String)
     case missingWheel(String)
@@ -195,24 +196,24 @@ extension XMLAttribute {
     var double: Double? {
         return Double(self.text)
     }
-    
+
     var requiredDouble: Double {
         get throws {
             guard let double = Double(self.text) else {
-                throw XMLParsingError.failedToParseDouble(self.text)
+                throw XMLParsingError.failedToParseDouble(text: self.text, field: self.name)
             }
             return double
         }
     }
-    
+
     var int: Int? {
         return Int(self.text)
     }
-    
+
     var requiredInt: Int {
         get throws {
             guard let double = Int(self.text) else {
-                throw XMLParsingError.failedToParseInt(self.text)
+                throw XMLParsingError.failedToParseInt(text: self.text, field: self.name)
             }
             return double
         }
@@ -221,23 +222,23 @@ extension XMLAttribute {
     var uuid: UUID {
         get throws {
             guard let uuid = UUID(uuidString: text) else {
-                throw XMLParsingError.invalidUUID(text: text)
+                throw XMLParsingError.invalidUUID(text: text, field: self.name)
             }
             return uuid
         }
     }
-    
+
     func toEnum<T: RawRepresentable>() throws -> T {
         guard let raw = self.text as? T.RawValue, let enumValue = T(rawValue: raw) else {
             throw XMLParsingError.enumCastFailed(enumType: String(describing: T.self), stringValue: self.text)
         }
-        
+
         return enumValue
     }
-    
+
     func requiredHexInt<Integer: FixedWidthInteger & BinaryInteger>() throws -> Integer {
         guard text.hasPrefix("0x"), let integer = Integer.init(text.dropFirst(2), radix: 16) else {
-            throw XMLParsingError.failedToParseInt(self.text)
+            throw XMLParsingError.failedToParseInt(text: self.text, field: self.name)
         }
         return integer
     }

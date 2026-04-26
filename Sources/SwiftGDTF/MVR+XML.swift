@@ -9,72 +9,110 @@
 import Foundation
 import SWXMLHash
 
-// MARK: - Scalar Parsing Helpers
+// MARK: - Scalar Parsing Extensions
 
-/// Parses an MVR boolean string. Spec uses "true"/"false" but real-world files
-/// use 1/0, on/off, yes/no with mixed casing. Throws on unrecognized values.
-func parseMVRBool(_ text: String, field: String) throws -> Bool {
+/// MVR uses several scalar formats more permissively than the spec strictly
+/// requires (Bool accepts true/1/on/yes, ints can carry whitespace). These
+/// extensions throw `XMLParsingError` carrying the field name (taken from the
+/// attribute or element name) so failure messages always identify what broke.
+extension XMLAttribute {
+    /// Parses an attribute as a Bool, accepting true/false/1/0/on/off/yes/no
+    /// (case-insensitive). The attribute name is used as the error field.
+    var requiredBool: Bool {
+        get throws {
+            try parseBool(text: text, field: name)
+        }
+    }
+
+    /// Parses an optional attribute as a UUID. Returns nil only when the
+    /// attribute itself is absent (use `nil` chaining); a present-but-malformed
+    /// value throws `XMLParsingError.invalidUUID`.
+    var optionalUUID: UUID? {
+        get throws {
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return nil }
+            guard let uuid = UUID(uuidString: trimmed) else {
+                throw XMLParsingError.invalidUUID(text: trimmed, field: name)
+            }
+            return uuid
+        }
+    }
+}
+
+extension SWXMLHash.XMLElement {
+    /// Element text trimmed of surrounding whitespace.
+    fileprivate var trimmedText: String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Parses the element's text as a required Int. Element name is the error field.
+    var requiredInt: Int {
+        get throws {
+            let raw = trimmedText
+            guard !raw.isEmpty else {
+                throw XMLParsingError.failedToParseInt(text: text, field: name)
+            }
+            guard let value = Int(raw) else {
+                throw XMLParsingError.failedToParseInt(text: raw, field: name)
+            }
+            return value
+        }
+    }
+
+    /// Parses the element's text as an Int, returning nil if empty.
+    var optionalInt: Int? {
+        get throws {
+            let raw = trimmedText
+            guard !raw.isEmpty else { return nil }
+            guard let value = Int(raw) else {
+                throw XMLParsingError.failedToParseInt(text: raw, field: name)
+            }
+            return value
+        }
+    }
+
+    /// Parses the element's text as a Double, returning nil if empty.
+    var optionalDouble: Double? {
+        get throws {
+            let raw = trimmedText
+            guard !raw.isEmpty else { return nil }
+            guard let value = Double(raw) else {
+                throw XMLParsingError.failedToParseDouble(text: raw, field: name)
+            }
+            return value
+        }
+    }
+
+    /// Parses the element's text as a Bool, returning nil if empty.
+    /// Accepts true/false/1/0/on/off/yes/no, case-insensitive.
+    var optionalBool: Bool? {
+        get throws {
+            let raw = trimmedText
+            guard !raw.isEmpty else { return nil }
+            return try parseBool(text: raw, field: name)
+        }
+    }
+
+    /// Parses the element's text as a UUID, returning nil if empty.
+    var optionalUUID: UUID? {
+        get throws {
+            let raw = trimmedText
+            guard !raw.isEmpty else { return nil }
+            guard let uuid = UUID(uuidString: raw) else {
+                throw XMLParsingError.invalidUUID(text: raw, field: name)
+            }
+            return uuid
+        }
+    }
+}
+
+/// Shared bool parser for both element text and attribute text.
+private func parseBool(text: String, field: String) throws -> Bool {
     switch text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
     case "true", "1", "on", "yes": return true
     case "false", "0", "off", "no": return false
-    default: throw MVRParsingError.invalidBool(value: text, field: field)
+    default: throw XMLParsingError.failedToParseBool(text: text, field: field)
     }
-}
-
-/// Parses an optional bool element. Returns nil if text is absent or empty.
-/// Throws if text is non-empty but unparseable.
-func parseMVRBoolOptional(_ text: String?, field: String) throws -> Bool? {
-    guard let raw = text?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
-        return nil
-    }
-    return try parseMVRBool(raw, field: field)
-}
-
-/// Parses a required integer. Throws on missing/empty/malformed input.
-func parseMVRInt(_ text: String?, field: String) throws -> Int {
-    guard let raw = text?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
-        throw MVRParsingError.invalidInteger(value: text ?? "", field: field)
-    }
-    guard let value = Int(raw) else {
-        throw MVRParsingError.invalidInteger(value: raw, field: field)
-    }
-    return value
-}
-
-/// Parses an optional integer. Returns nil if text is absent or empty.
-/// Throws if text is non-empty but unparseable.
-func parseMVRIntOptional(_ text: String?, field: String) throws -> Int? {
-    guard let raw = text?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
-        return nil
-    }
-    guard let value = Int(raw) else {
-        throw MVRParsingError.invalidInteger(value: raw, field: field)
-    }
-    return value
-}
-
-/// Parses an optional double. Returns nil if text is absent or empty.
-/// Throws if text is non-empty but unparseable.
-func parseMVRDoubleOptional(_ text: String?, field: String) throws -> Double? {
-    guard let raw = text?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
-        return nil
-    }
-    guard let value = Double(raw) else {
-        throw MVRParsingError.invalidFloat(value: raw, field: field)
-    }
-    return value
-}
-
-/// Parses an optional UUID attribute. Returns nil if attribute absent.
-/// Throws if attribute present but malformed.
-func parseMVROptionalUUID(_ text: String?, field: String) throws -> UUID? {
-    guard let raw = text?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
-        return nil
-    }
-    guard let uuid = UUID(uuidString: raw) else {
-        throw MVRParsingError.invalidUUID(raw)
-    }
-    return uuid
 }
 
 // MARK: - Root Parsing
@@ -211,8 +249,8 @@ extension MVRMappingDefinition {
         for child in xml.children {
             guard let name = child.element?.name else { continue }
             switch name {
-            case "SizeX": sizeX = try parseMVRInt(child.element?.text, field: "MappingDefinition/SizeX")
-            case "SizeY": sizeY = try parseMVRInt(child.element?.text, field: "MappingDefinition/SizeY")
+            case "SizeX": sizeX = try child.element.map { try $0.requiredInt } ?? 0
+            case "SizeY": sizeY = try child.element.map { try $0.requiredInt } ?? 0
             case "Source": source = try MVRSource(xml: child)
             case "ScaleHandeling": scaleHandling = MVRScaleHandling(rawValue: child.element?.text ?? "")
             default: break
@@ -350,8 +388,8 @@ extension MVRNetwork {
         self.ipv4 = element.attribute(by: "IPv4")?.text ?? element.attribute(by: "ipv4")?.text
         self.subnetMask = element.attribute(by: "SubnetMask")?.text ?? element.attribute(by: "subnetmask")?.text
         self.ipv6 = element.attribute(by: "IPv6")?.text ?? element.attribute(by: "ipv6")?.text
-        let dhcpText = element.attribute(by: "DHCP")?.text ?? element.attribute(by: "dhcp")?.text
-        self.dhcp = try parseMVRBoolOptional(dhcpText, field: "Network/DHCP") ?? false
+        let dhcpAttr = element.attribute(by: "DHCP") ?? element.attribute(by: "dhcp")
+        self.dhcp = try dhcpAttr?.requiredBool ?? false
         self.hostname = element.attribute(by: "hostname")?.text ?? element.attribute(by: "Hostname")?.text
     }
 }
@@ -380,11 +418,7 @@ extension MVRConnection {
     init(xml: XMLIndexer) throws {
         guard let element = xml.element else { throw MVRParsingError.elementMissing }
         self.own = element.attribute(by: "own")?.text ?? ""
-        let uuidText = element.attribute(by: "toObject")?.text ?? ""
-        guard let uuid = UUID(uuidString: uuidText) else {
-            throw MVRParsingError.invalidUUID(uuidText)
-        }
-        self.toObject = uuid
+        self.toObject = try element.attribute(named: "toObject").uuid
         self.other = element.attribute(by: "other")?.text ?? ""
     }
 }
@@ -403,21 +437,17 @@ extension MVRProtocol {
 extension MVRMapping {
     init(xml: XMLIndexer) throws {
         guard let element = xml.element else { throw MVRParsingError.elementMissing }
-        let uuidText = element.attribute(by: "linkedDef")?.text ?? ""
-        guard let uuid = UUID(uuidString: uuidText) else {
-            throw MVRParsingError.invalidUUID(uuidText)
-        }
-        self.linkedDef = uuid
+        self.linkedDef = try element.attribute(named: "linkedDef").uuid
 
         var ux: Int?, uy: Int?, ox: Int?, oy: Int?, rz: Double?
         for child in xml.children {
-            guard let name = child.element?.name else { continue }
-            switch name {
-            case "ux": ux = try parseMVRIntOptional(child.element?.text, field: "Mapping/ux")
-            case "uy": uy = try parseMVRIntOptional(child.element?.text, field: "Mapping/uy")
-            case "ox": ox = try parseMVRIntOptional(child.element?.text, field: "Mapping/ox")
-            case "oy": oy = try parseMVRIntOptional(child.element?.text, field: "Mapping/oy")
-            case "rz": rz = try parseMVRDoubleOptional(child.element?.text, field: "Mapping/rz")
+            guard let elem = child.element else { continue }
+            switch elem.name {
+            case "ux": ux = try elem.optionalInt
+            case "uy": uy = try elem.optionalInt
+            case "ox": ox = try elem.optionalInt
+            case "oy": oy = try elem.optionalInt
+            case "rz": rz = try elem.optionalDouble
             default: break
             }
         }
@@ -506,14 +536,27 @@ private struct ParametricObjectChildren {
     // Support-specific
     var chainLength: Double = 0
 
-    init(xml: XMLIndexer) throws {
+    /// - Parameters:
+    ///   - xml: the parent parametric object element.
+    ///   - objectType: the parent element name (e.g. "Fixture"); used for error
+    ///     reporting on the multipatch exclusivity check.
+    ///   - uuid: the parent's UUID; included in the multipatch error.
+    ///   - multipatch: the parent's `multipatch` attribute (if any). When set,
+    ///     parsing rejects any `<FixtureID>`/`<CustomId>` children since the spec
+    ///     marks them as mutually exclusive.
+    ///
+    /// Spec also requires `<GDTFMode>` whenever `<GDTFSpec>` is present and
+    /// `<UnitNumber>` on every Fixture, but real-world MVR exports from major
+    /// vendors (grandMA3, Vectorworks, Capture) routinely omit both — we accept
+    /// those rather than rejecting the file.
+    init(xml: XMLIndexer, objectType: String, uuid: UUID, multipatch: UUID?) throws {
         for child in xml.children {
             guard let elem = child.element else { continue }
             switch elem.name {
             case "Matrix":
                 self.matrix = try Matrix(fromMVR: elem.text)
             case "Classing":
-                self.classing = try parseMVROptionalUUID(elem.text, field: "Classing")
+                self.classing = try elem.optionalUUID
             case "Geometries":
                 self.geometries = try child.children.compactMap { geoChild in
                     guard let geoElem = geoChild.element,
@@ -527,7 +570,7 @@ private struct ParametricObjectChildren {
                 let text = elem.text.trimmingCharacters(in: .whitespacesAndNewlines)
                 self.gdtfMode = text.isEmpty ? nil : text
             case "CastShadow":
-                self.castShadow = try parseMVRBoolOptional(elem.text, field: "CastShadow")
+                self.castShadow = try elem.optionalBool
             case "Addresses":
                 self.addresses = try child.children.compactMap { addrChild in
                     guard let addrElem = addrChild.element,
@@ -555,27 +598,34 @@ private struct ParametricObjectChildren {
                     return try MVRConnection(xml: c)
                 }
             case "FixtureID":
+                if multipatch != nil && !elem.text.isEmpty {
+                    throw MVRParsingError.multipatchExcludesFixtureID(objectType: objectType, uuid: uuid, conflicting: "FixtureID")
+                }
                 self.fixtureID = elem.text
             case "FixtureIDNumeric":
-                self.fixtureIDNumeric = try parseMVRInt(elem.text, field: "FixtureIDNumeric")
+                self.fixtureIDNumeric = try elem.requiredInt
             case "UnitNumber":
-                self.unitNumber = try parseMVRInt(elem.text, field: "UnitNumber")
+                self.unitNumber = try elem.requiredInt
             case "CustomId":
-                self.customId = try parseMVRIntOptional(elem.text, field: "CustomId")
+                let value = try elem.optionalInt
+                if multipatch != nil && value != nil {
+                    throw MVRParsingError.multipatchExcludesFixtureID(objectType: objectType, uuid: uuid, conflicting: "CustomId")
+                }
+                self.customId = value
             case "CustomIdType":
-                self.customIdType = try parseMVRIntOptional(elem.text, field: "CustomIdType")
+                self.customIdType = try elem.optionalInt
             case "ChildList":
                 self.childList = try parseChildList(xml: child)
 
             // Fixture-specific
             case "Focus":
-                self.focus = try parseMVROptionalUUID(elem.text, field: "Focus")
+                self.focus = try elem.optionalUUID
             case "DMXInvertPan":
-                self.dmxInvertPan = try parseMVRBoolOptional(elem.text, field: "DMXInvertPan")
+                self.dmxInvertPan = try elem.optionalBool
             case "DMXInvertTilt":
-                self.dmxInvertTilt = try parseMVRBoolOptional(elem.text, field: "DMXInvertTilt")
+                self.dmxInvertTilt = try elem.optionalBool
             case "Position":
-                self.position = try parseMVROptionalUUID(elem.text, field: "Position")
+                self.position = try elem.optionalUUID
             case "Function":
                 self.function = elem.text.isEmpty ? nil : elem.text
             case "ChildPosition":
@@ -612,23 +662,11 @@ private struct ParametricObjectChildren {
 
             // Support-specific
             case "ChainLength":
-                self.chainLength = try parseMVRDoubleOptional(elem.text, field: "ChainLength") ?? 0
+                self.chainLength = try elem.optionalDouble ?? 0
 
             default:
                 break
             }
-        }
-    }
-
-    /// Validates spec rules common to all parametric objects.
-    ///
-    /// Note: the spec also requires `<GDTFMode>` whenever `<GDTFSpec>` is present
-    /// and `<UnitNumber>` on every Fixture, but real-world MVR exports from major
-    /// vendors (grandMA3, Vectorworks, Capture) routinely omit both. We accept
-    /// those rather than rejecting the file.
-    func validate(objectType: String, uuid: UUID, multipatch: UUID?) throws {
-        if multipatch != nil && (!fixtureID.isEmpty || customId != nil) {
-            throw MVRParsingError.multipatchExcludesFixtureID(objectType: objectType, uuid: uuid)
         }
     }
 }
@@ -640,10 +678,9 @@ extension MVRSceneObject {
         guard let element = xml.element else { throw MVRParsingError.elementMissing }
         self.uuid = try element.attribute(named: "uuid").uuid
         self.name = element.attribute(by: "name")?.text ?? ""
-        self.multipatch = try parseMVROptionalUUID(element.attribute(by: "multipatch")?.text, field: "SceneObject/multipatch")
+        self.multipatch = try element.attribute(by: "multipatch")?.optionalUUID
 
-        let c = try ParametricObjectChildren(xml: xml)
-        try c.validate(objectType: "SceneObject", uuid: self.uuid, multipatch: self.multipatch)
+        let c = try ParametricObjectChildren(xml: xml, objectType: "SceneObject", uuid: self.uuid, multipatch: self.multipatch)
         self.matrix = c.matrix
         self.classing = c.classing
         self.geometries = c.geometries
@@ -680,7 +717,7 @@ extension MVRGroupObject {
             case "Matrix":
                 matrix = try Matrix(fromMVR: elem.text)
             case "Classing":
-                classing = try parseMVROptionalUUID(elem.text, field: "GroupObject/Classing")
+                classing = try elem.optionalUUID
             case "ChildList":
                 childList = try parseChildList(xml: child)
             default: break
@@ -709,7 +746,7 @@ extension MVRFocusPoint {
             case "Matrix":
                 matrix = try Matrix(fromMVR: elem.text)
             case "Classing":
-                classing = try parseMVROptionalUUID(elem.text, field: "FocusPoint/Classing")
+                classing = try elem.optionalUUID
             case "Geometries":
                 geometries = try child.children.compactMap { geoChild in
                     guard let geoElem = geoChild.element,
@@ -731,10 +768,9 @@ extension MVRFixture {
         guard let element = xml.element else { throw MVRParsingError.elementMissing }
         self.uuid = try element.attribute(named: "uuid").uuid
         self.name = element.attribute(by: "name")?.text ?? ""
-        self.multipatch = try parseMVROptionalUUID(element.attribute(by: "multipatch")?.text, field: "Fixture/multipatch")
+        self.multipatch = try element.attribute(by: "multipatch")?.optionalUUID
 
-        let c = try ParametricObjectChildren(xml: xml)
-        try c.validate(objectType: "Fixture", uuid: self.uuid, multipatch: self.multipatch)
+        let c = try ParametricObjectChildren(xml: xml, objectType: "Fixture", uuid: self.uuid, multipatch: self.multipatch)
         self.matrix = c.matrix
         self.classing = c.classing
         self.gdtfSpec = c.gdtfSpec
@@ -769,10 +805,9 @@ extension MVRTruss {
         guard let element = xml.element else { throw MVRParsingError.elementMissing }
         self.uuid = try element.attribute(named: "uuid").uuid
         self.name = element.attribute(by: "name")?.text ?? ""
-        self.multipatch = try parseMVROptionalUUID(element.attribute(by: "multipatch")?.text, field: "Truss/multipatch")
+        self.multipatch = try element.attribute(by: "multipatch")?.optionalUUID
 
-        let c = try ParametricObjectChildren(xml: xml)
-        try c.validate(objectType: "Truss", uuid: self.uuid, multipatch: self.multipatch)
+        let c = try ParametricObjectChildren(xml: xml, objectType: "Truss", uuid: self.uuid, multipatch: self.multipatch)
         self.matrix = c.matrix
         self.classing = c.classing
         self.position = c.position
@@ -801,10 +836,9 @@ extension MVRSupport {
         guard let element = xml.element else { throw MVRParsingError.elementMissing }
         self.uuid = try element.attribute(named: "uuid").uuid
         self.name = element.attribute(by: "name")?.text ?? ""
-        self.multipatch = try parseMVROptionalUUID(element.attribute(by: "multipatch")?.text, field: "Support/multipatch")
+        self.multipatch = try element.attribute(by: "multipatch")?.optionalUUID
 
-        let c = try ParametricObjectChildren(xml: xml)
-        try c.validate(objectType: "Support", uuid: self.uuid, multipatch: self.multipatch)
+        let c = try ParametricObjectChildren(xml: xml, objectType: "Support", uuid: self.uuid, multipatch: self.multipatch)
         self.matrix = c.matrix
         self.classing = c.classing
         self.position = c.position
@@ -833,10 +867,9 @@ extension MVRVideoScreen {
         guard let element = xml.element else { throw MVRParsingError.elementMissing }
         self.uuid = try element.attribute(named: "uuid").uuid
         self.name = element.attribute(by: "name")?.text ?? ""
-        self.multipatch = try parseMVROptionalUUID(element.attribute(by: "multipatch")?.text, field: "VideoScreen/multipatch")
+        self.multipatch = try element.attribute(by: "multipatch")?.optionalUUID
 
-        let c = try ParametricObjectChildren(xml: xml)
-        try c.validate(objectType: "VideoScreen", uuid: self.uuid, multipatch: self.multipatch)
+        let c = try ParametricObjectChildren(xml: xml, objectType: "VideoScreen", uuid: self.uuid, multipatch: self.multipatch)
         self.matrix = c.matrix
         self.classing = c.classing
         self.geometries = c.geometries
@@ -864,10 +897,9 @@ extension MVRProjector {
         guard let element = xml.element else { throw MVRParsingError.elementMissing }
         self.uuid = try element.attribute(named: "uuid").uuid
         self.name = element.attribute(by: "name")?.text ?? ""
-        self.multipatch = try parseMVROptionalUUID(element.attribute(by: "multipatch")?.text, field: "Projector/multipatch")
+        self.multipatch = try element.attribute(by: "multipatch")?.optionalUUID
 
-        let c = try ParametricObjectChildren(xml: xml)
-        try c.validate(objectType: "Projector", uuid: self.uuid, multipatch: self.multipatch)
+        let c = try ParametricObjectChildren(xml: xml, objectType: "Projector", uuid: self.uuid, multipatch: self.multipatch)
         self.matrix = c.matrix
         self.classing = c.classing
         self.geometries = c.geometries

@@ -38,6 +38,11 @@ public enum MVRParsingError: Error, CustomStringConvertible {
     case invalidUUID(String)
     case unexpectedElement(String)
     case missingChildElement(String)
+    case invalidBool(value: String, field: String)
+    case invalidInteger(value: String, field: String)
+    case invalidFloat(value: String, field: String)
+    /// `multipatch` and `<FixtureID>`/`<CustomId>` are mutually exclusive.
+    case multipatchExcludesFixtureID(objectType: String, uuid: UUID)
 
     public var description: String {
         switch self {
@@ -47,6 +52,10 @@ public enum MVRParsingError: Error, CustomStringConvertible {
         case .invalidUUID(let value): "Invalid UUID: '\(value)'"
         case .unexpectedElement(let name): "Unexpected element: <\(name)>"
         case .missingChildElement(let name): "Missing required child element <\(name)>"
+        case .invalidBool(let v, let f): "Invalid bool value '\(v)' for field '\(f)' (expected true/false/1/0/on/off/yes/no)"
+        case .invalidInteger(let v, let f): "Invalid integer value '\(v)' for field '\(f)'"
+        case .invalidFloat(let v, let f): "Invalid float value '\(v)' for field '\(f)'"
+        case .multipatchExcludesFixtureID(let t, let u): "<\(t) uuid=\"\(u)\"> has multipatch attribute set; FixtureID and CustomId must be empty"
         }
     }
 }

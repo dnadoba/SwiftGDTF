@@ -9,6 +9,74 @@
 import Foundation
 import SWXMLHash
 
+// MARK: - Scalar Parsing Helpers
+
+/// Parses an MVR boolean string. Spec uses "true"/"false" but real-world files
+/// use 1/0, on/off, yes/no with mixed casing. Throws on unrecognized values.
+func parseMVRBool(_ text: String, field: String) throws -> Bool {
+    switch text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+    case "true", "1", "on", "yes": return true
+    case "false", "0", "off", "no": return false
+    default: throw MVRParsingError.invalidBool(value: text, field: field)
+    }
+}
+
+/// Parses an optional bool element. Returns nil if text is absent or empty.
+/// Throws if text is non-empty but unparseable.
+func parseMVRBoolOptional(_ text: String?, field: String) throws -> Bool? {
+    guard let raw = text?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
+        return nil
+    }
+    return try parseMVRBool(raw, field: field)
+}
+
+/// Parses a required integer. Throws on missing/empty/malformed input.
+func parseMVRInt(_ text: String?, field: String) throws -> Int {
+    guard let raw = text?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
+        throw MVRParsingError.invalidInteger(value: text ?? "", field: field)
+    }
+    guard let value = Int(raw) else {
+        throw MVRParsingError.invalidInteger(value: raw, field: field)
+    }
+    return value
+}
+
+/// Parses an optional integer. Returns nil if text is absent or empty.
+/// Throws if text is non-empty but unparseable.
+func parseMVRIntOptional(_ text: String?, field: String) throws -> Int? {
+    guard let raw = text?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
+        return nil
+    }
+    guard let value = Int(raw) else {
+        throw MVRParsingError.invalidInteger(value: raw, field: field)
+    }
+    return value
+}
+
+/// Parses an optional double. Returns nil if text is absent or empty.
+/// Throws if text is non-empty but unparseable.
+func parseMVRDoubleOptional(_ text: String?, field: String) throws -> Double? {
+    guard let raw = text?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
+        return nil
+    }
+    guard let value = Double(raw) else {
+        throw MVRParsingError.invalidFloat(value: raw, field: field)
+    }
+    return value
+}
+
+/// Parses an optional UUID attribute. Returns nil if attribute absent.
+/// Throws if attribute present but malformed.
+func parseMVROptionalUUID(_ text: String?, field: String) throws -> UUID? {
+    guard let raw = text?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
+        return nil
+    }
+    guard let uuid = UUID(uuidString: raw) else {
+        throw MVRParsingError.invalidUUID(raw)
+    }
+    return uuid
+}
+
 // MARK: - Root Parsing
 
 extension MVRScene {
@@ -26,9 +94,9 @@ extension MVRScene {
         // UserData
         var userData: [MVRUserData] = []
         if let userDataNode = xml.children.first(where: { $0.element?.name == "UserData" }) {
-            userData = userDataNode.children.compactMap { child in
+            userData = try userDataNode.children.compactMap { child in
                 guard child.element?.name == "Data" else { return nil }
-                return try? MVRUserData(xml: child)
+                return try MVRUserData(xml: child)
             }
         }
         self.userData = userData
@@ -143,9 +211,9 @@ extension MVRMappingDefinition {
         for child in xml.children {
             guard let name = child.element?.name else { continue }
             switch name {
-            case "SizeX": sizeX = Int(child.element?.text ?? "") ?? 0
-            case "SizeY": sizeY = Int(child.element?.text ?? "") ?? 0
-            case "Source": source = try? MVRSource(xml: child)
+            case "SizeX": sizeX = try parseMVRInt(child.element?.text, field: "MappingDefinition/SizeX")
+            case "SizeY": sizeY = try parseMVRInt(child.element?.text, field: "MappingDefinition/SizeY")
+            case "Source": source = try MVRSource(xml: child)
             case "ScaleHandeling": scaleHandling = MVRScaleHandling(rawValue: child.element?.text ?? "")
             default: break
             }
@@ -181,7 +249,7 @@ extension MVRLayer {
             guard let name = child.element?.name else { continue }
             switch name {
             case "Matrix":
-                matrix = try? Matrix(fromMVR: child.element?.text ?? "")
+                matrix = try Matrix(fromMVR: child.element?.text ?? "")
             case "ChildList":
                 childList = try parseChildList(xml: child)
             default: break
@@ -235,8 +303,8 @@ extension MVRGeometry3D {
     init(xml: XMLIndexer) throws {
         guard let element = xml.element else { throw MVRParsingError.elementMissing }
         self.fileName = element.attribute(by: "fileName")?.text ?? element.attribute(by: "FileName")?.text ?? ""
-        self.matrix = xml.children.first(where: { $0.element?.name == "Matrix" }).flatMap {
-            try? Matrix(fromMVR: $0.element?.text ?? "")
+        self.matrix = try xml.children.first(where: { $0.element?.name == "Matrix" }).map {
+            try Matrix(fromMVR: $0.element?.text ?? "")
         }
     }
 }
@@ -246,8 +314,8 @@ extension MVRSymbol {
         guard let element = xml.element else { throw MVRParsingError.elementMissing }
         self.uuid = try element.attribute(named: "uuid").uuid
         self.symdef = try element.attribute(named: "symdef").uuid
-        self.matrix = xml.children.first(where: { $0.element?.name == "Matrix" }).flatMap {
-            try? Matrix(fromMVR: $0.element?.text ?? "")
+        self.matrix = try xml.children.first(where: { $0.element?.name == "Matrix" }).map {
+            try Matrix(fromMVR: $0.element?.text ?? "")
         }
     }
 }
@@ -282,8 +350,8 @@ extension MVRNetwork {
         self.ipv4 = element.attribute(by: "IPv4")?.text ?? element.attribute(by: "ipv4")?.text
         self.subnetMask = element.attribute(by: "SubnetMask")?.text ?? element.attribute(by: "subnetmask")?.text
         self.ipv6 = element.attribute(by: "IPv6")?.text ?? element.attribute(by: "ipv6")?.text
-        let dhcpText = element.attribute(by: "DHCP")?.text ?? element.attribute(by: "dhcp")?.text ?? "false"
-        self.dhcp = dhcpText == "true" || dhcpText == "on"
+        let dhcpText = element.attribute(by: "DHCP")?.text ?? element.attribute(by: "dhcp")?.text
+        self.dhcp = try parseMVRBoolOptional(dhcpText, field: "Network/DHCP") ?? false
         self.hostname = element.attribute(by: "hostname")?.text ?? element.attribute(by: "Hostname")?.text
     }
 }
@@ -345,11 +413,11 @@ extension MVRMapping {
         for child in xml.children {
             guard let name = child.element?.name else { continue }
             switch name {
-            case "ux": ux = Int(child.element?.text ?? "")
-            case "uy": uy = Int(child.element?.text ?? "")
-            case "ox": ox = Int(child.element?.text ?? "")
-            case "oy": oy = Int(child.element?.text ?? "")
-            case "rz": rz = Double(child.element?.text ?? "")
+            case "ux": ux = try parseMVRIntOptional(child.element?.text, field: "Mapping/ux")
+            case "uy": uy = try parseMVRIntOptional(child.element?.text, field: "Mapping/uy")
+            case "ox": ox = try parseMVRIntOptional(child.element?.text, field: "Mapping/ox")
+            case "oy": oy = try parseMVRIntOptional(child.element?.text, field: "Mapping/oy")
+            case "rz": rz = try parseMVRDoubleOptional(child.element?.text, field: "Mapping/rz")
             default: break
             }
         }
@@ -443,9 +511,9 @@ private struct ParametricObjectChildren {
             guard let elem = child.element else { continue }
             switch elem.name {
             case "Matrix":
-                self.matrix = try? Matrix(fromMVR: elem.text)
+                self.matrix = try Matrix(fromMVR: elem.text)
             case "Classing":
-                self.classing = UUID(uuidString: elem.text.trimmingCharacters(in: .whitespacesAndNewlines))
+                self.classing = try parseMVROptionalUUID(elem.text, field: "Classing")
             case "Geometries":
                 self.geometries = try child.children.compactMap { geoChild in
                     guard let geoElem = geoChild.element,
@@ -459,7 +527,7 @@ private struct ParametricObjectChildren {
                 let text = elem.text.trimmingCharacters(in: .whitespacesAndNewlines)
                 self.gdtfMode = text.isEmpty ? nil : text
             case "CastShadow":
-                self.castShadow = elem.text == "true"
+                self.castShadow = try parseMVRBoolOptional(elem.text, field: "CastShadow")
             case "Addresses":
                 self.addresses = try child.children.compactMap { addrChild in
                     guard let addrElem = addrChild.element,
@@ -482,32 +550,32 @@ private struct ParametricObjectChildren {
                     return try MVROverwrite(xml: c)
                 }
             case "Connections":
-                self.connections = child.children.compactMap { c in
+                self.connections = try child.children.compactMap { c in
                     guard c.element?.name == "Connection" else { return nil }
-                    return try? MVRConnection(xml: c)
+                    return try MVRConnection(xml: c)
                 }
             case "FixtureID":
                 self.fixtureID = elem.text
             case "FixtureIDNumeric":
-                self.fixtureIDNumeric = Int(elem.text) ?? 0
+                self.fixtureIDNumeric = try parseMVRInt(elem.text, field: "FixtureIDNumeric")
             case "UnitNumber":
-                self.unitNumber = Int(elem.text)
+                self.unitNumber = try parseMVRInt(elem.text, field: "UnitNumber")
             case "CustomId":
-                self.customId = Int(elem.text)
+                self.customId = try parseMVRIntOptional(elem.text, field: "CustomId")
             case "CustomIdType":
-                self.customIdType = Int(elem.text)
+                self.customIdType = try parseMVRIntOptional(elem.text, field: "CustomIdType")
             case "ChildList":
                 self.childList = try parseChildList(xml: child)
 
             // Fixture-specific
             case "Focus":
-                self.focus = UUID(uuidString: elem.text.trimmingCharacters(in: .whitespacesAndNewlines))
+                self.focus = try parseMVROptionalUUID(elem.text, field: "Focus")
             case "DMXInvertPan":
-                self.dmxInvertPan = elem.text == "true"
+                self.dmxInvertPan = try parseMVRBoolOptional(elem.text, field: "DMXInvertPan")
             case "DMXInvertTilt":
-                self.dmxInvertTilt = elem.text == "true"
+                self.dmxInvertTilt = try parseMVRBoolOptional(elem.text, field: "DMXInvertTilt")
             case "Position":
-                self.position = UUID(uuidString: elem.text.trimmingCharacters(in: .whitespacesAndNewlines))
+                self.position = try parseMVROptionalUUID(elem.text, field: "Position")
             case "Function":
                 self.function = elem.text.isEmpty ? nil : elem.text
             case "ChildPosition":
@@ -521,12 +589,12 @@ private struct ParametricObjectChildren {
                     return try MVRProtocol(xml: c)
                 }
             case "Mappings":
-                self.mappings = child.children.compactMap { c in
+                self.mappings = try child.children.compactMap { c in
                     guard c.element?.name == "Mapping" else { return nil }
-                    return try? MVRMapping(xml: c)
+                    return try MVRMapping(xml: c)
                 }
             case "Gobo":
-                self.gobo = try? MVRGobo(xml: child)
+                self.gobo = try MVRGobo(xml: child)
 
             // VideoScreen-specific
             case "Sources":
@@ -544,11 +612,23 @@ private struct ParametricObjectChildren {
 
             // Support-specific
             case "ChainLength":
-                self.chainLength = Double(elem.text) ?? 0
+                self.chainLength = try parseMVRDoubleOptional(elem.text, field: "ChainLength") ?? 0
 
             default:
                 break
             }
+        }
+    }
+
+    /// Validates spec rules common to all parametric objects.
+    ///
+    /// Note: the spec also requires `<GDTFMode>` whenever `<GDTFSpec>` is present
+    /// and `<UnitNumber>` on every Fixture, but real-world MVR exports from major
+    /// vendors (grandMA3, Vectorworks, Capture) routinely omit both. We accept
+    /// those rather than rejecting the file.
+    func validate(objectType: String, uuid: UUID, multipatch: UUID?) throws {
+        if multipatch != nil && (!fixtureID.isEmpty || customId != nil) {
+            throw MVRParsingError.multipatchExcludesFixtureID(objectType: objectType, uuid: uuid)
         }
     }
 }
@@ -560,9 +640,10 @@ extension MVRSceneObject {
         guard let element = xml.element else { throw MVRParsingError.elementMissing }
         self.uuid = try element.attribute(named: "uuid").uuid
         self.name = element.attribute(by: "name")?.text ?? ""
-        self.multipatch = try? element.attribute(named: "multipatch").uuid
+        self.multipatch = try parseMVROptionalUUID(element.attribute(by: "multipatch")?.text, field: "SceneObject/multipatch")
 
         let c = try ParametricObjectChildren(xml: xml)
+        try c.validate(objectType: "SceneObject", uuid: self.uuid, multipatch: self.multipatch)
         self.matrix = c.matrix
         self.classing = c.classing
         self.geometries = c.geometries
@@ -597,9 +678,9 @@ extension MVRGroupObject {
             guard let elem = child.element else { continue }
             switch elem.name {
             case "Matrix":
-                matrix = try? Matrix(fromMVR: elem.text)
+                matrix = try Matrix(fromMVR: elem.text)
             case "Classing":
-                classing = UUID(uuidString: elem.text.trimmingCharacters(in: .whitespacesAndNewlines))
+                classing = try parseMVROptionalUUID(elem.text, field: "GroupObject/Classing")
             case "ChildList":
                 childList = try parseChildList(xml: child)
             default: break
@@ -626,9 +707,9 @@ extension MVRFocusPoint {
             guard let elem = child.element else { continue }
             switch elem.name {
             case "Matrix":
-                matrix = try? Matrix(fromMVR: elem.text)
+                matrix = try Matrix(fromMVR: elem.text)
             case "Classing":
-                classing = UUID(uuidString: elem.text.trimmingCharacters(in: .whitespacesAndNewlines))
+                classing = try parseMVROptionalUUID(elem.text, field: "FocusPoint/Classing")
             case "Geometries":
                 geometries = try child.children.compactMap { geoChild in
                     guard let geoElem = geoChild.element,
@@ -650,9 +731,10 @@ extension MVRFixture {
         guard let element = xml.element else { throw MVRParsingError.elementMissing }
         self.uuid = try element.attribute(named: "uuid").uuid
         self.name = element.attribute(by: "name")?.text ?? ""
-        self.multipatch = try? element.attribute(named: "multipatch").uuid
+        self.multipatch = try parseMVROptionalUUID(element.attribute(by: "multipatch")?.text, field: "Fixture/multipatch")
 
         let c = try ParametricObjectChildren(xml: xml)
+        try c.validate(objectType: "Fixture", uuid: self.uuid, multipatch: self.multipatch)
         self.matrix = c.matrix
         self.classing = c.classing
         self.gdtfSpec = c.gdtfSpec
@@ -687,9 +769,10 @@ extension MVRTruss {
         guard let element = xml.element else { throw MVRParsingError.elementMissing }
         self.uuid = try element.attribute(named: "uuid").uuid
         self.name = element.attribute(by: "name")?.text ?? ""
-        self.multipatch = try? element.attribute(named: "multipatch").uuid
+        self.multipatch = try parseMVROptionalUUID(element.attribute(by: "multipatch")?.text, field: "Truss/multipatch")
 
         let c = try ParametricObjectChildren(xml: xml)
+        try c.validate(objectType: "Truss", uuid: self.uuid, multipatch: self.multipatch)
         self.matrix = c.matrix
         self.classing = c.classing
         self.position = c.position
@@ -718,9 +801,10 @@ extension MVRSupport {
         guard let element = xml.element else { throw MVRParsingError.elementMissing }
         self.uuid = try element.attribute(named: "uuid").uuid
         self.name = element.attribute(by: "name")?.text ?? ""
-        self.multipatch = try? element.attribute(named: "multipatch").uuid
+        self.multipatch = try parseMVROptionalUUID(element.attribute(by: "multipatch")?.text, field: "Support/multipatch")
 
         let c = try ParametricObjectChildren(xml: xml)
+        try c.validate(objectType: "Support", uuid: self.uuid, multipatch: self.multipatch)
         self.matrix = c.matrix
         self.classing = c.classing
         self.position = c.position
@@ -749,9 +833,10 @@ extension MVRVideoScreen {
         guard let element = xml.element else { throw MVRParsingError.elementMissing }
         self.uuid = try element.attribute(named: "uuid").uuid
         self.name = element.attribute(by: "name")?.text ?? ""
-        self.multipatch = try? element.attribute(named: "multipatch").uuid
+        self.multipatch = try parseMVROptionalUUID(element.attribute(by: "multipatch")?.text, field: "VideoScreen/multipatch")
 
         let c = try ParametricObjectChildren(xml: xml)
+        try c.validate(objectType: "VideoScreen", uuid: self.uuid, multipatch: self.multipatch)
         self.matrix = c.matrix
         self.classing = c.classing
         self.geometries = c.geometries
@@ -779,9 +864,10 @@ extension MVRProjector {
         guard let element = xml.element else { throw MVRParsingError.elementMissing }
         self.uuid = try element.attribute(named: "uuid").uuid
         self.name = element.attribute(by: "name")?.text ?? ""
-        self.multipatch = try? element.attribute(named: "multipatch").uuid
+        self.multipatch = try parseMVROptionalUUID(element.attribute(by: "multipatch")?.text, field: "Projector/multipatch")
 
         let c = try ParametricObjectChildren(xml: xml)
+        try c.validate(objectType: "Projector", uuid: self.uuid, multipatch: self.multipatch)
         self.matrix = c.matrix
         self.classing = c.classing
         self.geometries = c.geometries

@@ -242,14 +242,14 @@ struct MVRConstructionTests {
         let classUUID = UUID()
         let connTargetUUID = UUID()
         let mappingDefUUID = UUID()
-        let multipatchUUID = UUID()
 
         let matrix = try Matrix(fromMVR: "{0.707107,0.707107,0}{-0.707107,0.707107,0}{0,0,1}{1000,2000,3000}")
 
+        // Note: `multipatch` is mutually exclusive with FixtureID/CustomId per spec,
+        // so it's exercised separately by `fixtureMultipatchChild` below.
         let fixture = MVRFixture(
             uuid: UUID(),
             name: "Full Fixture",
-            multipatch: multipatchUUID,
             matrix: matrix,
             classing: classUUID,
             gdtfSpec: "Manufacturer@Fixture.gdtf",
@@ -296,6 +296,46 @@ struct MVRConstructionTests {
 
         let diff = mvrSceneDiff(scene, decoded)
         #expect(scene == decoded, "Full fixture round-trip failed: \(diff ?? "unknown")")
+    }
+
+    @Test func fixtureMultipatchChild() throws {
+        // A multipatch child fixture: multipatch UUID is set, FixtureID and CustomId are empty.
+        let fixture = MVRFixture(
+            uuid: UUID(),
+            name: "Multipatch Child",
+            multipatch: UUID(),
+            gdtfSpec: "Manufacturer@Fixture.gdtf",
+            gdtfMode: "Extended"
+        )
+        let scene = MVRScene(
+            scene: MVRSceneNode(layers: [
+                MVRLayer(uuid: UUID(), name: "L", childList: [.fixture(fixture)])
+            ])
+        )
+
+        let encoded = try encodeMVR(scene: scene)
+        let decoded = try loadMVR(data: encoded)
+        #expect(scene == decoded)
+    }
+
+    @Test func multipatchWithFixtureIDFailsToParse() throws {
+        // Constructing a fixture that violates the multipatch exclusivity is
+        // possible programmatically, but encoding+decoding must reject it.
+        let fixture = MVRFixture(
+            uuid: UUID(),
+            name: "Bad",
+            multipatch: UUID(),
+            fixtureID: "1"
+        )
+        let scene = MVRScene(
+            scene: MVRSceneNode(layers: [
+                MVRLayer(uuid: UUID(), name: "L", childList: [.fixture(fixture)])
+            ])
+        )
+        let encoded = try encodeMVR(scene: scene)
+        #expect(throws: MVRParsingError.self) {
+            try loadMVR(data: encoded)
+        }
     }
 
     @Test func geometryNodes() throws {

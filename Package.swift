@@ -41,6 +41,7 @@ let package = Package(
             dependencies: ["SwiftGDTF"],
             resources: [
                 .copy("MVRTestFixtures"),
+                .copy("GDTFTestFixtures"),
             ]
         ),
     ]

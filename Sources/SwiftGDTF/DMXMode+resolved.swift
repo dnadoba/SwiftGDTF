@@ -6,75 +6,80 @@
 //
 
 extension DMXMode {
-    /// Adds additional DMX channels for DMX Breaks in the Geometry.
-    /// This is usally how LED Strips or fixture with multiple beams work.
+    /// Adds additional DMX channels for DMX Breaks in the Geometry. This is usally how LED Strips or fixture with multiple beams work.
     /// They all have a copy of a set of channels but their DMX offset is shifted.
     ///
-    /// It also filters out channels that aren't part of the root geometry of this dmx mode.
-    /// I have seen this happen if one geometry node is used as a "template" and then referenced multiple times with DMX breaks.
-    /// The original one is then not actually used and the DMX channels for it need to be removed.
-    public consuming func resolved(with geomatries: [Geometry]) -> DMXMode {
+    /// Channels can target a geometry that is reached through one or more nested ``GeometryReference`` instances. Each chain of
+    /// references from the mode's root to the channel's target geometry produces one resolved replica, and the offsets along that
+    /// chain sum together (e.g. an outer reference at break-2 offset 181 around an inner reference at break-2 offset 13 places a
+    /// channel with template offset 1 at address ``1 + (13 - 1) + (181 - 1) = 193``).
+    ///
+    /// Channels are silently dropped in two cases:
+    ///   1. The channel's geometry isn't reachable from the root tree. I have seen this happen when one geometry node is used as a
+    ///      "template" and referenced multiple times — the original definition is then not actually used and its DMX channels need
+    ///      to be removed.
+    ///   2. A reference on the resolved chain has no entry for the break id the channel is targeting (this can also occur after
+    ///      ``DMXChannel/Break/overwrite`` is resolved at the innermost reference). The replica that would have come from that
+    ///      chain is omitted.
+    ///
+    /// Reference cycles (`A → B → A`) are detected and broken: the recursion does not re-enter a template that is already on the
+    /// current chain.
+    public consuming func resolved(with geometries: [Geometry]) -> DMXMode {
         guard let geometry else {
             /// root geometry is missing. This isn't valid but some GDTF Share files have it (~50). This is already shown as a error in the GDTF Share Editor but these files still exists.
             /// This should be flagged in the UI.
             return self
         }
         let topLevelGeometryIndex = Dictionary(
-            geomatries.lazy.map { ($0.name, $0) },
+            geometries.lazy.map { ($0.name, $0) },
             // keep the first if we find duplicate named geometry
-            uniquingKeysWith: { old, new in old }
+            uniquingKeysWith: { old, _ in old }
         )
         guard let root = topLevelGeometryIndex[geometry] else {
             // TODO: report errors back
             return self
         }
-        /// all geometry names that are part of the root tree
-        var geometriesIncludedInRoot = Set<String>()
-        /// references that are part of the root tree indexed by the top level geometry name they are referencing
-        var topLevelGeometryToReferences: [String: [GeometryReference]] = [:]
-        func recursivlyAddSelfAndChildren(_ geometry: Geometry) {
-            geometriesIncludedInRoot.insert(geometry.name)
+
+        /// For each geometry name reachable from the root, the list of reference chains (outermost first) that reach it. An empty
+        /// chain means the geometry is in the root tree directly. A geometry that is reachable through several chains (e.g. a
+        /// template referenced from multiple spots, or a descendant of such a template) appears once per chain — that's what
+        /// produces channel replication.
+        var pathsByGeometry: [String: [[GeometryReference]]] = [:]
+        /// Templates currently on the active recursion chain — used to break reference cycles (`A → B → A`) without recursing forever.
+        var templatesOnChain: Set<String> = []
+
+        func recursivelyCollect(_ geometry: Geometry, chain: [GeometryReference]) {
+            pathsByGeometry[geometry.name, default: []].append(chain)
             if
                 case .reference(let reference) = geometry,
-                let referencedGeometry = reference.geometry
+                let referencedName = reference.geometry,
+                let target = topLevelGeometryIndex[referencedName],
+                !templatesOnChain.contains(referencedName)
             {
-                topLevelGeometryToReferences[referencedGeometry, default: []].append(reference)
+                templatesOnChain.insert(referencedName)
+                recursivelyCollect(target, chain: chain + [reference])
+                templatesOnChain.remove(referencedName)
             }
             for child in geometry.children {
-                recursivlyAddSelfAndChildren(child)
+                recursivelyCollect(child, chain: chain)
             }
         }
-        recursivlyAddSelfAndChildren(root)
-        var channelsConnectedToRoot: [DMXChannel] = []
-        var channelsFromReferences: [DMXChannel] = []
+        recursivelyCollect(root, chain: [])
+
+        var resolvedChannels: [DMXChannel] = []
         for channel in channels {
-            if geometriesIncludedInRoot.contains(channel.geometry) {
-                channelsConnectedToRoot.append(channel)
-            } else if let references = topLevelGeometryToReferences[channel.geometry] {
-                // This isn't in the root geometry but it might be references
-                for reference in references {
-                    var copyOfChannel = channel
-                    guard let referenceBreak = reference.getDMXBreak(for: channel.dmxBreak) else {
-                        continue
-                    }
-                    // This is only really doing something if the dmxBreak was overwrite before
-                    copyOfChannel.dmxBreak = .id(referenceBreak.break)
-                    
-                    copyOfChannel.offset = copyOfChannel.offset.map {
-                        /// a DMXAddress has in theory also a univers but the GDTF Share editor doesn't seem to allow to define the universe
-                        $0 + (referenceBreak.offset.address - 1)
-                    }
-                    if let oldName = copyOfChannel.name {
-                        copyOfChannel.name = "\(reference.name) \(oldName)"
-                    } else {
-                        copyOfChannel.name = reference.name
-                    }
-                    channelsFromReferences.append(copyOfChannel)
+            guard let paths = pathsByGeometry[channel.geometry] else { continue }
+            for chain in paths {
+                if chain.isEmpty {
+                    resolvedChannels.append(channel)
+                } else if let replica = Self.resolve(channel: channel, through: chain) {
+                    resolvedChannels.append(replica)
                 }
             }
         }
+
         var copyOfDMXMode = self
-        copyOfDMXMode.channels = channelsConnectedToRoot + channelsFromReferences
+        copyOfDMXMode.channels = resolvedChannels
         copyOfDMXMode.channels.sort(by: {
             if $0.dmxBreak == $1.dmxBreak {
                 ($0.offset.first ?? -1) < ($1.offset.first ?? -1)
@@ -83,6 +88,38 @@ extension DMXMode {
             }
         })
         return copyOfDMXMode
+    }
+
+    /// Resolves a channel through a chain of ``GeometryReference``s.
+    ///
+    /// The chain is ordered outermost-first (the reference attached to the root tree comes first; the reference closest to the
+    /// channel's target geometry comes last). Resolution walks it inside-out: the innermost reference resolves the channel's break
+    /// (turning ``DMXChannel/Break/overwrite`` into a concrete id and contributing its offset), then each outer reference looks up
+    /// the now-concrete break id to add its own offset. If any reference on the chain has no entry for the resolved break id, the
+    /// replica is dropped — same posture as the previous single-level implementation.
+    private static func resolve(channel: consuming DMXChannel, through chain: [GeometryReference]) -> DMXChannel? {
+        var totalOffsetShift = 0
+        var currentBreak = channel.dmxBreak
+
+        for reference in chain.reversed() {
+            guard let referenceBreak = reference.getDMXBreak(for: currentBreak) else {
+                return nil
+            }
+            /// a DMXAddress has in theory also a universe but the GDTF Share editor doesn't seem to allow to define the universe
+            totalOffsetShift += referenceBreak.offset.address - 1
+            currentBreak = .id(referenceBreak.break)
+        }
+
+        channel.dmxBreak = currentBreak
+        channel.offset = channel.offset.map { $0 + totalOffsetShift }
+
+        let prefix = chain.map(\.name).joined(separator: " -> ")
+        if let oldName = channel.name {
+            channel.name = "\(prefix) -> \(oldName)"
+        } else {
+            channel.name = prefix
+        }
+        return channel
     }
 }
 

@@ -282,6 +282,20 @@ public extension DMXValue {
         let split: [Int] = rawValue.split(separator: "/").map { Int($0) ?? 0 }
         self.init(value: split[0], byteCount: split[1])
     }
+
+    /// Position within this value's byte-resolution as a fraction in `[0, 1]`.
+    /// Two DMXValues at different `byteCount`s with the same fraction represent the
+    /// same DMX position, just at different resolutions.
+    var normalizedFraction: Double {
+        guard maxValue > 0 else { return 0 }
+        return Double(value) / Double(maxValue)
+    }
+
+    /// Returns the DMX value one step lower at the same byte resolution, clamped at 0.
+    /// Used to convert "next sibling's DMXFrom" into the previous sibling's DMXTo.
+    func decrementing() -> DMXValue {
+        DMXValue(value: Swift.max(0, value - 1), byteCount: byteCount)
+    }
 }
 
 /// This XML node specifies the DMX offset for the DMX channel of the referenced geometry (XML node <Break>).

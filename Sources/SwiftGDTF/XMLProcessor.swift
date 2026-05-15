@@ -544,14 +544,28 @@ extension LogicalChannel {
         self.mibFade = element.attribute(by: "MIBFade")?.double ?? 0
         self.dmxChangeTimeLimit = element.attribute(by: "DMXChangeTimeLimit")?.double ?? 0
         
-        self.channelFunctions = try xml.children.enumerated().map { (offset, child) in
-            try ChannelFunction(xml: child, index: offset, dependencies: dependencies)
+        // ChannelFunctions form a partition of the LogicalChannel's DMX range: each
+        // function's effective end DMX value is the next sibling's DMXFrom - 1, and the
+        // last function runs to the end of the channel's resolution. We thread that
+        // end-of-range down to the function so its ChannelSets can interpolate
+        // missing PhysicalFrom/PhysicalTo within the correct DMX window.
+        let cfChildren = xml.children.filter { $0.element?.name == "ChannelFunction" }
+        self.channelFunctions = try cfChildren.enumerated().map { (offset, child) in
+            let nextDMXFrom: DMXValue? = offset + 1 < cfChildren.count
+                ? (cfChildren[offset + 1].element?.attribute(by: "DMXFrom")?.text).map { DMXValue(from: $0) }
+                : nil
+            return try ChannelFunction(
+                xml: child,
+                index: offset,
+                parentDMXEnd: nextDMXFrom?.decrementing(),
+                dependencies: dependencies
+            )
         }
     }
 }
 
 extension ChannelFunction {
-    init(xml: XMLIndexer, index: Int, dependencies: DMXMode.ParseDependencies) throws {
+    init(xml: XMLIndexer, index: Int, parentDMXEnd: DMXValue?, dependencies: DMXMode.ParseDependencies) throws {
         guard let element = xml.element else { throw XMLParsingError.elementMissing }
         let attributeName = element.attribute(by: "Attribute")?.text
         self.name = element.attribute(by: "Name")?.text ?? attributeName.map { $0 + " " + String(index+1) } ?? String(index+1)
@@ -592,34 +606,101 @@ extension ChannelFunction {
         self.maximum = element.attribute(by: "Max")?.double ?? self.physicalTo
         self.customName = element.attribute(by: "CustomName")?.text
         
-        channelSets = []
-        subChannelSets = []
+        // The parent's effective DMX range spans this function's DMXFrom up to the
+        // next ChannelFunction's DMXFrom - 1 (passed in as `parentDMXEnd`). When no
+        // context is available, fall back to the maximum value for the byte count of
+        // this function's DMXFrom.
+        let parentDMXFromValue = self.dmxFrom
+        let parentDMXToValue = parentDMXEnd ?? DMXValue(value: self.dmxFrom.maxValue, byteCount: self.dmxFrom.byteCount)
+        let parentPhysFrom = self.physicalFrom
+        let parentPhysTo = self.physicalTo
+
+        var channelSets: [ChannelSet] = []
+        var subChannelSets: [SubChannelSet] = []
+        // ChannelSets need to know their own effective DMX end (next sibling's
+        // DMXFrom - 1, or the parent function's DMX end) so a missing PhysicalTo can
+        // be interpolated at that boundary.
+        let setXMLs = xml.children.filter { $0.element?.name == "ChannelSet" }
+        var nextSetIndex = 0
         for child in xml.children {
             switch child.element?.name {
             case "ChannelSet":
-                channelSets.append(try ChannelSet(xml: child, parentPhysicalFrom: physicalFrom, parentPhysicalTo: physicalTo))
+                let nextDMXFrom: DMXValue? = nextSetIndex + 1 < setXMLs.count
+                    ? (setXMLs[nextSetIndex + 1].element?.attribute(by: "DMXFrom")?.text).map { DMXValue(from: $0) }
+                    : nil
+                let effectiveDMXTo = nextDMXFrom?.decrementing() ?? parentDMXToValue
+                channelSets.append(try ChannelSet(
+                    xml: child,
+                    effectiveDMXTo: effectiveDMXTo,
+                    parentDMXFrom: parentDMXFromValue,
+                    parentDMXTo: parentDMXToValue,
+                    parentPhysicalFrom: parentPhysFrom,
+                    parentPhysicalTo: parentPhysTo
+                ))
+                nextSetIndex += 1
             case "SubChannelSet":
                 subChannelSets.append(try SubChannelSet(xml: child, attribute: attribute, dependencies: dependencies))
             default:
                 throw XMLParsingError.unexpectedChannelChild(name)
             }
         }
+        self.channelSets = channelSets
+        self.subChannelSets = subChannelSets
     }
 }
 
 
 extension ChannelSet {
-    init(xml: XMLIndexer, parentPhysicalFrom: Double?, parentPhysicalTo: Double?) throws {
+    init(
+        xml: XMLIndexer,
+        effectiveDMXTo: DMXValue,
+        parentDMXFrom: DMXValue,
+        parentDMXTo: DMXValue,
+        parentPhysicalFrom: Double,
+        parentPhysicalTo: Double
+    ) throws {
         guard let element = xml.element else { throw XMLParsingError.elementMissing }
-        
+
         self.name = element.attribute(by: "Name")?.text ?? ""
         self.dmxFrom = DMXValue(from: element.attribute(by: "DMXFrom")?.text ?? "0/1")
-        let physicalFrom = element.attribute(by: "PhysicalFrom")?.double
-        self.physicalFrom = physicalFrom ?? parentPhysicalFrom ?? 0
-        let physicalTo = element.attribute(by: "PhysicalTo")?.double
-        self.physicalTo = physicalTo ?? parentPhysicalTo ?? 1
-        self.hasInhertiedPhysicalValues = physicalFrom == nil || physicalTo == nil
+
+        // When PhysicalFrom/PhysicalTo are omitted, GDTF expects the value at this
+        // ChannelSet's DMX boundary, linearly interpolated within the parent
+        // ChannelFunction's DMX-to-physical mapping — matching what the GDTF Editor
+        // displays under "Use Parent Physical".
+        let explicitFrom = element.attribute(by: "PhysicalFrom")?.double
+        let explicitTo = element.attribute(by: "PhysicalTo")?.double
+        self.physicalFrom = explicitFrom ?? Self.interpolate(
+            dmx: self.dmxFrom,
+            parentDMXFrom: parentDMXFrom,
+            parentDMXTo: parentDMXTo,
+            parentPhysicalFrom: parentPhysicalFrom,
+            parentPhysicalTo: parentPhysicalTo
+        )
+        self.physicalTo = explicitTo ?? Self.interpolate(
+            dmx: effectiveDMXTo,
+            parentDMXFrom: parentDMXFrom,
+            parentDMXTo: parentDMXTo,
+            parentPhysicalFrom: parentPhysicalFrom,
+            parentPhysicalTo: parentPhysicalTo
+        )
+        self.hasInhertiedPhysicalValues = explicitFrom == nil || explicitTo == nil
         self._wheelSlotIndex = element.attribute(by: "WheelSlotIndex")?.int
+    }
+
+    private static func interpolate(
+        dmx: DMXValue,
+        parentDMXFrom: DMXValue,
+        parentDMXTo: DMXValue,
+        parentPhysicalFrom: Double,
+        parentPhysicalTo: Double
+    ) -> Double {
+        let fromFraction = parentDMXFrom.normalizedFraction
+        let toFraction = parentDMXTo.normalizedFraction
+        let span = toFraction - fromFraction
+        guard span != 0 else { return parentPhysicalFrom }
+        let t = (dmx.normalizedFraction - fromFraction) / span
+        return parentPhysicalFrom + t * (parentPhysicalTo - parentPhysicalFrom)
     }
 }
 

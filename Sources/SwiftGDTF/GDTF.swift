@@ -172,8 +172,25 @@ public struct PhysicalDescriptions: Codable {
     public var filters: [Filter]
     public var colorSpace: ColorSpace?
     public var additionalColorSpaces: [ColorSpace]
+    public var gamuts: [Gamut]
     public var dmxProfiles: [DMXProfile]
     public var properties: Properties?
+}
+
+extension PhysicalDescriptions {
+    // `gamuts` was added after this type was already Codable. Decode it tolerantly so any
+    // Codable-encoded data written before the field existed still loads (missing key → []).
+    // Defined in an extension so the synthesized memberwise initializer remains available.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.emitters = try c.decode([Emitter].self, forKey: .emitters)
+        self.filters = try c.decode([Filter].self, forKey: .filters)
+        self.colorSpace = try c.decodeIfPresent(ColorSpace.self, forKey: .colorSpace)
+        self.additionalColorSpaces = try c.decode([ColorSpace].self, forKey: .additionalColorSpaces)
+        self.gamuts = try c.decodeIfPresent([Gamut].self, forKey: .gamuts) ?? []
+        self.dmxProfiles = try c.decode([DMXProfile].self, forKey: .dmxProfiles)
+        self.properties = try c.decodeIfPresent(Properties.self, forKey: .properties)
+    }
 }
 
 public struct Emitter: Codable {
@@ -209,12 +226,90 @@ public struct Filter: Codable {
 public struct ColorSpace: Codable {
     public var name: String
     public var mode: ColorSpaceMode
-    
+
     // Only used when mode is .custom
     public var red: ColorCIE?
     public var green: ColorCIE?
     public var blue: ColorCIE?
     public var whitePoint: ColorCIE?
+}
+
+extension ColorSpace {
+    /// The RGB primaries and white point that define the color space's gamut triangle.
+    public struct Primaries: Equatable, Sendable {
+        public var red: ColorCIE
+        public var green: ColorCIE
+        public var blue: ColorCIE
+        public var whitePoint: ColorCIE
+        public init(red: ColorCIE, green: ColorCIE, blue: ColorCIE, whitePoint: ColorCIE) {
+            self.red = red
+            self.green = green
+            self.blue = blue
+            self.whitePoint = whitePoint
+        }
+    }
+
+    /// Predefined primaries for the non-custom modes, per GDTF spec Table 21. The CIE Y
+    /// component carries the sRGB luminance coefficients for `sRGB` (and a neutral 1.0 for
+    /// the chromaticity-only ProPhoto / ANSI definitions); only x and y matter for the gamut
+    /// triangle's position on the chromaticity diagram.
+    public static func predefinedPrimaries(for mode: ColorSpaceMode) -> Primaries? {
+        switch mode {
+        case .custom:
+            return nil
+        case .srgb:
+            return Primaries(
+                red: ColorCIE(x: 0.6400, y: 0.3300, Y: 0.2126),
+                green: ColorCIE(x: 0.3000, y: 0.6000, Y: 0.7152),
+                blue: ColorCIE(x: 0.1500, y: 0.0600, Y: 0.0722),
+                whitePoint: ColorCIE(x: 0.3127, y: 0.3290, Y: 1.0)
+            )
+        case .proPhoto:
+            return Primaries(
+                red: ColorCIE(x: 0.7347, y: 0.2653, Y: 1.0),
+                green: ColorCIE(x: 0.1596, y: 0.8404, Y: 1.0),
+                blue: ColorCIE(x: 0.0366, y: 0.0001, Y: 1.0),
+                whitePoint: ColorCIE(x: 0.3457, y: 0.3585, Y: 1.0)
+            )
+        case .ansi:
+            return Primaries(
+                red: ColorCIE(x: 0.7347, y: 0.2653, Y: 1.0),
+                green: ColorCIE(x: 0.1596, y: 0.8404, Y: 1.0),
+                blue: ColorCIE(x: 0.0366, y: 0.0010, Y: 1.0),
+                whitePoint: ColorCIE(x: 0.4254, y: 0.4044, Y: 1.0)
+            )
+        }
+    }
+
+    /// The effective gamut primaries to draw: the custom Red/Green/Blue/WhitePoint when the
+    /// mode is `.custom` (missing components fall back to sRGB), otherwise the predefined set.
+    /// Returns `nil` only for a custom color space that declares no primaries at all.
+    public var effectivePrimaries: Primaries? {
+        if let predefined = Self.predefinedPrimaries(for: mode) {
+            return predefined
+        }
+        // Custom: require at least one primary to be meaningful; backfill the rest from sRGB.
+        guard red != nil || green != nil || blue != nil || whitePoint != nil else { return nil }
+        let srgb = Self.predefinedPrimaries(for: .srgb)!
+        return Primaries(
+            red: red ?? srgb.red,
+            green: green ?? srgb.green,
+            blue: blue ?? srgb.blue,
+            whitePoint: whitePoint ?? srgb.whitePoint
+        )
+    }
+}
+
+/// A color gamut declared in the physical descriptions (`<Gamut>`): a named polygon of
+/// CIE xyY points describing the set of colors the fixture can attain.
+public struct Gamut: Codable {
+    public var name: String
+    public var points: [ColorCIE]
+
+    public init(name: String, points: [ColorCIE]) {
+        self.name = name
+        self.points = points
+    }
 }
 
 public struct DMXProfile: Codable {
@@ -228,6 +323,33 @@ public struct Point: Codable {
     public var cfc1: Double
     public var cfc2: Double
     public var cfc3: Double
+}
+
+extension DMXProfile {
+    /// Evaluate the profile at DMX position `x` (in the same unit the points use for
+    /// `dmxPercentage`). Per the GDTF spec: find the point with the biggest `dmxPercentage`
+    /// ≤ `x`; if there is none the output is 0. Otherwise:
+    ///
+    ///     Output(x) = CFC3·(x − p)³ + CFC2·(x − p)² + CFC1·(x − p) + CFC0
+    ///
+    /// where `p` is that point's `dmxPercentage`.
+    public func output(at x: Double) -> Double {
+        var active: Point?
+        for point in points where point.dmxPercentage <= x {
+            if active == nil || point.dmxPercentage > active!.dmxPercentage {
+                active = point
+            }
+        }
+        guard let p = active else { return 0 }
+        let t = x - p.dmxPercentage
+        return p.cfc3 * t * t * t + p.cfc2 * t * t + p.cfc1 * t + p.cfc0
+    }
+
+    /// The domain `[0, maxDMXPercentage]` over which to sample the profile. Falls back to
+    /// `[0, 1]` when there are no points so callers always get a usable range.
+    public var dmxDomainUpperBound: Double {
+        max(points.map(\.dmxPercentage).max() ?? 1, points.isEmpty ? 1 : 0, 1e-9)
+    }
 }
 
 public struct Properties: Codable {

@@ -236,10 +236,11 @@ extension PhysicalDescriptions: XMLDecodable {
         
 
         self.colorSpace = try xml["ColorSpace"].optionalParse(tree: tree)
-        
+
         self.additionalColorSpaces = try xml["AdditionalColorSpaces"].parseChildrenToArray(tree: tree)
+        self.gamuts = try xml["Gamuts"].parseChildrenToArray(tree: tree)
         self.dmxProfiles = try xml["DMXProfiles"].parseChildrenToArray(tree: tree)
-        
+
         self.properties =  try xml["Properties"].parse(tree: tree)
     }
 }
@@ -298,9 +299,30 @@ extension Filter: XMLDecodable {
 extension ColorSpace: XMLDecodable {
     init(xml: XMLIndexer, tree: XMLIndexer) throws {
         guard let element = xml.element else { throw XMLParsingError.elementMissing }
-        
+
         self.name = element.attribute(by: "Name")?.text ?? "Default"
         self.mode = try element.attribute(named: "Mode").toEnum()
+
+        // Custom-mode primaries (optional; ignored by the predefined modes). Parsed
+        // defensively so a malformed value yields nil instead of crashing ColorCIE(from:).
+        func cie(_ attributeName: String) -> ColorCIE? {
+            guard let text = element.attribute(by: attributeName)?.text,
+                  text.split(separator: ",").count >= 2 else { return nil }
+            return ColorCIE(from: text)
+        }
+        self.red = cie("Red")
+        self.green = cie("Green")
+        self.blue = cie("Blue")
+        self.whitePoint = cie("WhitePoint")
+    }
+}
+
+extension Gamut: XMLDecodable {
+    init(xml: XMLIndexer, tree: XMLIndexer) throws {
+        guard let element = xml.element else { throw XMLParsingError.elementMissing }
+
+        self.name = try element.attribute(named: "Name").text
+        self.points = element.attribute(by: "Points").map { ColorCIE.parseList($0.text) } ?? []
     }
 }
 

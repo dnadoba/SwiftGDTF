@@ -332,6 +332,22 @@ extension ColorCIE {
         }
     }
 
+    /// Parse a GDTF "Array of ColorCIE" attribute value into points. Accepts brace-wrapped
+    /// groups (`{x,y,Y}{x,y,Y}`) and whitespace-separated groups (`x,y,Y x,y,Y`). Groups with
+    /// fewer than two numeric components are skipped so malformed entries don't crash.
+    /// Stdlib-only (no Foundation) so it has no dependency beyond the standard library.
+    public static func parseList(_ raw: String) -> [ColorCIE] {
+        guard !raw.isEmpty else { return [] }
+        let hasBraces = raw.contains(where: { $0 == "{" })
+        let groups: [Substring] = hasBraces
+            ? raw.split(whereSeparator: { $0 == "{" || $0 == "}" })
+            : raw.split(whereSeparator: { $0.isWhitespace })
+        return groups.compactMap { group -> ColorCIE? in
+            guard group.split(separator: ",").count >= 2 else { return nil }
+            return ColorCIE(from: String(group))
+        }
+    }
+
     /// Serializes to MVR format: `"x,y,Y"`.
     public var mvrString: String {
         "\(x),\(y),\(Y)"
